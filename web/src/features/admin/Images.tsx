@@ -69,11 +69,7 @@ function ImageList() {
             ]}
           />
         </div>
-        <ListBar
-          list="images"
-          columns={["When", "Renter", "Image", "State", "Size", "Critical", "High", "Secrets", ""]}
-          filters={{ state: "state" }}
-        />
+        <ListBar list="images" filters={{ state: "state" }} />
         <PagedView
           query={images}
           what="the images"
@@ -83,6 +79,7 @@ function ImageList() {
           {(rows) => (
             <Table
               caption="Images"
+              list="images"
               sorts={{ When: "createdAt", State: "state" }}
               columns={["When", "Renter", "Image", "State", "Size", "Critical", "High", "Secrets", ""]}
             >

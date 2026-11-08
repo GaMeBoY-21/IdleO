@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { RelativeTime } from "@/components/ui/Time";
 import { useCan } from "./permissions";
 import { ADMIN, adminApi, adminData, type AdminInstalls, type Schemas } from "./api";
+import { word } from "./words";
 import { AdminPage, Cell, Empty, Pill, QueryView, Row, Section, SmallSelect, Table } from "./ui";
 import { ListBar } from "./Lists";
 import { RecordTabs } from "./RecordTabs";
@@ -178,7 +179,7 @@ function Panels({ figures }: { figures: ControlRoom }) {
                         href="/admin/sessions/?state=FAILED"
                         className="underline-offset-4 hover:underline"
                       >
-                        {failure.reason}
+                        {word(failure.reason)}
                       </Link>
                     </Cell>
                     <Cell className="tabular">{failure.count}</Cell>
@@ -533,7 +534,7 @@ function Figure({
 }) {
   return (
     <li className="flex h-24 flex-col justify-between rounded-inner border border-edge bg-panel p-3">
-      <Link href={href} className="text-small font-medium underline-offset-4 hover:underline">
+      <Link href={href} className="min-h-6 text-small font-medium underline-offset-4 hover:underline">
         {label}
       </Link>
       <span className="tabular font-title text-title">{value}</span>
@@ -542,7 +543,7 @@ function Figure({
   );
 }
 
-const SHADES = ["", "bg-progress/20", "bg-progress/40", "bg-progress/60", "bg-progress/85"];
+const SHADES = ["", "bg-progress/10", "bg-progress/15", "bg-progress/20", "bg-progress/30"];
 
 /** A GPU model by hour of day in India, each cell shaded by its share of the busiest, with its value for a screen reader. */
 function Heatmap({
@@ -600,9 +601,12 @@ function Heatmap({
                         </span>
                       </Link>
                     ) : (
-                      <span className="sr-only">
-                        {hour}:00, {value}
-                      </span>
+                      value > 0 && (
+                        <span className="flex h-6 items-center justify-center text-caption tabular">
+                          {Math.round(value * 10) / 10}
+                          <span className="sr-only"> at {hour}:00</span>
+                        </span>
+                      )
                     )}
                   </td>
                 );
@@ -635,7 +639,7 @@ function Installs() {
   );
   return (
     <Section title="Installs">
-      <ListBar list="installs" columns={INSTALL_COLUMNS} tags={false} />
+      <ListBar list="installs" tags={false} />
       <QueryView
         query={installs}
         what="the installs"
@@ -653,6 +657,7 @@ function Installs() {
             </p>
             <Table
               caption="Recent installs"
+              list="installs"
               sorts={{ Opened: "openedAt", Clicks: "clicks" }}
               columns={INSTALL_COLUMNS}
             >
@@ -665,7 +670,7 @@ function Installs() {
                 {data.failures.map((failure) => (
                   <Row key={`${failure.step}-${failure.reason}`}>
                     <Cell>{failure.step}</Cell>
-                    <Cell>{failure.reason}</Cell>
+                    <Cell>{word(failure.reason)}</Cell>
                     <Cell className="tabular">{failure.count}</Cell>
                   </Row>
                 ))}
@@ -696,7 +701,7 @@ function InstallRow({ install }: { install: Install }) {
         </Cell>
         <Cell className="tabular">{minutes(install.minutes)}</Cell>
         <Cell className="tabular">{install.clicks}</Cell>
-        <Cell>{install.stoppedAt}</Cell>
+        <Cell>{word(install.stoppedAt)}</Cell>
         <Cell>{install.gpuModel ?? "—"}</Cell>
         <Cell className="tabular">{install.windowsBuild ?? "—"}</Cell>
         <Cell>
@@ -722,7 +727,8 @@ function InstallRow({ install }: { install: Install }) {
               {install.details.map((each) => (
                 <li key={`${each.step}-${each.reason ?? ""}-${each.at}`} className="flex flex-col gap-1">
                   <p className="text-caption text-text-2">
-                    {each.step} · {each.reason ?? "no reason code"} · <RelativeTime value={each.at} />
+                    {each.step} · {each.reason ? word(each.reason) : "no reason code"} ·{" "}
+                    <RelativeTime value={each.at} />
                   </p>
                   <p className="whitespace-pre-wrap break-words text-small">{each.detail}</p>
                 </li>

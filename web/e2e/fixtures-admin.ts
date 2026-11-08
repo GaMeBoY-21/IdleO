@@ -583,6 +583,39 @@ export const installs = {
  * The control room's rollups (ADR 0056): the records above in the marketplace (one host online, running one session
  * booked today), a little money, the funnels, and every check fine but the review queue's minutes waiting.
  */
+/** A bulk action's preview from a list that isn't the inbox (ADR 0057). */
+export const bulkPreviewOfAList = {
+  changes: [
+    {
+      item: RENTER_ID,
+      title: "User 00000001",
+      before: { assignee: null, priority: "", override: null, state: "", tagged: false },
+      after: { assignee: null, priority: "", override: null, state: "", tagged: true },
+      applies: true,
+      why: null,
+    },
+  ],
+  willChange: 1,
+  unchanged: 0,
+};
+
+/** That action, finished, with its 10 minutes to undo. */
+export const bulkRunning = {
+  id: "0199a000-0000-7000-8000-00000000b001",
+  action: { kind: "tag", tag: "vip" },
+  state: "done",
+  total: 1,
+  done: 1,
+  skipped: 0,
+  failed: 0,
+  undone: 0,
+  undoable: true,
+  undoUntil: new Date(NOW.getTime() + 600_000).toISOString(),
+  undoneAt: null,
+  createdAt: NOW.toISOString(),
+  outcomes: [],
+};
+
 export const controlRoom = {
   money: {
     today: { gmvPaise: 12_000, takePaise: 2_400, refundsPaise: 0, chargebacksPaise: 0 },

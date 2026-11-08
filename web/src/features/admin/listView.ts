@@ -1,5 +1,5 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { createContext, useCallback, useContext } from "react";
+import { createContext, useCallback, useContext, useMemo } from "react";
 import { useLocation, useSearch } from "wouter";
 
 /**
@@ -110,22 +110,63 @@ export function useListView(): { sort?: string; tag?: string } {
   };
 }
 
-/** The columns this view leaves out, and how a table's header sorts. */
+/** An order in the address: `state:asc,createdAt:desc`, most important first. */
+export function parseSort(sort: string | null): { key: string; direction: "asc" | "desc" }[] {
+  return (sort ?? "")
+    .split(",")
+    .filter(Boolean)
+    .map((part) => {
+      const [key = "", direction] = part.split(":");
+      return { key, direction: direction === "asc" ? "asc" : "desc" };
+    });
+}
+
+/** The most columns one order may hold (AdminListing.MOST_SORTS). */
+const MOST_SORTS = 3;
+
+/** The columns this view leaves out, and how a table's header sorts: alone, or, with Shift, as well as the others. */
 export function useTableView(): {
   hidden: ReadonlySet<string>;
   sort: string | null;
-  sortBy: (key: string) => void;
+  sortBy: (key: string, also?: boolean) => void;
+  toggleColumn: (column: string) => void;
 } {
   const [params, write] = useAddress();
   const name = useScoped();
   const sort = params.get(name("sort"));
+  const hide = params.get(name("hide")) ?? "";
+  const hidden = useMemo(() => new Set(hide.split(",").filter(Boolean)), [hide]);
   const sortBy = useCallback(
-    (key: string) =>
+    (key: string, also = false) =>
       write((next) => {
-        const now = next.get(name("sort"));
-        next.set(name("sort"), now === `${key}:desc` ? `${key}:asc` : `${key}:desc`);
+        const parts = parseSort(next.get(name("sort")));
+        const now = parts.find((part) => part.key === key);
+        const flipped = now?.direction === "desc" ? ("asc" as const) : ("desc" as const);
+        const order = also
+          ? now
+            ? parts.map((part) => (part.key === key ? { key, direction: flipped } : part))
+            : [...parts, { key, direction: "desc" as const }].slice(0, MOST_SORTS)
+          : [{ key, direction: flipped }];
+        next.set(name("sort"), order.map((part) => `${part.key}:${part.direction}`).join(","));
       }),
     [name, write],
   );
-  return { hidden: new Set(params.get(name("hide"))?.split(",") ?? []), sort, sortBy };
+  const toggleColumn = useCallback(
+    (column: string) =>
+      write((next) => {
+        const now = new Set(next.get(name("hide"))?.split(",").filter(Boolean) ?? []);
+        if (now.has(column)) {
+          now.delete(column);
+        } else {
+          now.add(column);
+        }
+        if (now.size === 0) {
+          next.delete(name("hide"));
+        } else {
+          next.set(name("hide"), [...now].join(","));
+        }
+      }),
+    [name, write],
+  );
+  return { hidden, sort, sortBy, toggleColumn };
 }

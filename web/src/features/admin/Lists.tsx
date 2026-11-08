@@ -1,13 +1,13 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useId, useRef, useState } from "react";
+import { useId, useState } from "react";
 import { useLocation } from "wouter";
 import { ApiError } from "@/api/errors";
-import { Banner } from "@/components/ui/Banner";
 import { Button } from "@/components/ui/Button";
-import { ActionSheet, refusal } from "./ActionSheet";
+import { ActionSheet } from "./ActionSheet";
 import { ADMIN, adminApi, adminData } from "./api";
 import { useAddress, useListName } from "./listView";
 import { useCan } from "./permissions";
+import { Problem } from "./ui";
 
 /** What a list's export gives: the filters in the address, under the names the server's list knows them by. */
 function filtersFromAddress(
@@ -30,19 +30,17 @@ function filtersFromAddress(
 }
 
 /**
- * Above every list: which columns, which tag, a saved view, and a CSV of what it shows. The export goes through the same
+ * Above every list: which tag, a saved view, and a CSV of what it shows. The export goes through the same
  * action sheet as any action, with its reason, step-up and approval; the server decides what comes of it.
  */
 export function ListBar({
   list,
-  columns,
   filters = {},
   extra = {},
   tags = true,
 }: {
   /** The server's name for this list. */
   list: string;
-  columns: string[];
   /** From a filter's name in the address to its name on the server, for the export. */
   filters?: Record<string, string>;
   /** Filters the screen works out itself, by their names on the server: a date range, say. */
@@ -56,12 +54,9 @@ export function ListBar({
   const name = useListName();
   const [path, navigate] = useLocation();
   const [exporting, setExporting] = useState(false);
-  const [choosing, setChoosing] = useState(false);
   const [saving, setSaving] = useState("");
   const [shared, setShared] = useState(false);
   const [problem, setProblem] = useState<unknown>(null);
-  const details = useRef<HTMLDetailsElement>(null);
-  const hidden = new Set(params.get(name("hide"))?.split(",").filter(Boolean) ?? []);
   const views = useQuery({
     queryKey: [ADMIN, "views", list],
     queryFn: () => adminData(adminApi.GET("/admin/v1/views", { params: { query: { list } } })),
@@ -73,20 +68,6 @@ export function ListBar({
     enabled: tags && can("notes.read"),
     staleTime: 60_000,
   });
-  const toggle = (column: string) =>
-    write((next) => {
-      const now = new Set(next.get(name("hide"))?.split(",").filter(Boolean) ?? []);
-      if (now.has(column)) {
-        now.delete(column);
-      } else {
-        now.add(column);
-      }
-      if (now.size === 0) {
-        next.delete(name("hide"));
-      } else {
-        next.set(name("hide"), [...now].join(","));
-      }
-    });
   const save = async () => {
     setProblem(null);
     try {
@@ -118,30 +99,6 @@ export function ListBar({
   const mine = views.data?.views ?? [];
   return (
     <div className="flex flex-wrap items-end gap-3 text-small">
-      <details ref={details} className="relative" onToggle={(event) => setChoosing(event.currentTarget.open)}>
-        <summary className="flex min-h-touch cursor-pointer items-center rounded-control px-3 font-medium md:min-h-9">
-          Columns
-        </summary>
-        {/* Only while it's open, so a closed menu's column names aren't labels on the page beside the real fields. */}
-        {choosing && (
-          <fieldset className="absolute z-20 mt-1 flex flex-col gap-1 rounded-inner border border-line bg-panel p-3">
-            <legend className="sr-only">Which columns to show</legend>
-            {columns
-              .filter((column) => column !== "")
-              .map((column) => (
-                <label key={column} className="flex items-center gap-2 whitespace-nowrap">
-                  <input
-                    type="checkbox"
-                    aria-label={`Show the ${column} column`}
-                    checked={!hidden.has(column)}
-                    onChange={() => toggle(column)}
-                  />
-                  {column}
-                </label>
-              ))}
-          </fieldset>
-        )}
-      </details>
       {tags && can("notes.read") && (vocabulary.data?.tags.length ?? 0) > 0 && (
         <label className="flex flex-col gap-1 text-caption text-text-2">
           Tag
@@ -228,7 +185,7 @@ export function ListBar({
           Export CSV
         </Button>
       )}
-      {problem !== null && <Banner tone="danger">{refusal(problem)}</Banner>}
+      <Problem error={problem} />
       <ActionSheet
         open={exporting}
         onOpenChange={setExporting}

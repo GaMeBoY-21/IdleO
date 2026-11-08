@@ -132,7 +132,7 @@ function PanReviews({
   );
   return (
     <Section title="PANs">
-      <ListBar list="verification-pans" columns={PAN_COLUMNS} tags={false} extra={{ state: "review" }} />
+      <ListBar list="verification-pans" tags={false} extra={{ state: "review" }} />
       <QueryView
         query={reviews}
         what="the PANs"
@@ -144,6 +144,7 @@ function PanReviews({
         {(found) => (
           <Table
             caption="PANs waiting"
+            list="verification-pans"
             sorts={{ Given: "submittedAt", Check: "checked" }}
             columns={PAN_COLUMNS}
           >
@@ -210,7 +211,7 @@ function UpiReviews({ setAction }: { setAction: (action: Action) => void }) {
   );
   return (
     <Section title="UPI IDs">
-      <ListBar list="verification-upi-ids" columns={UPI_COLUMNS} tags={false} extra={{ state: "review" }} />
+      <ListBar list="verification-upi-ids" tags={false} extra={{ state: "review" }} />
       <QueryView
         query={reviews}
         what="the UPI IDs"
@@ -224,6 +225,7 @@ function UpiReviews({ setAction }: { setAction: (action: Action) => void }) {
         {(found) => (
           <Table
             caption="UPI IDs waiting"
+            list="verification-upi-ids"
             sorts={{ Confirmed: "checkedAt", Match: "score" }}
             columns={UPI_COLUMNS}
           >

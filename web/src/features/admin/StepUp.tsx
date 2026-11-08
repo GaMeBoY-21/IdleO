@@ -1,9 +1,8 @@
-import { Dialog } from "radix-ui";
 import { useEffect, useRef, useState } from "react";
 import { data } from "@/api/client";
-import { Banner } from "@/components/ui/Banner";
 import { Button } from "@/components/ui/Button";
-import { refusal } from "./ActionSheet";
+import { Sheet } from "./Sheet";
+import { Problem } from "./ui";
 import { adminApi, whenStepUpNeeded } from "./api";
 import { CodeField } from "./CodeField";
 import { isRecoveryCode, isTotp, recoveryDigits, totpDigits } from "./rules";
@@ -65,88 +64,83 @@ export function StepUp({ passkeys }: { passkeys: number }) {
   const valid = kind === "totp" ? isTotp(code) : kind === "recovery" ? isRecoveryCode(code) : true;
 
   return (
-    <Dialog.Root
+    <Sheet
+      above
       open={open}
       onOpenChange={(next) => {
         if (!next) {
           decline();
         }
       }}
+      title="Confirm it's you"
+      description={
+        <p className="text-small text-text-2">
+          This action needs a passkey or a code from the last five minutes. It goes ahead by itself once you
+          have.
+        </p>
+      }
     >
-      <Dialog.Portal>
-        <Dialog.Overlay className="appear fixed inset-0 z-50 bg-primary opacity-40" />
-        <Dialog.Content
-          data-tile=""
-          className="appear fixed inset-x-4 bottom-4 z-50 mx-auto flex max-w-narrow flex-col gap-4 rounded-panel border border-line bg-panel p-6 md:top-1/4 md:bottom-auto"
-        >
-          <Dialog.Title className="text-section">Confirm it&apos;s you</Dialog.Title>
-          <Dialog.Description className="text-small text-text-2">
-            This action needs a passkey or a code from the last five minutes. It goes ahead by itself once you
-            have.
-          </Dialog.Description>
-          <form
-            className="flex flex-col gap-4"
-            onSubmit={(event) => {
-              event.preventDefault();
-              if (kind === "passkey") {
-                void send(async () => ({ passkey: await signWithPasskey(await passkeyOptions()) }));
-              } else if (kind === "totp" && valid) {
-                void send(() => Promise.resolve({ totp: totpDigits(code) }));
-              } else if (valid) {
-                void send(() => Promise.resolve({ recoveryCode: recoveryDigits(code) }));
-              }
-            }}
-          >
-            {kind !== "passkey" && (
-              <CodeField
-                kind={kind}
-                value={code}
-                onChange={setCode}
-                error={code !== "" && !valid ? "That isn't a whole code yet." : null}
-              />
-            )}
-            {error !== null && <Banner tone="danger">{refusal(error)}</Banner>}
-            <div className="flex flex-col-reverse gap-2 md:flex-row md:justify-end">
-              <Button variant="ghost" onClick={decline}>
-                Cancel
-              </Button>
-              <Button type="submit" busy={busy}>
-                {kind === "passkey" ? "Use my passkey" : "Confirm"}
-              </Button>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {usesPasskey && kind !== "passkey" && (
-                <Button variant="quiet" onClick={() => setKind("passkey")}>
-                  Use a passkey
-                </Button>
-              )}
-              {kind !== "totp" && (
-                <Button
-                  variant="quiet"
-                  onClick={() => {
-                    setKind("totp");
-                    setCode("");
-                  }}
-                >
-                  Use a code from your app
-                </Button>
-              )}
-              {kind !== "recovery" && (
-                <Button
-                  variant="quiet"
-                  onClick={() => {
-                    setKind("recovery");
-                    setCode("");
-                  }}
-                >
-                  Use a recovery code
-                </Button>
-              )}
-            </div>
-          </form>
-        </Dialog.Content>
-      </Dialog.Portal>
-    </Dialog.Root>
+      <form
+        className="flex flex-col gap-4"
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (kind === "passkey") {
+            void send(async () => ({ passkey: await signWithPasskey(await passkeyOptions()) }));
+          } else if (kind === "totp" && valid) {
+            void send(() => Promise.resolve({ totp: totpDigits(code) }));
+          } else if (valid) {
+            void send(() => Promise.resolve({ recoveryCode: recoveryDigits(code) }));
+          }
+        }}
+      >
+        {kind !== "passkey" && (
+          <CodeField
+            kind={kind}
+            value={code}
+            onChange={setCode}
+            error={code !== "" && !valid ? "That isn't a whole code yet." : null}
+          />
+        )}
+        <Problem error={error} />
+        <div className="flex flex-col-reverse gap-2 md:flex-row md:justify-end">
+          <Button variant="ghost" onClick={decline}>
+            Cancel
+          </Button>
+          <Button type="submit" busy={busy}>
+            {kind === "passkey" ? "Use my passkey" : "Confirm"}
+          </Button>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {usesPasskey && kind !== "passkey" && (
+            <Button variant="quiet" onClick={() => setKind("passkey")}>
+              Use a passkey
+            </Button>
+          )}
+          {kind !== "totp" && (
+            <Button
+              variant="quiet"
+              onClick={() => {
+                setKind("totp");
+                setCode("");
+              }}
+            >
+              Use a code from your app
+            </Button>
+          )}
+          {kind !== "recovery" && (
+            <Button
+              variant="quiet"
+              onClick={() => {
+                setKind("recovery");
+                setCode("");
+              }}
+            >
+              Use a recovery code
+            </Button>
+          )}
+        </div>
+      </form>
+    </Sheet>
   );
 }
 

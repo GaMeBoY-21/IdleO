@@ -4,7 +4,7 @@ import { ApiError } from "@/api/errors";
 import { Banner } from "@/components/ui/Banner";
 import { Button } from "@/components/ui/Button";
 import { RelativeTime } from "@/components/ui/Time";
-import { ActionSheet, refusal } from "./ActionSheet";
+import { ActionSheet } from "./ActionSheet";
 import {
   ADMIN,
   adminApi,
@@ -14,7 +14,18 @@ import {
   type AdminSessionRecord,
 } from "./api";
 import { useCan } from "./permissions";
-import { AdminPage, Cell, Empty, QueryView, Row, Section, SmallField, Table, TableSkeleton } from "./ui";
+import {
+  AdminPage,
+  Cell,
+  Empty,
+  QueryView,
+  Row,
+  Section,
+  SmallField,
+  Table,
+  TableSkeleton,
+  Problem,
+} from "./ui";
 import { makePasskey, passkeysAvailable } from "./webauthn";
 import { ListBar } from "./Lists";
 import { ListScope, useListQuery, useListView } from "./listView";
@@ -133,7 +144,7 @@ function Passkeys() {
           This browser can&apos;t make a passkey. Your authenticator app still works.
         </Banner>
       )}
-      {error !== null && <Banner tone="danger">{refusal(error)}</Banner>}
+      <Problem error={error} />
     </Section>
   );
 }
@@ -170,9 +181,7 @@ function Sessions({
   };
   return (
     <Section title={title}>
-      {path === "/admin/v1/admins/sessions" && (
-        <ListBar list="admin-sessions" columns={SESSION_COLUMNS} tags={false} />
-      )}
+      {path === "/admin/v1/admins/sessions" && <ListBar list="admin-sessions" tags={false} />}
       <QueryView
         query={sessions}
         what={title.toLowerCase()}
@@ -206,7 +215,7 @@ function Sessions({
           </Table>
         )}
       </QueryView>
-      {error !== null && <Banner tone="danger">{refusal(error)}</Banner>}
+      <Problem error={error} />
     </Section>
   );
 }
@@ -224,11 +233,11 @@ function Admins() {
   const [changing, setChanging] = useState<RoleChange | null>(null);
   return (
     <Section title="Admins and their roles">
-      <ListBar list="admins" columns={ADMIN_COLUMNS} tags={false} />
+      <ListBar list="admins" tags={false} />
       <QueryView query={admins} what="the admins" skeleton={<TableSkeleton what="the admins" rows={2} />}>
         {(found) => (
           <>
-            <Table caption="Admins" sorts={{ Admin: "email" }} columns={ADMIN_COLUMNS}>
+            <Table caption="Admins" list="admins" sorts={{ Admin: "email" }} columns={ADMIN_COLUMNS}>
               {found.admins.map((admin) => (
                 <Row key={admin.id}>
                   <Cell>

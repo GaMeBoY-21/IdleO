@@ -5,6 +5,7 @@ import { Money } from "@/components/ui/Money";
 import { RelativeTime } from "@/components/ui/Time";
 import { formatDateTime } from "@/lib/time";
 import { ADMIN, adminApi, adminData, type AdminChargeback } from "./api";
+import { word } from "./words";
 import { SessionLog } from "./SessionLog";
 import {
   AdminPage,
@@ -77,10 +78,7 @@ function ChargebackList() {
           ]}
         />
       </div>
-      <ListBar
-        list="chargebacks"
-        columns={["Evidence due", "Opened", "Renter", "Disputed", "Frozen", "Reason", "State", ""]}
-      />
+      <ListBar list="chargebacks" />
       <PagedView
         query={chargebacks}
         what="the chargebacks"
@@ -92,6 +90,7 @@ function ChargebackList() {
         {(rows) => (
           <Table
             caption="Chargebacks"
+            list="chargebacks"
             sorts={{ Opened: "receivedAt", Disputed: "amount" }}
             columns={["Evidence due", "Opened", "Renter", "Disputed", "Frozen", "Reason", "State", ""]}
           >
@@ -112,7 +111,7 @@ function ChargebackList() {
                 <Cell>
                   <Money paise={chargeback.frozenPaise} />
                 </Cell>
-                <Cell>{chargeback.reasonCode ?? "—"}</Cell>
+                <Cell>{chargeback.reasonCode ? word(chargeback.reasonCode) : "—"}</Cell>
                 <Cell>
                   <OutcomePill chargeback={chargeback} />
                 </Cell>
@@ -157,7 +156,10 @@ function ChargebackRecord({ id }: { id: string }) {
                   </span>,
                 ],
                 ["Disputed", <Money key="amount" paise={found.amountPaise} />],
-                ["Reason", `${found.reasonCode ?? "—"}${found.phase ? ` (${found.phase})` : ""}`],
+                [
+                  "Reason",
+                  `${found.reasonCode ? word(found.reasonCode) : "—"}${found.phase ? ` (${found.phase})` : ""}`,
+                ],
                 ["Frozen now", <Money key="frozen" paise={found.frozenPaise} />],
                 ["Deducted by Razorpay", <Money key="deducted" paise={found.deductedPaise} />],
                 ...(found.outcome != null

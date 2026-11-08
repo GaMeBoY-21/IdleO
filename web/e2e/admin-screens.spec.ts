@@ -2,10 +2,12 @@ import { expect, test, type Page } from "@playwright/test";
 import * as data from "./fixtures";
 import * as admin from "./fixtures-admin";
 import * as images from "./fixtures-images";
+import { routes } from "./fixtures-admin-routes";
 import * as support from "./fixtures-support";
 import * as trust from "./fixtures-trust";
 import {
   capture,
+  codesShown,
   expectAccessible,
   fakeApi,
   signIn,
@@ -19,114 +21,6 @@ import {
  * no console errors. The API answers from fixtures; the journeys against the real stack are admin-journey.spec.ts.
  */
 
-const routes = (overrides: Record<string, Answer> = {}): Record<string, Answer> => ({
-  "/v1/me": { json: data.me(), etag: '"3"' },
-  "/v1/templates": { json: data.templates },
-  "/v1/wallet": { json: data.asha.wallet },
-  "/v1/sessions": { json: data.sessionsPage(data.asha.sessions) },
-  "/admin/v1/session": { json: admin.inside },
-  "/admin/v1/timeline": {
-    json: { events: [], kinds: ["security", "session"], unanswered: [], nextCursor: null },
-  },
-  "/admin/v1/notes": { json: { notes: [] } },
-  "/admin/v1/notes/mentionable": { json: { admins: [] } },
-  "/admin/v1/tags": { json: { tags: [{ id: "vip", label: "VIP", colour: "running" }] } },
-  "/admin/v1/records/[^/]+/[^/]+/tags": { json: { tags: [] } },
-  "/admin/v1/approvals": { json: admin.approvals },
-  "/admin/v1/approvals/count": { json: { pending: 1 } },
-  "/admin/v1/passkeys": { json: admin.passkeys },
-  "/admin/v1/me/sessions": { json: admin.mySessions },
-  "/admin/v1/admins/sessions": { json: admin.mySessions },
-  "/admin/v1/queue": { json: admin.inbox },
-  "/admin/v1/enforcements": {
-    json: { enforcements: [admin.enforcement], renterStrikes: 1, hostStrikes: 0, nextCursor: null },
-  },
-  "/admin/v1/appeals": { json: { appeals: [admin.appeal], nextCursor: null } },
-  [`/admin/v1/appeals/${admin.appeal.id}`]: {
-    json: { appeal: admin.appeal, enforcement: admin.enforcement, history: [admin.enforcement] },
-  },
-  "/admin/v1/queue/counts": { json: { mine: 1, unassigned: 2, breaching: 1 } },
-  "/admin/v1/queue/macros": { json: { macros: [], nextCursor: null } },
-  "/admin/v1/queue/sla": { json: { targets: admin.slaTargets } },
-  "/admin/v1/admins": { json: admin.adminAccounts },
-  "/admin/v1/audit/standing": { json: admin.auditStanding },
-  "/admin/v1/personal-data/access-log": { json: admin.accessLog },
-  "/admin/v1/control-room": { json: admin.controlRoom },
-  "/admin/v1/installs": { json: admin.installs },
-  "/admin/v1/users": { json: admin.users },
-  [`/admin/v1/users/${admin.RENTER_ID}`]: { json: admin.renter },
-  "/admin/v1/credit-grants": { json: admin.grants },
-  "/admin/v1/hosts": { json: admin.hosts },
-  [`/admin/v1/hosts/${admin.HOST_ID}`]: { json: admin.host },
-  [`/admin/v1/hosts/${admin.PENDING_HOST_ID}`]: { json: admin.pendingHost },
-  [`/admin/v1/hosts/${admin.HOST_ID}/self-test`]: { json: admin.hostSelfTest },
-  [`/admin/v1/hosts/${admin.PENDING_HOST_ID}/self-test`]: { json: admin.hostSelfTest },
-  "/admin/v1/sessions": { json: admin.sessions },
-  [`/admin/v1/sessions/${admin.SESSION_ID}`]: { json: admin.session },
-  "/admin/v1/review-minutes": { json: admin.reviewMinutes },
-  "/admin/v1/disputes": { json: trust.adminDisputes() },
-  [`/admin/v1/disputes/${trust.disputeOpen(data.failed).id}`]: {
-    json: trust.adminDispute(trust.disputeOpen(data.failed), data.me().id, data.failed),
-  },
-  [`/admin/v1/disputes/${trust.disputeRefunded.id}`]: {
-    json: trust.adminDispute(trust.disputeRefunded, trust.RAVI, data.reportedSession),
-  },
-  [`/admin/v1/sessions/${data.failed.id}`]: { json: trust.adminSessionOf(data.failed, data.me().id) },
-  [`/admin/v1/sessions/${data.failed.id}/usage`]: {
-    json: trust.adminUsage(data.failed, { agentOnlyExtra: true }),
-  },
-  [`/admin/v1/sessions/${data.reportedSession.id}`]: {
-    json: trust.adminSessionOf(data.reportedSession, trust.RAVI),
-  },
-  [`/admin/v1/sessions/${data.reportedSession.id}/usage`]: {
-    json: trust.adminUsage(data.reportedSession, { refundedPaise: data.REPORT_REFUND }),
-  },
-  "/admin/v1/reconciliation": { json: admin.reconciliation },
-  "/admin/v1/ledger": { json: admin.ledger },
-  "/admin/v1/ledger/accounts": { json: admin.ledgerAccounts },
-  "/admin/v1/ledger/trial-balance": { json: admin.trialBalance },
-  [`/admin/v1/ledger/transactions/${admin.grant.txnId}`]: { json: admin.ledgerTransaction },
-  "/admin/v1/adjustments": { json: admin.adjustments },
-  "/admin/v1/periods": { json: admin.periods },
-  "/admin/v1/flags": { json: admin.flags },
-  "/admin/v1/rollouts": { json: admin.rollouts },
-  "/admin/v1/fleet/summary": { json: admin.fleetSummary },
-  "/admin/v1/fleet": { json: admin.fleet },
-  "/admin/v1/broadcasts": { json: admin.broadcasts },
-  "/admin/v1/money/report": { json: admin.moneyReport },
-  "/admin/v1/money/liabilities": { json: admin.liabilities },
-  "/admin/v1/settlements": { json: admin.settlements },
-  "/admin/v1/settlement-items": { json: admin.settlementItems },
-  [`/admin/v1/payouts/batches/${admin.BATCH_ID}`]: { json: admin.adminPayouts.runs[1] },
-  "/admin/v1/payouts/batch-items": { json: admin.batchItems },
-  "/admin/v1/invites": { json: admin.invites },
-  "/admin/v1/audit": { json: admin.audit },
-  "/admin/v1/abuse": { json: admin.abuseQueue },
-  [`/admin/v1/abuse/${admin.ABUSE_OPEN_ID}`]: { json: admin.abuseDetail },
-  [`/admin/v1/abuse/${admin.ABUSE_LEARNABLE_ID}`]: { json: admin.abuseLearnableDetail },
-  "/admin/v1/abuse/blocklist-additions": { json: admin.blocklistAdditions },
-  "/admin/v1/images": { json: images.adminImages() },
-  "/admin/v1/tickets": { json: support.adminTickets() },
-  [`/admin/v1/tickets/${support.PRIVACY_TICKET}`]: { json: support.adminThread() },
-  [`/admin/v1/users/${data.me().id}/deletion`]: { json: support.adminDeletion() },
-  "/admin/v1/payments": { json: admin.payments },
-  "/admin/v1/payments/reconciliation": { json: admin.paymentReconciliation },
-  "/admin/v1/refunds": { json: admin.creditRefunds },
-  "/admin/v1/chargebacks": { json: admin.chargebacks },
-  [`/admin/v1/chargebacks/${admin.CHARGEBACK_ID}`]: { json: admin.chargeback },
-  "/admin/v1/invoices": { json: admin.invoices },
-  "/admin/v1/payouts": { json: admin.adminPayouts },
-  "/admin/v1/payouts/reconciliation": { json: admin.payoutReconciliation },
-  "/admin/v1/payouts/verifications/pans": {
-    json: { pans: admin.payoutVerifications.pans, nextCursor: null },
-  },
-  "/admin/v1/payouts/verifications/upi-ids": {
-    json: { upiIds: admin.payoutVerifications.upiIds, nextCursor: null },
-  },
-  "/admin/v1/clawbacks": { json: admin.clawbacks },
-  ...overrides,
-});
-
 async function open(page: Page, path: string, overrides: Record<string, Answer> = {}) {
   await fakeApi(page, routes(overrides));
   await signIn(page, "asha", path);
@@ -137,7 +31,12 @@ test.beforeEach(async ({ page }) => {
   finish = watchConsole(page);
   await page.clock.setFixedTime(data.NOW);
 });
-test.afterEach(() => finish());
+test.afterEach(async ({ page }) => {
+  finish();
+  if (new URL(page.url()).pathname.startsWith("/admin/")) {
+    expect(await codesShown(page), "codes shown without words").toEqual([]);
+  }
+});
 
 test.describe("the way in", () => {
   test("is a page that isn't there for anyone who isn't an admin", async ({ page }, info) => {
@@ -258,7 +157,9 @@ test.describe("the console", () => {
     await expect(page.getByRole("table", { name: "Recent installs" }).getByRole("row")).toHaveCount(
       admin.installs.recent.length + 1,
     );
-    await expect(page.getByRole("table", { name: "Failures by reason" })).toContainText("driver_too_old");
+    await expect(page.getByRole("table", { name: "Failures by reason" })).toContainText(
+      "driver too old:531.79",
+    );
     // The words behind a failure open under their install; an install that didn't fail has none.
     const stuck = admin.installs.recent.find((install) => install.details.length > 0)!;
     const toggle = page.getByRole("button", { name: "1 reason" });
@@ -297,7 +198,7 @@ test.describe("the console", () => {
   }, info) => {
     await open(page, "/admin/inbox/", { "/admin/v1/queue/bulk/preview": { json: admin.bulkPreview } });
     await page
-      .getByRole("checkbox", { name: /^Select/ })
+      .getByRole("checkbox", { name: /^Select this row/ })
       .first()
       .check();
     await expect(page.getByRole("heading", { name: "1 selected" })).toBeVisible();
@@ -317,8 +218,8 @@ test.describe("the console", () => {
     const table = page.getByRole("table", { name: "Inbox" });
     await expect(table.getByRole("row")).toHaveCount(admin.inbox.items.length + 1);
     await page.keyboard.press("?");
-    await expect(page.getByRole("heading", { name: "Keys" })).toBeVisible();
-    await page.keyboard.press("?");
+    await expect(page.getByRole("dialog", { name: "Keys and help" })).toContainText("Claim it");
+    await page.keyboard.press("Escape");
     await page.keyboard.press("x");
     await page.keyboard.press("j");
     await page.keyboard.press("j");
@@ -723,13 +624,13 @@ test.describe("the console", () => {
     );
     await expect(page.getByText("balanced", { exact: true })).toBeVisible();
     await expect(page.getByRole("table", { name: "Every leg of the transaction" })).toContainText(
-      "promotions",
+      "Promotions",
     );
-    await expect(page.getByRole("link", { name: "credit_grant" })).toHaveAttribute(
+    await expect(page.getByRole("link", { name: "Credit grant" })).toHaveAttribute(
       "href",
       `/admin/users/?id=${admin.RENTER_ID}`,
     );
-    await expect(page.getByRole("table", { name: "Ledger entries" })).toContainText("credit_grant");
+    await expect(page.getByRole("table", { name: "Ledger entries" })).toContainText("Credit grant");
     await expectAccessible(page);
     await capture(page, info, "admin-ledger");
   });
@@ -906,7 +807,7 @@ test.describe("the console", () => {
         return { status: 202, json: admin.approvals.requests[0] };
       },
     });
-    await expect(page.getByRole("table", { name: "Payouts" })).toContainText("bank_account_closed");
+    await expect(page.getByRole("table", { name: "Payouts" })).toContainText("Bank account closed");
     await expect(page.getByRole("table", { name: "Runs" }).first()).toContainText("weekly");
     await expect(page.getByText("short")).toBeVisible();
     await expect(page.getByRole("table", { name: "What disagrees" })).toContainText("RazorpayX paid it");

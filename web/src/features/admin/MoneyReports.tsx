@@ -4,6 +4,7 @@ import { Link } from "wouter";
 import { Money as Paise } from "@/components/ui/Money";
 import type { components } from "@/api/schema.gen";
 import { ADMIN, adminApi, adminData } from "./api";
+import { word } from "./words";
 import { ledgerHref } from "./Ledger";
 import {
   AdminPage,
@@ -159,7 +160,7 @@ function FigureLinks({
               className="underline"
             >
               {term.sign < 0 ? "−" : "+"}
-              {term.account}
+              {word(term.account)}
             </Link>
           </span>
         ))}

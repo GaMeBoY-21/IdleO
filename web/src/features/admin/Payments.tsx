@@ -94,7 +94,6 @@ function Search() {
       <ListBar
         list="payments"
         extra={asked ? { [/^[0-9a-f-]{36}$/i.test(asked) ? "id" : "razorpay"]: asked } : {}}
-        columns={["Ordered", "Renter", "Amount", "State", "Razorpay", "Method", "Credited by", "Document"]}
       />
       <Filters onSubmit={() => setAsked({ query: typed.trim() })}>
         <SmallField
@@ -118,6 +117,7 @@ function Search() {
           {(rows) => (
             <Table
               caption="Top-ups"
+              list="payments"
               sorts={{ Ordered: "createdAt", Amount: "amount", State: "status" }}
               columns={[
                 "Ordered",
@@ -230,12 +230,7 @@ function Reconciliation() {
           ]}
         />
       </div>
-      <ListBar
-        list="payment-mismatches"
-        columns={MISMATCH_COLUMNS}
-        tags={false}
-        extra={state === "all" ? {} : { state }}
-      />
+      <ListBar list="payment-mismatches" tags={false} extra={state === "all" ? {} : { state }} />
       <QueryView query={reconciliation} what="the reconciliation">
         {(found) => (
           <>
@@ -247,6 +242,7 @@ function Reconciliation() {
             ) : (
               <Table
                 caption="What disagrees"
+                list="payment-mismatches"
                 sorts={{ Found: "lastFoundAt", Kind: "kind" }}
                 columns={MISMATCH_COLUMNS}
               >

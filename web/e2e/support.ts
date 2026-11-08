@@ -1,3 +1,4 @@
+import { WORDS } from "../src/features/admin/words";
 import AxeBuilder from "@axe-core/playwright";
 import {
   expect,
@@ -61,7 +62,6 @@ export async function fakeApi(
   const calls = new Map<string, number>();
   // Every signed-in screen's bell asks for the person's notifications: an empty list unless a test gives another.
   routes = {
-    ...routes,
     ...("/v1/notifications" in routes
       ? {}
       : { "/v1/notifications": { json: { items: [], nextCursor: null, unread: 0 } } }),
@@ -69,6 +69,31 @@ export async function fakeApi(
     ...("/v1/public/status" in routes
       ? {}
       : { "/v1/public/status": { json: { maintenance: false, paused: [] } } }),
+    // And every table of the console asks how this admin arranged it (ADR 0057), and what it can do in bulk.
+    ...("/admin/v1/table-settings" in routes
+      ? {}
+      : {
+          "/admin/v1/table-settings": { json: { tables: {} } },
+          "/admin/v1/table-settings/[^/]+": { json: {} },
+        }),
+    ...("/admin/v1/queue/bulk/lists" in routes
+      ? {}
+      : {
+          "/admin/v1/queue/bulk/lists": {
+            json: {
+              lists: [
+                {
+                  list: "inbox",
+                  actions: ["assign", "tag", "priority", "close", "macro", "warn"],
+                  why: null,
+                },
+                { list: "users", actions: ["tag", "warn"], why: null },
+                { list: "payments", actions: ["tag"], why: null },
+              ],
+            },
+          },
+        }),
+    ...routes,
   };
   const respond = async (route: Route) => {
     if (delayMs > 0) {
@@ -291,3 +316,25 @@ export const slowly = (page: Page, ms = 900) => page.waitForTimeout(ms);
 export const snapshot = (session: unknown) => ({
   events: `event: session\ndata: ${JSON.stringify(session)}\n\n`,
 });
+
+/**
+ * What's written on the page that looks like a code and not words: SHOUTING_CASE, snake_case and words all in capitals,
+ * read from the text itself, so a heading the styles put in capitals doesn't count. An id with digits in it is a real id.
+ */
+export async function codesShown(page: Page): Promise<string[]> {
+  const text = await page
+    .locator("main")
+    .first()
+    .evaluate((main) => {
+      const walker = document.createTreeWalker(main, NodeFilter.SHOW_TEXT);
+      const found: string[] = [];
+      while (walker.nextNode()) {
+        found.push(walker.currentNode.textContent ?? "");
+      }
+      return found.join(" ");
+    });
+  const states = new Set(Object.keys(WORDS).filter((code) => code === code.toUpperCase()));
+  return [...new Set(text.match(/\b[A-Z][A-Z_]+[A-Z]\b|\b[a-z]+(?:_[a-z]+)+\b/g) ?? [])].filter(
+    (code) => code.includes("_") || states.has(code),
+  );
+}

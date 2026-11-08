@@ -62,11 +62,7 @@ function UserSearch() {
   });
   return (
     <AdminPage title="Users">
-      <ListBar
-        list="users"
-        columns={["Email", "Name", "Status", "Signed up", "Last sign-in", ""]}
-        filters={{ query: "query", status: "status" }}
-      />
+      <ListBar list="users" filters={{ query: "query", status: "status" }} />
       <Filters onSubmit={() => setAsked({ query: query.trim(), status })}>
         <SmallField label="Email, name or id" value={query} onChange={setQuery} width="w-72" />
         <SmallSelect
@@ -90,6 +86,7 @@ function UserSearch() {
         {(rows) => (
           <Table
             caption="Users"
+            list="users"
             sorts={{ Email: "email", Name: "name", Status: "status", "Signed up": "createdAt" }}
             columns={["Email", "Name", "Status", "Signed up", "Last sign-in", ""]}
           >
@@ -352,6 +349,7 @@ function UserRecord({ id }: { id: string }) {
             {(list) => (
               <Table
                 caption="Credit grants"
+                list="credit-grants"
                 columns={["Amount", "Reason", "Granted by", "When", "Reversed", ""]}
               >
                 {list.grants.map((grant) => (

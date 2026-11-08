@@ -88,7 +88,6 @@ function TicketQueue() {
     <AdminPage title="Tickets">
       <ListBar
         list="tickets"
-        columns={["Ticket", "Topic", "Status", "Due", "Arrived"]}
         filters={{ topic: "topic", status: "status" }}
         extra={age ? { before: new Date(now - Number(age) * 86_400_000).toISOString() } : {}}
       />
@@ -126,6 +125,7 @@ function TicketQueue() {
         {(rows) => (
           <Table
             caption="Tickets"
+            list="tickets"
             sorts={{ Ticket: "number", Due: "due", Arrived: "createdAt" }}
             columns={["Ticket", "Topic", "Status", "Due", "Arrived"]}
           >

@@ -3,6 +3,7 @@ import { type ReactNode } from "react";
 import { Money } from "@/components/ui/Money";
 import { RelativeTime } from "@/components/ui/Time";
 import { ADMIN, adminApi, adminData } from "./api";
+import { word } from "./words";
 import { LinkedAccounts, RecordHead, RecordNotes } from "./Notes";
 import { RecordTabs, type RecordTab } from "./RecordTabs";
 import { Timeline } from "./Timeline";
@@ -64,7 +65,7 @@ function Sessions({ user, host }: { user?: string; host?: string }) {
             <Id value={session.id} page="session" />
           </Cell>
           <Cell>{session.templateId}</Cell>
-          <Cell>{session.state}</Cell>
+          <Cell>{word(session.state)}</Cell>
           <Cell>{when(session.createdAt)}</Cell>
         </Row>
       )}
@@ -148,7 +149,7 @@ function Payments({ id }: { id: string }) {
           <Cell>
             <Money paise={payment.amountPaise} />
           </Cell>
-          <Cell>{payment.status}</Cell>
+          <Cell>{word(payment.status)}</Cell>
           <Cell>{when(payment.createdAt)}</Cell>
         </Row>
       )}
@@ -173,7 +174,7 @@ function Refunds({ id }: { id: string }) {
             <Id value={refund.id} page="refund" />
           </Cell>
           <Cell>{refund.requestedPaise ? <Money paise={refund.requestedPaise} /> : "All they can"}</Cell>
-          <Cell>{refund.status}</Cell>
+          <Cell>{word(refund.status)}</Cell>
           <Cell>{when(refund.requestedAt)}</Cell>
         </Row>
       )}
@@ -225,7 +226,7 @@ function OwnedHosts({ id }: { id: string }) {
             <Id value={host.id} page="host" />
           </Cell>
           <Cell>{host.name}</Cell>
-          <Cell>{host.status}</Cell>
+          <Cell>{word(host.status)}</Cell>
           <Cell>{when(host.createdAt)}</Cell>
         </Row>
       )}
@@ -260,7 +261,7 @@ function PayoutsAndChecks({ id, canCheck, canPay }: { id: string; canCheck: bool
                     {found.methods.map((method) => (
                       <Row key={method.id}>
                         <Cell>{method.vpa}</Cell>
-                        <Cell>{method.state}</Cell>
+                        <Cell>{word(method.state)}</Cell>
                         <Cell>{when(method.checkedAt)}</Cell>
                         <Cell>{when(method.endedAt)}</Cell>
                       </Row>
@@ -287,7 +288,7 @@ function PayoutsAndChecks({ id, canCheck, canPay }: { id: string; canCheck: bool
                 <Cell>
                   <Money paise={payout.netPaise} />
                 </Cell>
-                <Cell>{payout.status}</Cell>
+                <Cell>{word(payout.status)}</Cell>
                 <Cell>{when(payout.createdAt)}</Cell>
               </Row>
             )}
@@ -315,7 +316,7 @@ function Tickets({ id }: { id: string }) {
             <Id value={ticket.id} page="ticket" label={`#${ticket.number}`} />
           </Cell>
           <Cell>{ticket.topic}</Cell>
-          <Cell>{ticket.status}</Cell>
+          <Cell>{word(ticket.status)}</Cell>
           <Cell>{when(ticket.createdAt)}</Cell>
         </Row>
       )}
@@ -345,7 +346,7 @@ function Reports({ renter, session }: { renter?: string; session?: string }) {
             <Id value={dispute.id} page="report" />
           </Cell>
           <Cell>{dispute.reason}</Cell>
-          <Cell>{dispute.state}</Cell>
+          <Cell>{word(dispute.state)}</Cell>
           <Cell>{when(dispute.createdAt)}</Cell>
         </Row>
       )}
@@ -375,7 +376,7 @@ function AbuseItems({ renter, host }: { renter?: string; host?: string }) {
             <Id value={item.id} page="abuse" />
           </Cell>
           <Cell>{item.kinds.join(", ") || item.action}</Cell>
-          <Cell>{item.state}</Cell>
+          <Cell>{word(item.state)}</Cell>
           <Cell>{when(item.createdAt)}</Cell>
         </Row>
       )}
@@ -603,7 +604,7 @@ function HostHistory({ id }: { id: string }) {
                     <Cell>
                       <Id value={run.id} />
                     </Cell>
-                    <Cell>{run.state}</Cell>
+                    <Cell>{word(run.state)}</Cell>
                     <Cell>{when(run.requestedAt)}</Cell>
                     <Cell>{when(run.finishedAt)}</Cell>
                   </Row>
@@ -762,7 +763,7 @@ function SessionCommands({ id }: { id: string }) {
       row={(command) => (
         <Row key={command.id}>
           <Cell>{command.type}</Cell>
-          <Cell>{command.status}</Cell>
+          <Cell>{word(command.status)}</Cell>
           <Cell>{command.attempts}</Cell>
           <Cell>{when(command.sentAt)}</Cell>
           <Cell>{when(command.ackedAt)}</Cell>
@@ -922,7 +923,7 @@ export function PaymentRecord({ id }: { id: string }) {
                               <Money paise={part.amountPaise} />
                             </Cell>
                             <Cell>{part.razorpayRefundId ?? "—"}</Cell>
-                            <Cell>{part.status}</Cell>
+                            <Cell>{word(part.status)}</Cell>
                           </Row>
                         ))}
                       </Table>
@@ -965,7 +966,7 @@ export function PaymentRecord({ id }: { id: string }) {
                             <Cell>
                               <Money paise={back.amountPaise} />
                             </Cell>
-                            <Cell>{back.status}</Cell>
+                            <Cell>{word(back.status)}</Cell>
                           </Row>
                         ))}
                       </Table>
@@ -985,7 +986,7 @@ export function PaymentRecord({ id }: { id: string }) {
                         {payment.findings.map((finding) => (
                           <Row key={finding.id}>
                             <Cell>{finding.kind.replace(/_/g, " ")}</Cell>
-                            <Cell>{finding.state}</Cell>
+                            <Cell>{word(finding.state)}</Cell>
                           </Row>
                         ))}
                       </Table>

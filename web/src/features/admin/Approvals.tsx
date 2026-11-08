@@ -1,16 +1,15 @@
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { Banner } from "@/components/ui/Banner";
 import { Button } from "@/components/ui/Button";
 import { RelativeTime } from "@/components/ui/Time";
 import { formatDateTime } from "@/lib/time";
-import { ActionSheet, refusal, shownValue } from "./ActionSheet";
+import { ActionSheet, shownValue } from "./ActionSheet";
 import { ADMIN, adminApi, adminData, adminFile, type AdminApproval } from "./api";
 import { ActionButton } from "./permissions";
 import { useMe } from "@/api/queries";
 import { ListBar } from "./Lists";
 import { useListView } from "./listView";
-import { AdminPage, Cell, Empty, PagedView, Pill, Row, Section, SmallSelect, Table } from "./ui";
+import { AdminPage, Cell, Empty, PagedView, Pill, Row, Section, SmallSelect, Table, Problem } from "./ui";
 
 /** A change, as the approver reads it. */
 function Changes({ request }: { request: AdminApproval }) {
@@ -88,10 +87,9 @@ export function Approvals() {
           />
         }
       >
-        {error !== null && <Banner tone="danger">{refusal(error)}</Banner>}
+        <Problem error={error} />
         <ListBar
           list="approvals"
-          columns={COLUMNS}
           tags={false}
           extra={which === "mine" ? (me.data ? { requestedBy: me.data.id } : {}) : { which }}
         />
@@ -104,6 +102,7 @@ export function Approvals() {
           {(rows) => (
             <Table
               caption="Approval requests"
+              list="approvals"
               sorts={{ Asked: "createdAt", What: "kind", State: "state" }}
               columns={COLUMNS}
             >

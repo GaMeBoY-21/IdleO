@@ -3,10 +3,9 @@ import { useRef, useState, type ReactNode } from "react";
 import { Banner } from "@/components/ui/Banner";
 import { Button } from "@/components/ui/Button";
 import { RelativeTime } from "@/components/ui/Time";
-import { refusal } from "./ActionSheet";
 import { ADMIN, adminApi, adminData, asAction, type AdminNote } from "./api";
 import { useCan } from "./permissions";
-import { Empty, Id, Pill, QueryView, Section } from "./ui";
+import { Empty, Id, Pill, QueryView, Section, Problem } from "./ui";
 
 export type NoteSubject = "user" | "host" | "session" | "payment";
 
@@ -155,7 +154,7 @@ function Tags({ subject, id }: { subject: NoteSubject; id: string }) {
           </label>
         )}
       </div>
-      {problem !== null && <Banner tone="danger">{refusal(problem)}</Banner>}
+      <Problem error={problem} />
     </div>
   );
 }
@@ -200,7 +199,7 @@ function NoteRow({ note, subject, id }: { note: AdminNote; subject: NoteSubject;
           className="rounded-control bg-raised px-3 py-2 text-small text-text"
         />
       )}
-      {problem !== null && <Banner tone="danger">{refusal(problem)}</Banner>}
+      <Problem error={problem} />
       {writable && (
         <div className="flex flex-wrap gap-1">
           {note.editable &&
@@ -364,7 +363,7 @@ export function RecordNotes({ subject, id }: { subject: NoteSubject; id: string 
                 </Pill>
               ))}
             </div>
-            {problem !== null && <Banner tone="danger">{refusal(problem)}</Banner>}
+            <Problem error={problem} />
             <Button type="submit" variant="ghost" busy={busy} className="self-start">
               Add the note
             </Button>

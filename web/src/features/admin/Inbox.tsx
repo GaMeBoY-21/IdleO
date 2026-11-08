@@ -1,22 +1,33 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
-import { Link, useLocation } from "wouter";
-import { Banner } from "@/components/ui/Banner";
+import { useMemo, useState } from "react";
+import { Link } from "wouter";
 import { Button } from "@/components/ui/Button";
 import { Money } from "@/components/ui/Money";
 import { RelativeTime } from "@/components/ui/Time";
-import { ActionSheet, refusal } from "./ActionSheet";
+import { ActionSheet } from "./ActionSheet";
 import { ADMIN, adminApi, adminData, asAction, type Schemas } from "./api";
+import { activeRowKey, useScreenKeys } from "./Keys";
 import { ListBar } from "./Lists";
 import { useListParam, useListQuery, useListView } from "./listView";
 import { ActionButton, useCan } from "./permissions";
-import { AdminPage, Cell, Empty, Pill, QueryView, Row, Section, SmallField, SmallSelect, Table } from "./ui";
+import {
+  AdminPage,
+  Cell,
+  Empty,
+  Pill,
+  QueryView,
+  Row,
+  Section,
+  SmallField,
+  SmallSelect,
+  Table,
+  Problem,
+} from "./ui";
 
 type Item = Schemas["AdminQueueItem"];
-type BulkAsked = Schemas["BulkAsked"];
 type Macro = Schemas["AdminMacro"];
 
-const COLUMNS = ["", "What", "Kind", "Priority", "Due", "Who's on it", "At stake", ""];
+const COLUMNS = ["What", "Kind", "Priority", "Due", "Who's on it", "At stake", ""];
 
 const KINDS: [string, string][] = [
   ["", "Every kind"],
@@ -68,7 +79,6 @@ export function Inbox() {
   const [type, setType] = useListParam("type", "");
   const view = useListView();
   const [problem, setProblem] = useState<unknown>(null);
-  const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
   const [overriding, setOverriding] = useState<Item | null>(null);
   const [priority, setPriority] = useState("high");
   const [replying, setReplying] = useState<Item | null>(null);
@@ -81,10 +91,6 @@ export function Inbox() {
       }),
     ),
   );
-  const [cursor, setCursor] = useState(0);
-  const [anchor, setAnchor] = useState<number | null>(null);
-  const [showKeys, setShowKeys] = useState(false);
-  const [, navigate] = useLocation();
   const refresh = () => client.invalidateQueries({ queryKey: [ADMIN] });
   const act = useMutation({
     mutationFn: async ({ item, action }: { item: Item; action: "claim" | "release" }) => {
@@ -105,83 +111,43 @@ export function Inbox() {
       void refresh();
     },
   });
-  const toggle = (id: string) =>
-    setSelected((now) => {
-      const next = new Set(now);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
-      return next;
-    });
-  const rows = items.data?.items ?? [];
-  useEffect(() => {
-    const keys = (event: KeyboardEvent) => {
-      if (event.ctrlKey || event.metaKey || event.altKey || isTyping(event.target)) {
-        return;
-      }
-      const item = rows[cursor];
-      switch (event.key) {
-        case "j":
-          setCursor((now) => Math.min(now + 1, Math.max(rows.length - 1, 0)));
-          break;
-        case "k":
-          setCursor((now) => Math.max(now - 1, 0));
-          break;
-        case "e":
+  const rows = items.data?.items;
+  const claim = act.mutate;
+  // The list's own keys are the table's; these are what only the inbox does.
+  const screenKeys = useMemo(() => {
+    const activeItem = () => rows?.find((item) => item.id === activeRowKey());
+    return [
+      {
+        key: "e",
+        what: "Claim it",
+        run: () => {
+          const item = activeItem();
           if (item && !item.assigneeId) {
-            act.mutate({ item, action: "claim" });
+            claim({ item, action: "claim" });
           }
-          break;
-        case "r":
-          if (item) {
-            navigate(item.link);
-          }
-          break;
-        case "m":
+        },
+      },
+      {
+        key: "m",
+        what: "Apply a macro",
+        run: () => {
+          const item = activeItem();
           if (item) {
             setReplying(item);
           }
-          break;
-        case "x":
-          if (item) {
-            toggle(item.id);
-            setAnchor(cursor);
-          }
-          break;
-        case "X":
-          if (anchor !== null) {
-            const [from, to] = anchor < cursor ? [anchor, cursor] : [cursor, anchor];
-            setSelected((now) => new Set([...now, ...rows.slice(from, to + 1).map((row) => row.id)]));
-          }
-          break;
-        case "?":
-          setShowKeys((now) => !now);
-          break;
-        case "Escape":
-          setShowKeys(false);
-          break;
-        default:
-          return;
-      }
-      event.preventDefault();
-    };
-    window.addEventListener("keydown", keys);
-    return () => window.removeEventListener("keydown", keys);
-  });
+        },
+      },
+    ];
+  }, [rows, claim]);
+  useScreenKeys(screenKeys);
   return (
     <AdminPage title="Inbox">
-      {showKeys && <KeyList />}
       <div className="flex flex-wrap items-end gap-3">
         <SmallSelect label="Show" value={listView} onChange={setListView} options={VIEWS} />
         <SmallSelect label="Kind of work" value={type} onChange={setType} options={KINDS} />
       </div>
-      <ListBar list="inbox" columns={COLUMNS} extra={type ? { type } : {}} />
-      {problem !== null && <Banner tone="danger">{refusal(problem)}</Banner>}
-      {selected.size > 0 && can("queues.bulk") && (
-        <BulkBar ids={[...selected]} onDone={() => setSelected(new Set())} />
-      )}
+      <ListBar list="inbox" extra={type ? { type } : {}} />
+      <Problem error={problem} />
       <QueryView
         query={items}
         what="the inbox"
@@ -193,15 +159,14 @@ export function Inbox() {
         }
       >
         {(found) => (
-          <Table caption="Inbox" sorts={{ What: "type", Priority: "priority", Due: "due" }} columns={COLUMNS}>
-            {found.items.map((item, index) => (
-              <Row key={item.id} className={index === cursor ? "bg-raised" : undefined}>
-                <Cell>
-                  <label className="inline-flex min-h-touch min-w-touch items-center justify-center">
-                    <span className="sr-only">Select {item.title}</span>
-                    <input type="checkbox" checked={selected.has(item.id)} onChange={() => toggle(item.id)} />
-                  </label>
-                </Cell>
+          <Table
+            caption="Inbox"
+            list="inbox"
+            sorts={{ What: "type", Priority: "priority", Due: "due" }}
+            columns={COLUMNS}
+          >
+            {found.items.map((item) => (
+              <Row key={item.id}>
                 <Cell>
                   <Link
                     href={item.link}
@@ -307,39 +272,6 @@ export function Inbox() {
   );
 }
 
-/** Whether a key press is someone typing, not a shortcut. */
-function isTyping(target: EventTarget | null): boolean {
-  return (
-    target instanceof HTMLElement &&
-    (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName))
-  );
-}
-
-const KEYS: [string, string][] = [
-  ["j, k", "Next, previous"],
-  ["e", "Claim it"],
-  ["r", "Open it to reply"],
-  ["m", "Apply a macro"],
-  ["x", "Select it"],
-  ["Shift-x", "Select from the last one selected to here"],
-  ["?", "Show or hide these"],
-];
-
-function KeyList() {
-  return (
-    <Section title="Keys">
-      <dl className="flex flex-col gap-1 text-small">
-        {KEYS.map(([key, what]) => (
-          <div key={key} className="flex gap-3">
-            <dt className="tabular w-16 font-semibold">{key}</dt>
-            <dd>{what}</dd>
-          </div>
-        ))}
-      </dl>
-    </Section>
-  );
-}
-
 /** Choosing a macro for one item, with its words as the person would read them. */
 function MacroSheet({ item, onClose }: { item: Item; onClose: () => void }) {
   const client = useQueryClient();
@@ -396,169 +328,6 @@ function MacroSheet({ item, onClose }: { item: Item; onClose: () => void }) {
   );
 }
 
-const WORDS: Record<string, string> = {
-  assign: "Assign",
-  tag: "Tag",
-  priority: "Set the priority",
-  close: "Close",
-  macro: "Apply a macro",
-  warn: "Warn",
-};
-
-/** What a shape says, for the preview. */
-function shape(value: Schemas["BulkShape"]): string {
-  return `${value.state}, ${value.priority}${value.assignee ? ", someone on it" : ""}${value.tagged ? ", tagged" : ""}`;
-}
-
-/**
- * A bulk action: choose it, read what each item will become with the counts, type the count back. Over 20 items goes to
- * another admin first. It then runs as one batch, with its progress, and what can be undone says for how long.
- */
-function BulkBar({ ids, onDone }: { ids: string[]; onDone: () => void }) {
-  const client = useQueryClient();
-  const [kind, setKind] = useState("assign");
-  const [value, setValue] = useState("");
-  const [preview, setPreview] = useState<Schemas["BulkPreview"] | null>(null);
-  const [batch, setBatch] = useState<string | null>(null);
-  const [problem, setProblem] = useState<unknown>(null);
-  const action = (): BulkAsked => ({
-    kind,
-    ...(kind === "assign" && value ? { assignee: value } : {}),
-    ...(kind === "tag" ? { tag: value } : {}),
-    ...(kind === "priority" ? { priority: value } : {}),
-    ...(kind === "macro" ? { macro: value } : {}),
-    ...(kind === "warn" ? { template: value } : {}),
-  });
-  const running = useQuery({
-    queryKey: [ADMIN, "bulk", batch],
-    queryFn: () =>
-      adminData(adminApi.GET("/admin/v1/queue/bulk/{id}", { params: { path: { id: batch ?? "" } } })),
-    enabled: batch !== null,
-    refetchInterval: (query) => (query.state.data?.state === "done" ? false : 1000),
-  });
-  const look = async () => {
-    setProblem(null);
-    try {
-      setPreview(
-        await adminData(
-          adminApi.POST("/admin/v1/queue/bulk/preview", { body: { items: ids, action: action() } }),
-        ),
-      );
-    } catch (failed) {
-      setProblem(failed);
-    }
-  };
-  const run = async (reason: string) => {
-    const { data, error, response } = await adminApi.POST("/admin/v1/queue/bulk", {
-      body: { items: ids, action: action(), confirm: String(ids.length), reason },
-    });
-    // Over 20 items is another admin's to approve: the sheet says so.
-    if (response.status === 202) {
-      return;
-    }
-    const started = await adminData(Promise.resolve({ data, error, response }));
-    setBatch((started as Schemas["AdminBulkAction"]).id);
-    setPreview(null);
-    await client.invalidateQueries({ queryKey: [ADMIN] });
-  };
-  return (
-    <Section title={`${ids.length} selected`}>
-      <div className="flex flex-wrap items-end gap-3">
-        <SmallSelect
-          label="Do"
-          value={kind}
-          onChange={(next) => {
-            setKind(next);
-            setValue("");
-          }}
-          options={Object.entries(WORDS)}
-        />
-        {kind !== "close" && (
-          <SmallField
-            label={
-              kind === "assign"
-                ? "Admin's id (empty lets go)"
-                : kind === "tag"
-                  ? "Tag"
-                  : kind === "macro"
-                    ? "Macro's id"
-                    : "urgent, high, normal or low"
-            }
-            value={value}
-            onChange={setValue}
-          />
-        )}
-        <Button variant="ghost" onClick={() => void look()}>
-          Preview
-        </Button>
-        <Button variant="quiet" onClick={onDone}>
-          Clear
-        </Button>
-      </div>
-      {problem !== null && <Banner tone="danger">{refusal(problem)}</Banner>}
-      {running.data && (
-        <p role="status" className="text-small">
-          {running.data.state === "done" ? "Finished" : "Running"}: {running.data.done} done,{" "}
-          {running.data.skipped} unchanged, {running.data.failed} failed, of {running.data.total}.
-          {running.data.undoable && running.data.undoUntil && !running.data.undoneAt && (
-            <>
-              {" "}
-              <UndoButton id={running.data.id} />
-            </>
-          )}
-        </p>
-      )}
-      <ActionSheet
-        open={preview !== null}
-        onOpenChange={(open) => {
-          if (!open) {
-            setPreview(null);
-          }
-        }}
-        title={`${WORDS[kind]}: ${preview?.willChange ?? 0} will change, ${preview?.unchanged ?? 0} won't`}
-        change={
-          <ul className="flex max-h-64 flex-col gap-1 overflow-y-auto text-small">
-            {preview?.changes.map((change) => (
-              <li key={change.item}>
-                <span className="font-medium">{change.title}</span>:{" "}
-                {change.applies ? `${shape(change.before)} → ${shape(change.after)}` : change.why}
-              </li>
-            ))}
-          </ul>
-        }
-        confirm="Run it"
-        typed={String(ids.length)}
-        onConfirm={run}
-      />
-    </Section>
-  );
-}
-
-function UndoButton({ id }: { id: string }) {
-  const client = useQueryClient();
-  const [open, setOpen] = useState(false);
-  return (
-    <>
-      <Button variant="quiet" onClick={() => setOpen(true)}>
-        Undo
-      </Button>
-      <ActionSheet
-        open={open}
-        onOpenChange={setOpen}
-        title="Undo this?"
-        change="It puts back what this changed. It's possible for 10 minutes."
-        confirm="Undo it"
-        onConfirm={async (reason) => {
-          await adminData(
-            adminApi.POST("/admin/v1/queue/bulk/{id}/undo", { params: { path: { id } }, body: { reason } }),
-          );
-          await client.invalidateQueries({ queryKey: [ADMIN] });
-        }}
-      />
-    </>
-  );
-}
-
 /** The macros: per kind of work, each edit a new version. */
 function Macros() {
   const client = useQueryClient();
@@ -588,7 +357,7 @@ function Macros() {
         empty={<Empty title="No macros yet">A reply you send often, with its changes, in one step.</Empty>}
       >
         {(found) => (
-          <Table caption="Macros" columns={["Name", "Kind", "Version", "Says", ""]}>
+          <Table caption="Macros" list="macros" columns={["Name", "Kind", "Version", "Says", ""]}>
             {found.macros.map((macro) => (
               <Row key={macro.id}>
                 <Cell className="font-medium">{macro.name}</Cell>
@@ -629,7 +398,7 @@ function Macros() {
           Add
         </Button>
       </form>
-      {problem !== null && <Banner tone="danger">{refusal(problem)}</Banner>}
+      <Problem error={problem} />
       <ActionSheet
         open={retiring !== null}
         onOpenChange={(open) => {

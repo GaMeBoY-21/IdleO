@@ -303,7 +303,6 @@ function Hosts() {
     <Section title="Hosts">
       <ListBar
         list="fleet"
-        columns={COLUMNS}
         filters={{
           agentVersion: "agentVersion",
           distroVersion: "distroVersion",
@@ -372,6 +371,7 @@ function Hosts() {
         {(rows) => (
           <Table
             caption="The fleet's hosts"
+            list="fleet"
             sorts={{ Agent: "agentVersion", "Last seen": "lastSeenAt" }}
             columns={COLUMNS}
           >

@@ -1,4 +1,5 @@
 import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
+import { word } from "./words";
 import { useState, type ReactNode } from "react";
 import { Link, useSearch } from "wouter";
 import { Money } from "@/components/ui/Money";
@@ -75,11 +76,7 @@ function DisputeQueue() {
   return (
     <AdminPage title="Reports">
       <div className="flex flex-wrap gap-3">
-        <ListBar
-          list="reports"
-          columns={["Report", "State", "Reason", "Session", "Renter", "Sent", "Refund", ""]}
-          extra={state === "all" ? {} : { open: String(state === "open") }}
-        />
+        <ListBar list="reports" extra={state === "all" ? {} : { open: String(state === "open") }} />
         <SmallSelect
           label="Show"
           value={state}
@@ -105,6 +102,7 @@ function DisputeQueue() {
         {(rows) => (
           <Table
             caption="Reports"
+            list="reports"
             sorts={{ Sent: "createdAt" }}
             columns={["Report", "State", "Reason", "Session", "Renter", "Sent", "Refund", ""]}
           >
@@ -273,7 +271,7 @@ function Summary({ found }: { found: AdminDispute }) {
               {dispute.sessionId}
             </Link>,
           ],
-          ["Session ended as", session.state],
+          ["Session ended as", word(session.state)],
           [
             "Ran",
             session.startedAt ? (

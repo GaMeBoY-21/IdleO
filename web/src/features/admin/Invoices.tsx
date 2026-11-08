@@ -82,11 +82,7 @@ function InvoiceSearch() {
   });
   return (
     <AdminPage title="Invoices">
-      <ListBar
-        list="invoices"
-        columns={["Number", "Kind", "Renter", "Issued", "Taxable", "GST", "Total", ""]}
-        filters={{ number: "number", userId: "user" }}
-      />
+      <ListBar list="invoices" filters={{ number: "number", userId: "user" }} />
       <Filters onSubmit={() => setAsked({ number: form.number.trim(), userId: form.userId.trim() })}>
         <SmallField
           label="Number"
@@ -114,6 +110,7 @@ function InvoiceSearch() {
             {(rows) => (
               <Table
                 caption="Invoices, receipts and credit notes"
+                list="invoices"
                 sorts={{ Number: "number", Issued: "issuedAt", Total: "total" }}
                 columns={["Number", "Kind", "Renter", "Issued", "Taxable", "GST", "Total", ""]}
               >

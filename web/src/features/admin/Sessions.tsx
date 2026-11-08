@@ -6,6 +6,7 @@ import { RelativeTime } from "@/components/ui/Time";
 import { formatPaise } from "@/lib/money";
 import { ActionSheet } from "./ActionSheet";
 import { ADMIN, adminApi, adminData } from "./api";
+import { word } from "./words";
 import {
   AdminPage,
   BackLink,
@@ -110,7 +111,6 @@ function SessionSearch({ user, host }: { user: string; host: string }) {
     <AdminPage title="Sessions">
       <ListBar
         list="sessions"
-        columns={["Session", "State", "Template", "Renter", "Host", "Price", "Booked", ""]}
         filters={{ session: "id", user: "user", host: "host" }}
         extra={{
           ...(asked.state ? { state: asked.state.toUpperCase() } : {}),
@@ -147,7 +147,7 @@ function SessionSearch({ user, host }: { user: string; host: string }) {
           label="State"
           value={form.state}
           onChange={set("state")}
-          options={[["", "Any"], ...STATES.map((state): [string, string] => [state, state])]}
+          options={[["", "Any"], ...STATES.map((state): [string, string] => [state, word(state)])]}
         />
         <SmallField label="Booked from" type="date" value={form.from} onChange={set("from")} width="w-40" />
         <SmallField label="Booked before" type="date" value={form.to} onChange={set("to")} width="w-40" />
@@ -163,6 +163,7 @@ function SessionSearch({ user, host }: { user: string; host: string }) {
         {(rows) => (
           <Table
             caption="Sessions"
+            list="sessions"
             sorts={{ State: "state", Booked: "createdAt" }}
             columns={["Session", "State", "Template", "Renter", "Host", "Price", "Booked", ""]}
           >
@@ -201,7 +202,7 @@ function SessionSearch({ user, host }: { user: string; host: string }) {
 
 function SessionState({ state }: { state: string }) {
   const tone = state === "RUNNING" ? "running" : state === "FAILED" ? "danger" : "plain";
-  return <Pill tone={tone}>{state}</Pill>;
+  return <Pill tone={tone}>{word(state)}</Pill>;
 }
 
 function SessionRecord({ id }: { id: string }) {

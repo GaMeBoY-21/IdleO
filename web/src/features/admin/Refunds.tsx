@@ -72,11 +72,7 @@ function RefundList() {
           ]}
         />
       </div>
-      <ListBar
-        list="refunds"
-        columns={["Asked", "Renter", "Why", "Asked for", "Can have back", "State", "Parts", ""]}
-        filters={{ status: "status" }}
-      />
+      <ListBar list="refunds" filters={{ status: "status" }} />
       <PagedView
         query={refunds}
         what="the refunds"
@@ -91,6 +87,7 @@ function RefundList() {
         {(rows) => (
           <Table
             caption="Refunds of bought credit"
+            list="refunds"
             sorts={{ Asked: "requestedAt", State: "status" }}
             columns={["Asked", "Renter", "Why", "Asked for", "Can have back", "State", "Parts", ""]}
           >

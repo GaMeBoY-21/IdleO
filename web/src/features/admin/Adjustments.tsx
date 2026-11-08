@@ -8,6 +8,7 @@ import { formatPaise, parseRupees } from "@/lib/money";
 import type { components } from "@/api/schema.gen";
 import { ActionSheet, SheetProblem } from "./ActionSheet";
 import { ADMIN, adminApi, adminData } from "./api";
+import { word } from "./words";
 import { ledgerHref } from "./Ledger";
 import {
   AdminPage,
@@ -86,7 +87,7 @@ export function legsProblem(legs: Leg[]): { debits: number; credits: number; pro
       return { debits, credits, problem: "Every leg needs an amount above ₹0." };
     }
     if (OWNED.has(leg.account) && leg.ownerId.trim() === "") {
-      return { debits, credits, problem: `${leg.account} needs the owner it belongs to.` };
+      return { debits, credits, problem: `${word(leg.account)} needs the owner it belongs to.` };
     }
     if (leg.direction === "debit") {
       debits += paise;
@@ -261,7 +262,7 @@ function Ask() {
             {legs.map((leg, index) => (
               <span key={index}>
                 {index > 0 ? "; " : ""}
-                {leg.direction} {leg.account}
+                {leg.direction} {word(leg.account)}
                 {leg.ownerId ? ` of ${leg.ownerId.slice(0, 8)}` : ""}{" "}
                 {formatPaise(parseRupees(leg.rupees) ?? 0)}
               </span>
@@ -320,7 +321,7 @@ function Posted() {
   });
   return (
     <Section title="Posted">
-      <ListBar list="adjustments" columns={COLUMNS} tags={false} />
+      <ListBar list="adjustments" tags={false} />
       <PagedView
         query={adjustments}
         what="the adjustments"
@@ -328,14 +329,19 @@ function Posted() {
         empty={<Empty title="No adjustments">None has been approved and posted yet.</Empty>}
       >
         {(rows) => (
-          <Table caption="Posted adjustments" sorts={{ When: "createdAt" }} columns={COLUMNS}>
+          <Table
+            caption="Posted adjustments"
+            list="adjustments"
+            sorts={{ When: "createdAt" }}
+            columns={COLUMNS}
+          >
             {rows.map((adjustment) => (
               <Row key={adjustment.id}>
                 <Cell>
                   <RelativeTime value={adjustment.createdAt} />
                 </Cell>
                 <Cell>
-                  {adjustment.template}
+                  {word(adjustment.template)}
                   {adjustment.correctsMonth ? (
                     <span className="block text-caption text-text-2">
                       corrects {adjustment.correctsMonth}
@@ -350,7 +356,7 @@ function Posted() {
                   <ul className="flex flex-col gap-0.5 text-small">
                     {adjustment.legs.map((leg, index) => (
                       <li key={index} className="tabular">
-                        {leg.direction} {leg.account} <Paise paise={leg.amountPaise} />
+                        {leg.direction} {word(leg.account)} <Paise paise={leg.amountPaise} />
                       </li>
                     ))}
                   </ul>
