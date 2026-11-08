@@ -43,6 +43,7 @@ class AdminFleetController {
              where r.host_id = h.id and r.reported_at > now() - interval '30 days')""";
 
     static final AdminListing LIST = AdminListing.of("fleet", AdminPermission.FLEET_READ, false)
+            .bulk("host", "h.id", "h.owner_user_id", "'Host ' || right(cast(h.id as text), 8)", "tag", "warn")
             .select("h.id, h.version, h.owner_user_id, h.name, h.status, h.agent_version, h.blocklist_version,"
                     + " h.last_seen_at, " + LARGEST_GPU.formatted("model") + " as gpu_model, "
                     + LARGEST_GPU.formatted("driver_version") + " as driver_version, " + DISTRO + " as distro_version, "

@@ -42,6 +42,7 @@ class AdminTicketsController {
 
     /** The list by due date, overdue first, then the oldest; resolved ones after; and its CSV (ADR 0052). */
     static final AdminListing LIST = AdminListing.of("tickets", AdminPermission.TICKETS_READ, true)
+            .bulk("user", "user_id", "user_id", "'Ticket ' || right(cast(id as text), 8)", "tag", "warn")
             .from("support.tickets")
             .sort(
                     "due",

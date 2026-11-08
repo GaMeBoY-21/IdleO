@@ -43,6 +43,7 @@ class AdminPaymentsController {
 
     /** The list of payments, its filters, orders and CSV (ADR 0052). */
     static final AdminListing PAYMENTS = AdminListing.of("payments", AdminPermission.PAYMENTS_READ, true)
+            .bulk("payment", "id", "user_id", "'Payment ' || right(cast(id as text), 8)", "tag")
             .from("billing.topups")
             .sort("createdAt", AdminListing.Type.UUID, "id")
             .sort("amount", AdminListing.Type.NUMBER, "amount_paise")
@@ -65,6 +66,7 @@ class AdminPaymentsController {
 
     /** The list of chargebacks, its filters, orders and CSV (ADR 0052). */
     static final AdminListing CHARGEBACKS = AdminListing.of("chargebacks", AdminPermission.PAYMENTS_READ, true)
+            .bulk("user", "user_id", "user_id", "'Chargeback ' || right(cast(id as text), 8)", "tag")
             .from("billing.chargebacks")
             .sort("receivedAt", AdminListing.Type.TIME, "received_at")
             .sort("amount", AdminListing.Type.NUMBER, "amount_paise")

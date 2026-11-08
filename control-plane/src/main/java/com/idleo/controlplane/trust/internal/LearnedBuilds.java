@@ -166,6 +166,7 @@ class LearnedBuilds {
 
     /** What's been added, its orders and CSV (ADR 0052). */
     static final AdminListing LIST = AdminListing.of("blocklist-additions", AdminPermission.ABUSE_READ, false)
+            .noBulk("Each is decided on its own, by a person who has read it.")
             .from("trust.blocklist_additions")
             .sort("createdAt", AdminListing.Type.TIME, "created_at")
             .sort("name", AdminListing.Type.TEXT, "name")

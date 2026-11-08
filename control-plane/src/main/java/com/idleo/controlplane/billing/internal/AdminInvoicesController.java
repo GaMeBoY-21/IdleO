@@ -45,6 +45,7 @@ class AdminInvoicesController {
 
     /** The list, its filters, orders and CSV (ADR 0052). */
     static final AdminListing LIST = AdminListing.of("invoices", AdminPermission.INVOICES_READ, true)
+            .bulk("user", "user_id", "user_id", "'Invoice ' || right(cast(id as text), 8)", "tag")
             .from("billing.invoices")
             .sort("issuedAt", AdminListing.Type.TIME, "issued_at")
             .sort("number", AdminListing.Type.TEXT, "number")

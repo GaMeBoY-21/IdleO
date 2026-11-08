@@ -46,6 +46,7 @@ class AdminAbuseController {
 
     /** The list, oldest first, its filters, orders and CSV (ADR 0052). */
     static final AdminListing LIST = AdminListing.of("abuse", AdminPermission.ABUSE_READ, false)
+            .bulk("user", "i.renter_id", "i.renter_id", "'Review ' || right(cast(i.id as text), 8)", "tag", "warn")
             .select("""
                     i.*, coalesce((select array_agg(s.kind order by s.at, s.id) from trust.abuse_signals s
                                    where s.item_id = i.id), '{}') kinds""")

@@ -27,6 +27,7 @@ class AdminRatingsController {
 
     /** The list, its filters, orders and CSV (ADR 0052). */
     static final AdminListing LIST = AdminListing.of("ratings", AdminPermission.RATINGS_READ, true)
+            .bulk("user", "renter_id", "renter_id", "'Rating ' || right(cast(session_id as text), 8)", "tag", "warn")
             .select("session_id, renter_id, host_id, stars, comment, rated_at, changed_at")
             .from("trust.ratings")
             .id("session_id")

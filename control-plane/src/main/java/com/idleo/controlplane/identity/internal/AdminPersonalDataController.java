@@ -44,6 +44,7 @@ class AdminPersonalDataController {
 
     /** Who read whose personal data (ADR 0051), its filters, orders and CSV (ADR 0052). */
     static final AdminListing ACCESS_LOG = AdminListing.of("access-log", AdminPermission.AUDIT_READ, true)
+            .noBulk("It's a record of what happened: nothing in it changes.")
             .select("id, admin_id, subject_user_id, field, reason, admin_session_id, at")
             .from("identity.personal_data_access")
             .sort("at", AdminListing.Type.UUID, "id")

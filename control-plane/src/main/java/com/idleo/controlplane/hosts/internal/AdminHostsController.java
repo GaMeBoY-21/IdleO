@@ -200,6 +200,7 @@ class AdminHostsController {
 
     /** The list, its filters, orders and CSV (ADR 0052). */
     static final AdminListing LIST = AdminListing.of("hosts", AdminPermission.HOSTS_READ, false)
+            .bulk("host", "h.id", "h.owner_user_id", "'Host ' || right(cast(h.id as text), 8)", "tag", "warn")
             .select("""
                     h.id, h.version, h.owner_user_id, h.name, h.status, h.created_at, h.last_seen_at,
                     coalesce((select array_agg(g.model order by g.model) from hosts.host_gpus g

@@ -221,6 +221,7 @@ class AdminSettlementsController {
 
     /** The settlements, newest first, their filters, orders and CSV (ADR 0052). */
     static final AdminListing LIST = AdminListing.of("settlements", AdminPermission.RECON_READ, false)
+            .noBulk("Its rows are money, and money is never bulk.")
             .from("billing.settlements")
             .id("id", AdminListing.Type.TEXT)
             .sort("settledAt", AdminListing.Type.TIME, "settled_at")
@@ -240,6 +241,7 @@ class AdminSettlementsController {
 
     /** The settlement items, oldest first, their filters, orders and CSV (ADR 0052). */
     static final AdminListing ITEMS = AdminListing.of("settlement-items", AdminPermission.RECON_READ, false)
+            .noBulk("Its rows are money, and money is never bulk.")
             .from("billing.settlement_items")
             .sort("foundAt", AdminListing.Type.UUID, "id")
             .sortedBy("foundAt", false)

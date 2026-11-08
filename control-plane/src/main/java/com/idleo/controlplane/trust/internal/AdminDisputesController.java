@@ -54,6 +54,7 @@ class AdminDisputesController {
 
     /** The queue, open ones first and then the oldest; its filters, orders and CSV (ADR 0052). */
     static final AdminListing LIST = AdminListing.of("reports", AdminPermission.DISPUTES_READ, true)
+            .bulk("user", "renter_id", "renter_id", "'Report ' || right(cast(id as text), 8)", "tag", "warn")
             .from("trust.disputes")
             .sort("queue", AdminListing.Type.TEXT, "case when state = 'open' then '0' else '1' end")
             .sort("createdAt", AdminListing.Type.UUID, "id")
@@ -268,6 +269,7 @@ class AdminDisputesController {
 
     /** Hosts flagged by a decision, the orders and CSV (ADR 0052). */
     static final AdminListing HOST_FLAGS = AdminListing.of("host-flags", AdminPermission.DISPUTES_READ, true)
+            .noBulk("Each is decided on its own, by a person who has read it.")
             .from("trust.host_flags")
             .sort("createdAt", AdminListing.Type.TIME, "created_at")
             .sortedBy("createdAt", true)

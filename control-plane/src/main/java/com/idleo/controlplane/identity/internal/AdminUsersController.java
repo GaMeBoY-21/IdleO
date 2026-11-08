@@ -56,6 +56,7 @@ class AdminUsersController {
 
     /** A person's security log, its orders and CSV (ADR 0052). */
     static final AdminListing SECURITY_EVENTS = AdminListing.of("security-events", AdminPermission.USERS_READ, true)
+            .noBulk("It's a record of what happened: nothing in it changes.")
             .select("id, kind, detail, host(address) as address, at")
             .from("identity.security_events")
             .sort("at", AdminListing.Type.UUID, "id")
@@ -132,6 +133,7 @@ class AdminUsersController {
 
     /** The list, its filters, orders and CSV (ADR 0052). */
     static final AdminListing LIST = AdminListing.of("users", AdminPermission.USERS_READ, true)
+            .bulk("user", "u.id", "u.id", "'User ' || right(cast(u.id as text), 8)", "tag", "warn")
             .select(SELECT_COLUMNS)
             .from("identity.users u")
             .id("u.id")

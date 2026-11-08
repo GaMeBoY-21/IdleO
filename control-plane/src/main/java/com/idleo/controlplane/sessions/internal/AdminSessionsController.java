@@ -43,6 +43,7 @@ class AdminSessionsController {
 
     /** The list, its filters, orders and CSV (ADR 0052). */
     static final AdminListing LIST = AdminListing.of("sessions", AdminPermission.SESSIONS_READ, false)
+            .bulk("session", "id", "renter_id", "'Session ' || right(cast(id as text), 8)", "tag", "warn")
             .select("""
                     id, version, renter_id, host_id, template_id, state, attempt, price_paise_per_min,
                     max_price_paise_per_min, max_spend_paise, created_at, started_at, state_changed_at, error_code""")

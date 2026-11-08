@@ -105,6 +105,7 @@ class AdminPayoutBatchesController {
 
     /** A batch's hosts, their orders and CSV (ADR 0052): the batch report. */
     static final AdminListing ITEMS = AdminListing.of("payout-batch-items", AdminPermission.PAYOUTS_READ, true)
+            .noBulk("Its rows are money, and money is never bulk.")
             .select("i.*, p.status as payout_status")
             .from("payouts.batch_items i left join payouts.payouts p on p.id = i.payout_id")
             .id("i.user_id")

@@ -3,9 +3,12 @@ package com.idleo.controlplane;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Base64;
+import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 import java.util.function.Consumer;
 import org.jspecify.annotations.Nullable;
 import org.springframework.jdbc.core.RowCallbackHandler;
@@ -44,6 +47,18 @@ public final class AdminListing {
 
     private record CsvColumn(String name, String sql) {}
 
+    /** How a row becomes something a bulk action can act on. */
+    private record BulkFrom(String kind, String subject, String person, String title) {}
+
+    /**
+     * One row, as a bulk action acts on it.
+     *
+     * @param kind what a tag on it is a tag on: {@code user}, {@code host}, {@code session} or {@code payment}
+     * @param subject the thing of that kind
+     * @param person who a warning goes to
+     */
+    public record BulkTarget(UUID id, String title, String kind, UUID subject, UUID person) {}
+
     /** One page: its rows and where the next starts, or null at the end. */
     public record Page<T>(List<T> rows, @Nullable String nextCursor) {}
 
@@ -65,7 +80,7 @@ public final class AdminListing {
         }
     }
 
-    private static final String SORT_VALUE = "console_sort_value";
+    private static final String SORT_VALUE = "console_sort_value_";
     private static final String ROW_ID = "console_row_id";
 
     private final String name;
@@ -81,6 +96,9 @@ public final class AdminListing {
     private final Map<String, Sort> sorts;
     private final Map<String, Filter> filters;
     private final List<CsvColumn> csv;
+    private final @Nullable BulkFrom bulk;
+    private final Set<String> bulkActions;
+    private final @Nullable String noBulk;
 
     private AdminListing(Builder builder) {
         this.name = builder.name;
@@ -96,6 +114,39 @@ public final class AdminListing {
         this.sorts = Map.copyOf(builder.sorts);
         this.filters = Map.copyOf(builder.filters);
         this.csv = List.copyOf(builder.csv);
+        this.bulk = builder.bulk;
+        this.bulkActions = Set.copyOf(builder.bulkActions);
+        this.noBulk = builder.noBulk;
+    }
+
+    /** What a bulk action may do from this list (ADR 0057); empty when {@link #noBulkBecause} says why not. */
+    public Set<String> bulkActions() {
+        return bulkActions;
+    }
+
+    /** Why this list has no bulk actions, or null when it has. */
+    public @Nullable String noBulkBecause() {
+        return noBulk;
+    }
+
+    /** These rows, as a bulk action acts on them; a row that isn't in the list isn't among them. */
+    public List<BulkTarget> bulkTargets(JdbcClient jdbc, Collection<UUID> ids) {
+        if (bulk == null) {
+            throw new IllegalStateException(name + " has no bulk targets");
+        }
+        var shape = bulk;
+        return jdbc.sql("select cast(" + id + " as uuid) as bulk_id, " + shape.title() + " as bulk_title, cast("
+                        + shape.subject() + " as uuid) as bulk_subject, cast(" + shape.person()
+                        + " as uuid) as bulk_person from " + from + " where " + id + " in (:bulk_ids)"
+                        + (fixed.isEmpty() ? "" : " and (" + fixed + ")"))
+                .param("bulk_ids", ids)
+                .query((rs, n) -> new BulkTarget(
+                        rs.getObject("bulk_id", UUID.class),
+                        rs.getString("bulk_title"),
+                        shape.kind(),
+                        rs.getObject("bulk_subject", UUID.class),
+                        rs.getObject("bulk_person", UUID.class)))
+                .list();
     }
 
     /** The name a list's saved views and exports go by. */
@@ -123,22 +174,93 @@ public final class AdminListing {
         return csv.stream().map(CsvColumn::name).toList();
     }
 
-    private record Order(String key, Sort sort, boolean descending) {}
+    /** One column of an order. */
+    private record Part(String key, Sort sort, boolean descending) {
+
+        String sql() {
+            return sort.sql() + (descending ? " desc" : " asc");
+        }
+    }
+
+    /**
+     * An order: one sort, or several by priority (ADR 0057). {@code key} is what a cursor belongs to. The row's id breaks
+     * ties in the first sort's direction.
+     */
+    private record Order(String key, List<Part> parts) {
+
+        boolean descending() {
+            return parts.getFirst().descending();
+        }
+
+        String sql(String id) {
+            return String.join(", ", parts.stream().map(Part::sql).toList()) + ", " + id
+                    + (descending() ? " desc" : " asc");
+        }
+    }
+
+    /** The most sorts one order may hold. */
+    private static final int MOST_SORTS = 3;
 
     private Order order(@Nullable String asked) {
         if (asked == null || asked.isBlank()) {
-            return new Order(defaultSort, sorts.get(defaultSort), defaultDescending);
+            return new Order(defaultSort, List.of(new Part(defaultSort, sorts.get(defaultSort), defaultDescending)));
         }
-        var parts = asked.strip().split(":", 2);
-        var sort = sorts.get(parts[0]);
-        if (sort == null) {
-            throw ApiProblem.invalid(
-                    "sort", "can't sort by that. It can be: " + String.join(", ", sorts.keySet()) + ".");
+        var parts = new ArrayList<Part>();
+        for (var one : asked.strip().split(",")) {
+            var words = one.strip().split(":", 2);
+            var sort = sorts.get(words[0]);
+            if (sort == null) {
+                throw ApiProblem.invalid(
+                        "sort", "can't sort by that. It can be: " + String.join(", ", sorts.keySet()) + ".");
+            }
+            if (words.length == 2 && !words[1].equals("asc") && !words[1].equals("desc")) {
+                throw ApiProblem.invalid("sort", "must be name:asc or name:desc.");
+            }
+            if (parts.stream().anyMatch(part -> part.key().equals(words[0]))) {
+                throw ApiProblem.invalid("sort", "names " + words[0] + " twice.");
+            }
+            parts.add(new Part(words[0], sort, words.length != 2 || words[1].equals("desc")));
         }
-        if (parts.length == 2 && !parts[1].equals("asc") && !parts[1].equals("desc")) {
-            throw ApiProblem.invalid("sort", "must be name:asc or name:desc.");
+        if (parts.size() > MOST_SORTS) {
+            throw ApiProblem.invalid("sort", "can have at most " + MOST_SORTS + " columns.");
         }
-        return new Order(parts[0], sort, parts.length == 2 ? parts[1].equals("desc") : true);
+        return new Order(
+                parts.size() == 1
+                        ? parts.getFirst().key()
+                        : String.join(
+                                ",",
+                                parts.stream()
+                                        .map(part -> part.key() + ":" + (part.descending() ? "desc" : "asc"))
+                                        .toList()),
+                List.copyOf(parts));
+    }
+
+    /**
+     * What comes after a position. One sort compares a row of values, which its index can answer; several in mixed
+     * directions spell it out, column by column.
+     */
+    private String after(Order order, Position position, Map<String, Object> params) {
+        params.put(ROW_ID, position.id());
+        var idValue = "cast(:" + ROW_ID + " as " + idType.cast + ")";
+        var values = position.values();
+        if (values.size() != order.parts().size()) {
+            throw ApiProblem.invalid("cursor", "belongs to another order of this list.");
+        }
+        if (order.parts().size() == 1) {
+            var only = order.parts().getFirst();
+            params.put(SORT_VALUE + 0, values.getFirst());
+            return "(" + only.sort().sql() + ", " + id + ") " + (only.descending() ? "<" : ">") + " (cast(:"
+                    + SORT_VALUE + "0 as " + only.sort().type().cast + "), " + idValue + ")";
+        }
+        var condition = id + (order.descending() ? " < " : " > ") + idValue;
+        for (int i = order.parts().size() - 1; i >= 0; i--) {
+            var part = order.parts().get(i);
+            params.put(SORT_VALUE + i, values.get(i));
+            var value = "cast(:" + SORT_VALUE + i + " as " + part.sort().type().cast + ")";
+            condition = "(" + part.sort().sql() + (part.descending() ? " < " : " > ") + value + " or ("
+                    + part.sort().sql() + " = " + value + " and (" + condition + ")))";
+        }
+        return condition;
     }
 
     /** The filters that apply, as SQL, and their values. */
@@ -176,24 +298,30 @@ public final class AdminListing {
             if (!position.sort().equals(order.key())) {
                 throw ApiProblem.invalid("cursor", "belongs to another order of this list.");
             }
-            var keyset = "(" + order.sort().sql() + ", " + id + ") " + (order.descending() ? "<" : ">") + " (cast(:"
-                    + SORT_VALUE + " as " + order.sort().type().cast + "), cast(:" + ROW_ID + " as " + idType.cast
-                    + "))";
-            where += (hasWhere(where) ? " and " : " where ") + keyset;
-            params.put(SORT_VALUE, position.value());
-            params.put(ROW_ID, position.id());
+            where += (hasWhere(where) ? " and " : " where ") + after(order, position, params);
         }
-        var direction = order.descending() ? " desc" : " asc";
-        var sql = "select " + select + ", cast(" + order.sort().sql() + " as text) as " + SORT_VALUE + ", cast(" + id
-                + " as text) as " + ROW_ID + " from " + from + where + " order by "
-                + order.sort().sql() + direction
-                + ", " + id + direction + " limit :console_limit";
+        var sortValues = new StringBuilder();
+        for (int i = 0; i < order.parts().size(); i++) {
+            sortValues
+                    .append("cast(")
+                    .append(order.parts().get(i).sort().sql())
+                    .append(" as text) as ")
+                    .append(SORT_VALUE)
+                    .append(i)
+                    .append(", ");
+        }
+        var sql = "select " + select + ", " + sortValues + "cast(" + id + " as text) as " + ROW_ID + " from " + from
+                + where + " order by " + order.sql(id) + " limit :console_limit";
         var positions = new ArrayList<Position>();
         var rows = jdbc.sql(sql)
                 .params(params)
                 .param("console_limit", size + 1)
                 .query((rs, n) -> {
-                    positions.add(new Position(order.key(), rs.getString(SORT_VALUE), rs.getString(ROW_ID)));
+                    var values = new ArrayList<String>(order.parts().size());
+                    for (int i = 0; i < order.parts().size(); i++) {
+                        values.add(rs.getString(SORT_VALUE + i));
+                    }
+                    positions.add(new Position(order.key(), values, rs.getString(ROW_ID)));
                     return mapper.mapRow(rs, n);
                 })
                 .list();
@@ -226,9 +354,8 @@ public final class AdminListing {
         for (int i = 0; i < csv.size(); i++) {
             columns.add("cast(" + csv.get(i).sql() + " as text) as console_csv_" + i);
         }
-        var direction = order.descending() ? " desc" : " asc";
-        var sql = "select " + String.join(", ", columns) + " from " + from + where + " order by "
-                + order.sort().sql() + direction + ", " + id + direction + " limit :console_limit";
+        var sql = "select " + String.join(", ", columns) + " from " + from + where + " order by " + order.sql(id)
+                + " limit :console_limit";
         jdbc.sql(sql)
                 .params(params)
                 .param("console_limit", most)
@@ -242,19 +369,23 @@ public final class AdminListing {
                 });
     }
 
-    private record Position(String sort, String value, String id) {
+    /** Where a page ended. Several values are joined by a character a database text can't hold. */
+    private record Position(String sort, List<String> values, String id) {
+
+        private static final String BETWEEN = "\0";
 
         String encode() {
             return Base64.getUrlEncoder()
                     .withoutPadding()
-                    .encodeToString((sort + "\n" + id + "\n" + value).getBytes(StandardCharsets.UTF_8));
+                    .encodeToString(
+                            (sort + "\n" + id + "\n" + String.join(BETWEEN, values)).getBytes(StandardCharsets.UTF_8));
         }
 
         static Position decode(String cursor) {
             try {
                 var raw = new String(Base64.getUrlDecoder().decode(cursor.strip()), StandardCharsets.UTF_8);
                 var parts = raw.split("\n", 3);
-                return new Position(parts[0], parts[2], parts[1]);
+                return new Position(parts[0], List.of(parts[2].split(BETWEEN, -1)), parts[1]);
             } catch (RuntimeException notOurs) {
                 throw ApiProblem.invalid("cursor", "isn't a cursor this API gave out.");
             }
@@ -281,6 +412,10 @@ public final class AdminListing {
         private final Map<String, Sort> sorts = new LinkedHashMap<>();
         private final Map<String, Filter> filters = new LinkedHashMap<>();
         private final List<CsvColumn> csv = new ArrayList<>();
+        private @Nullable BulkFrom bulk;
+        private Set<String> bulkActions = Set.of();
+        private @Nullable String noBulk;
+        private boolean bulkDeclared;
 
         private Builder(String name, AdminPermission permission, boolean personalData) {
             this.name = name;
@@ -341,7 +476,35 @@ public final class AdminListing {
             return this;
         }
 
+        /**
+         * What a bulk action may do from this list (ADR 0057): its row as {@code kind}'s {@code subject}, who a warning
+         * goes to and a title with no personal data, all in SQL.
+         */
+        public Builder bulk(String kind, String subject, String person, String title, String... actions) {
+            this.bulk = new BulkFrom(kind, subject, person, title);
+            this.bulkActions = Set.of(actions);
+            this.bulkDeclared = true;
+            return this;
+        }
+
+        /** The same for a list whose module reads its own targets: the inbox. */
+        public Builder bulkOfItsOwn(String... actions) {
+            this.bulkActions = Set.of(actions);
+            this.bulkDeclared = true;
+            return this;
+        }
+
+        /** That this list has no bulk actions, and why. */
+        public Builder noBulk(String why) {
+            this.noBulk = why;
+            this.bulkDeclared = true;
+            return this;
+        }
+
         public AdminListing build() {
+            if (!bulkDeclared) {
+                throw new IllegalStateException(name + " must say what bulk actions it allows, or why it has none");
+            }
             if (!sorts.containsKey(defaultSort)) {
                 throw new IllegalStateException(name + " has no default sort");
             }

@@ -225,6 +225,7 @@ class AdminLedgerController {
 
     /** The ledger's entries, its filters, orders and CSV (ADR 0052). */
     static final AdminListing LEDGER = AdminListing.of("ledger", AdminPermission.LEDGER_READ, true)
+            .noBulk("Its rows are money, and money is never bulk.")
             .from("billing.ledger_entries")
             .sort("createdAt", AdminListing.Type.UUID, "id")
             .sort("amount", AdminListing.Type.NUMBER, "amount_paise")

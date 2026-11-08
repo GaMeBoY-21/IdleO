@@ -528,6 +528,7 @@ class ApprovalEngine implements Approvals {
 
     /** The requests: what's waiting, what's decided, or what one admin asked for. */
     static final AdminListing LIST = AdminListing.of("approvals", AdminPermission.APPROVALS_READ, true)
+            .noBulk("Each is decided on its own, by a person who has read it.")
             .from("identity.approval_requests")
             .sort("createdAt", AdminListing.Type.UUID, "id")
             .sort("kind", AdminListing.Type.TEXT, "kind")

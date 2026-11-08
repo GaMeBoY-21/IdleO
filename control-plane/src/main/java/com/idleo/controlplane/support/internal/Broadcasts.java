@@ -67,6 +67,7 @@ class Broadcasts {
             long version) {}
 
     static final AdminListing LIST = AdminListing.of("broadcasts", AdminPermission.BROADCASTS_SEND, false)
+            .noBulk("A broadcast already goes to many: it's sent once, on its own.")
             .from("support.broadcasts")
             .sort("createdAt", AdminListing.Type.UUID, "id")
             .sortedBy("createdAt", true)

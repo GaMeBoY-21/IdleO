@@ -704,6 +704,7 @@ class PaymentReconciliation {
 
     /** What's been found, its filters, orders and CSV (ADR 0052). */
     static final AdminListing MISMATCHES = AdminListing.of("payment-mismatches", AdminPermission.PAYMENTS_READ, true)
+            .noBulk("Its rows are money, and money is never bulk.")
             .from("billing.payment_mismatches")
             .sort("lastFoundAt", AdminListing.Type.TIME, "last_found_at")
             .sort("kind", AdminListing.Type.TEXT, "kind")

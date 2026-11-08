@@ -31,6 +31,7 @@ class QueueItems implements AdminListScope {
 
     /** The inbox, its views, orders and CSV (ADR 0052). Priority first, then the soonest due: one number, {@code sort_key}. */
     static final AdminListing LIST = AdminListing.of("inbox", AdminPermission.QUEUES_READ, true)
+            .bulkOfItsOwn("assign", "tag", "priority", "close", "macro", "warn")
             .from("queues.items")
             .sort("priority", AdminListing.Type.NUMBER, "sort_key")
             .sort("due", AdminListing.Type.TIME, "coalesce(due_at, timestamptz 'infinity')")

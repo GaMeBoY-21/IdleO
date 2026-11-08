@@ -47,6 +47,8 @@ import tools.jackson.databind.json.JsonMapper;
 @ControlPlaneTest
 class ConsoleListsTests {
 
+    private static final JsonMapper JSON = JsonMapper.builder().build();
+
     @Autowired
     MockMvc mvc;
 
@@ -71,6 +73,7 @@ class ConsoleListsTests {
      * goes through {@link AdminListing}.
      */
     private static final Map<String, String> NOT_LISTS = Map.ofEntries(
+            Map.entry("/admin/v1/queue/bulk/lists", "every list and what it allows: the console reads them at once"),
             Map.entry("/admin/v1/abuse/{id}", "one record"),
             Map.entry("/admin/v1/adjustments/{id}", "one record, with its legs"),
             Map.entry("/admin/v1/payouts/batches/{id}", "one batch: its items are their own list"),
@@ -496,5 +499,93 @@ class ConsoleListsTests {
                         .getResponse()
                         .getStatus())
                 .isLessThan(300);
+    }
+
+    @Test
+    void aListSortsByUpToThreeColumnsInMixedDirectionsAndKeepsItsPlaceAcrossPages() throws Exception {
+        var owner = TestAdmins.signInAs(mvc, jdbc, clock, "owner");
+        var renter = com.idleo.controlplane.TestUsers.signUp(mvc).id();
+        var made = new java.util.ArrayList<java.util.UUID>();
+        for (int i = 0; i < 7; i++) {
+            var id = java.util.UUID.randomUUID();
+            jdbc.update("""
+                    insert into sessions.sessions
+                        (id, renter_id, type, state, attempt, template_id, image_digest, vram_needed_mb,
+                         max_price_paise_per_min, max_spend_paise, max_runtime_seconds, idempotency_key, request_hash,
+                         state_changed_at, version, created_at)
+                    values (?, ?, 'batch', ?, 1, 'multi-sort', 'seed@sha256:0', 8000, 10, 100, 60, ?, 'h',
+                            now() + (? * interval '1 hour'), 1, now())
+                    """, id, renter, i % 2 == 0 ? "COMPLETED" : "FAILED", "multi-sort-" + id, i);
+            made.add(id);
+        }
+        var seen = new java.util.ArrayList<JsonNode>();
+        String cursor = null;
+        do {
+            var request = get("/admin/v1/sessions")
+                    .param("user", renter.toString())
+                    .param("sort", "state:asc,stateChangedAt:desc")
+                    .param("limit", "3");
+            if (cursor != null) {
+                request = request.param("cursor", cursor);
+            }
+            var page = JSON.readTree(mvc.perform(owner.as(request))
+                    .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status()
+                            .isOk())
+                    .andReturn()
+                    .getResponse()
+                    .getContentAsString());
+            page.get("sessions").forEach(seen::add);
+            cursor = page.get("nextCursor").isNull()
+                    ? null
+                    : page.get("nextCursor").asString();
+        } while (cursor != null);
+        assertThat(seen).hasSize(7);
+        var expected = java.util.List.of(6, 4, 2, 0, 5, 3, 1).stream()
+                .map(made::get)
+                .map(java.util.UUID::toString)
+                .toList();
+        assertThat(seen.stream().map(row -> row.get("id").asString()).toList()).isEqualTo(expected);
+
+        var tooMany = mvc.perform(
+                        owner.as(get("/admin/v1/sessions").param("sort", "state,createdAt,stateChangedAt,state")))
+                .andReturn()
+                .getResponse();
+        assertThat(tooMany.getStatus()).isEqualTo(400);
+        var twice = mvc.perform(owner.as(get("/admin/v1/sessions").param("sort", "state,state")))
+                .andReturn()
+                .getResponse();
+        assertThat(twice.getStatus()).isEqualTo(400);
+    }
+
+    @Test
+    void anAdminsTableSettingsAreTheirOwnAndComeBack() throws Exception {
+        var one = TestAdmins.signInAs(mvc, jdbc, clock, "support");
+        var other = TestAdmins.signInAs(mvc, jdbc, clock, "support");
+        var settings = """
+                {"order":["State","Session"],"widths":{"State":180},"pinned":["Session"],"density":"compact"}""";
+        var put = org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put(
+                        "/admin/v1/table-settings/sessions")
+                .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                .content(settings);
+        assertThat(mvc.perform(one.as(put)).andReturn().getResponse().getStatus())
+                .isEqualTo(200);
+        var mine = JSON.readTree(mvc.perform(one.as(get("/admin/v1/table-settings")))
+                .andReturn()
+                .getResponse()
+                .getContentAsString());
+        assertThat(mine.get("tables").get("sessions").get("density").asString()).isEqualTo("compact");
+        assertThat(mine.get("tables").get("sessions").get("widths").get("State").asInt())
+                .isEqualTo(180);
+        var theirs = JSON.readTree(mvc.perform(other.as(get("/admin/v1/table-settings")))
+                .andReturn()
+                .getResponse()
+                .getContentAsString());
+        assertThat(theirs.get("tables").has("sessions")).isFalse();
+        var bad = org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put(
+                        "/admin/v1/table-settings/sessions")
+                .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                .content("{\"order\":[],\"widths\":{},\"pinned\":[],\"density\":\"huge\"}");
+        assertThat(mvc.perform(one.as(bad)).andReturn().getResponse().getStatus())
+                .isEqualTo(400);
     }
 }

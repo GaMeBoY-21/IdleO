@@ -115,6 +115,7 @@ class AdminInvitesController {
 
     /** The list, its filters, orders and CSV (ADR 0052). */
     static final AdminListing LIST = AdminListing.of("invites", AdminPermission.INVITES_READ, false)
+            .noBulk("An invite is made or revoked on its own.")
             .select("i.id, i.note, i.created_by, i.created_at, i.expires_at, i.used_by, u.email, i.used_at")
             .from("identity.invite_codes i left join identity.users u on u.id = i.used_by")
             .id("i.id")

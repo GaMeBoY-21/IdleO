@@ -39,6 +39,7 @@ class Macros {
 
     /** Macros, their orders and CSV (ADR 0052). */
     static final AdminListing LIST = AdminListing.of("macros", AdminPermission.QUEUES_READ, false)
+            .noBulk("A macro is written and retired on its own.")
             .select("m.*, v.body, v.set_status, v.add_tag, v.set_priority, v.written_at")
             .from("queues.macros m join queues.macro_versions v on v.macro_id = m.id and v.number = m.current")
             .id("m.id")

@@ -57,6 +57,7 @@ class AdminRolesController {
 
     /** The admins, their orders and CSV (ADR 0052). */
     static final AdminListing LIST = AdminListing.of("admins", AdminPermission.ADMINS_MANAGE, true)
+            .noBulk("Who can do what is decided one person at a time.")
             .select("a.user_id, u.email, a.totp_confirmed_at is not null as enrolled,"
                     + " a.locked_at is not null as locked, a.version")
             .from("identity.admins a join identity.users u on u.id = a.user_id")

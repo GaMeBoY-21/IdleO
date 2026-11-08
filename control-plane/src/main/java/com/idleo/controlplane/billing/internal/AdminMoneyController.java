@@ -251,6 +251,7 @@ class AdminMoneyController {
 
     /** Free credit granted, its orders and CSV (ADR 0052). */
     static final AdminListing GRANT_LIST = AdminListing.of("credit-grants", AdminPermission.MONEY_READ, true)
+            .noBulk("Its rows are money, and money is never bulk.")
             .select("g.*, r.id as reversal_id, r.reversed_by, r.created_at as reversed_at")
             .from("billing.credit_grants g left join billing.credit_grant_reversals r on r.grant_id = g.id")
             .id("g.id")
@@ -269,6 +270,7 @@ class AdminMoneyController {
 
     /** The wallet check's runs, their orders and CSV (ADR 0052). */
     static final AdminListing WALLET_RUNS = AdminListing.of("wallet-reconciliation", AdminPermission.MONEY_READ, false)
+            .noBulk("It's a record of what happened: nothing in it changes.")
             .from("billing.reconciliation_runs")
             .sort("finishedAt", AdminListing.Type.TIME, "finished_at")
             .sort("mismatches", AdminListing.Type.NUMBER, "mismatches")
