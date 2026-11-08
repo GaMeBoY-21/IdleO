@@ -65,8 +65,8 @@ Main is protected: changes reach it only through a pull request whose required c
 1. Branch from an up-to-date main, named after the round (for example `deploy`). Commit there, with the commit rules above.
 2. Locally run `scripts/check-changed.sh` only. The full suites run in CI, which is free for this public repository.
 3. Push the branch and open a pull request with `gh pr create`. Title and body read like a person wrote them: what changed and how it was tested, following `.github/pull_request_template.md`. Never mention Claude, a prompt or a review.
-4. Wait for the required checks (`gh pr checks --required --watch`) and fix failures on the branch. Merge when the required checks pass, with `gh pr merge --rebase --delete-branch`. **Never merge a pull request on which any suite has already failed.**
-5. Long suites (e2e, web-browser, k8s, gitops, hostile, failover, security) don't need to finish before merging. If one goes red on main afterwards, fixing it comes before anything else.
+4. Wait for the required checks (`gh pr checks --required --watch`) and fix failures on the branch. Merge with `gh pr merge --rebase --delete-branch`. Merge when the required checks pass **on the pull request's final commit**, and every long suite that has run on that final commit is green or still running. A red suite on an earlier commit doesn't block, once the later commits fix it and the report says what it was. Never merge over an unexplained red. A red long suite on main is fixed before anything else. **Fix a pull request; don't close and recreate it to reset its history.**
+5. Long suites (e2e, web-browser, k8s, gitops, hostile, failover, security) don't need to finish before merging.
 Never push to main directly, never force-push it, never weaken a check or the ruleset to get a merge through: stop and report. The required checks are listed in ADR 0044; a new workflow whose check should gate merges has no `paths:` filter on `pull_request`, or the check never starts for a change outside its paths and blocks the merge.
 
 ## Working rules
