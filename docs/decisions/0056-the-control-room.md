@@ -222,3 +222,11 @@ The written notice (ADR 0037), for many (`broadcasts.send`):
   numbers.
 - Open question: whether Finance alone should be able to pause `payouts.send`. Today any holder of `flags.change` may
   pause any flag.
+
+## Addendum: unmet demand, cohorts and the stream's proof
+
+**Unmet demand.** A booking that ends without a host (`NO_HOST_FREE`, from no candidate or from offers running out) is a row of `sessions.unmet_bookings`, written in the transition's own transaction. A booking names the memory it needs and never a GPU model, so what was asked for is a memory class (`GpuClasses`: 8, 12, 16 and 24 GB; a need above them is its own row). The heatmap's rows are those classes, not models: asked, served and missed are counted from one booking, so a row adds up, which a model served beside a class asked could not. Asking bookings to name a model would be a change to what renters book, and isn't made here. Each figure opens the sessions list on the same class, hour and 7 days, by `demandClass`, `demandHour`, `served` and `state`.
+
+**Cohorts.** Everyone who signed up in a week is that week's cohort, for the last 12 weeks. Each step counts those of them who reached it within 7 and within 30 days of their own sign-up. A host's steps count from the same sign-up, so a share is always of everyone who joined that week. Each module says who reached what (`FunnelSource.reached`); the rollup keeps only counts, every 10 minutes. A figure whose window hasn't closed says "so far". The all-time funnels stay as the second tab.
+
+**The stream is proven over a real port.** `ControlRoomStreamOverHttpTests` reads it with a streaming HTTP client: events 9,981 and 10,011 ms apart, with the connection open. MockMvc never showed them: `SseEmitter.send` returned without an error and `MockHttpServletResponse` stayed empty and uncommitted, so the fault was in how the test looked, not in the stream. The page therefore polls only after the stream has been lost, and stops as soon as an event arrives.

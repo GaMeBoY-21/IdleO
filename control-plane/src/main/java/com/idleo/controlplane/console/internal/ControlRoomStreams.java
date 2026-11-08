@@ -52,11 +52,7 @@ class ControlRoomStreams implements DisposableBean {
     }
 
     SseEmitter open(UUID admin) {
-        return open(admin, new SseEmitter(streamFor.toMillis()));
-    }
-
-    /** Pushes to {@code emitter} until it's done: the one way a stream is fed, which a test gives an emitter of its own. */
-    SseEmitter open(UUID admin, SseEmitter emitter) {
+        var emitter = new SseEmitter(streamFor.toMillis());
         open.add(emitter);
         ScheduledFuture<?>[] pushing = new ScheduledFuture<?>[1];
         Runnable stop = () -> {

@@ -105,9 +105,26 @@ public final class ControlRoom {
             List<ByModel> busyGpuHours,
             List<Cell> demand) {}
 
+    /**
+     * Bookings over the last 7 days at one hour of the day in India, for one GPU class, each counted by the hour it was
+     * asked. A booking names the memory it needs and not a model, so a class is what was asked for.
+     *
+     * @param gpu the class in words, such as "12 GB"
+     * @param classMb the class, in MB, as the sessions list filters by it
+     * @param hour the hour of the day in India, 0 to 23
+     * @param asked every booking
+     * @param served those that reached a host and ran
+     * @param gap those that ended without a host
+     */
+    @io.swagger.v3.oas.annotations.media.Schema(name = "ControlRoomDemand")
+    public record DemandCell(String gpu, int classMb, int hour, long asked, long served, long gap) {}
+
     /** The sessions module's part. */
     public interface MarketplaceSource {
         Marketplace marketplace(Instant now);
+
+        /** Demand asked, served and missed, by class and hour, over the last 7 days. */
+        List<DemandCell> demand(Instant now);
     }
 
     /**
@@ -135,9 +152,38 @@ public final class ControlRoom {
     @io.swagger.v3.oas.annotations.media.Schema(name = "ControlRoomStep")
     public record Step(String funnel, int order, String step, long people) {}
 
+    /** When one person first reached a step of a funnel; held only while the cohorts are worked out, never kept. */
+    public record Reached(String funnel, int order, String step, java.util.UUID person, Instant at) {}
+
+    /**
+     * One sign-up week's progress through one step of a funnel, counted within 7 and within 30 days of each person's own
+     * sign-up.
+     *
+     * @param week the Monday the week starts on, in India
+     * @param signedUp how many signed up that week
+     * @param within7 of those, how many reached the step within 7 days
+     * @param within30 within 30 days
+     * @param whole7 whether everyone in the week has had their 7 days, so the figure is final
+     * @param whole30 the same for 30 days
+     */
+    @io.swagger.v3.oas.annotations.media.Schema(name = "ControlRoomCohortStep")
+    public record CohortStep(
+            String funnel,
+            java.time.LocalDate week,
+            long signedUp,
+            int order,
+            String step,
+            long within7,
+            long within30,
+            boolean whole7,
+            boolean whole30) {}
+
     /** A module's steps of the funnels, each counted from its own tables. */
     public interface FunnelSource {
         List<Step> steps();
+
+        /** Each person's first time at each of this module's steps, at or after {@code since}. */
+        List<Reached> reached(Instant since);
     }
 
     /**
@@ -160,6 +206,8 @@ public final class ControlRoom {
      *
      * @param money null for an admin who can't read money
      * @param utilisation busy GPU-hours over online GPU-hours, the last 24 hours, by model; null with none online
+     * @param demand demand asked, served and missed, by GPU class and hour
+     * @param cohorts the funnels by sign-up week
      * @param computedAt when each part was last worked out
      */
     @io.swagger.v3.oas.annotations.media.Schema(name = "ControlRoomDashboard")
@@ -169,6 +217,8 @@ public final class ControlRoom {
             @Nullable Supply supply,
             List<ByModel> utilisation,
             List<Step> funnels,
+            List<DemandCell> demand,
+            List<CohortStep> cohorts,
             List<Check> health,
             Map<String, Instant> computedAt) {}
 }

@@ -61,6 +61,9 @@ class AdminSessionsController {
             .filter("from", "created_at >= cast(:from as timestamptz)")
             .filter("to", "created_at < cast(:to as timestamptz)")
             .filter("tagged", "id in (:tagged)")
+            .filter("demandClass", SessionsControlRoom.CLASS_ASKED + " = cast(:demandClass as integer)")
+            .filter("demandHour", SessionsControlRoom.HOUR_ASKED + " = cast(:demandHour as integer)")
+            .filter("served", "(started_at is not null) = cast(:served as boolean)")
             .csv("id", "id")
             .csv("renterId", "renter_id")
             .csv("hostId", "host_id")
@@ -161,6 +164,9 @@ class AdminSessionsController {
             @RequestParam(required = false) @Nullable String state,
             @RequestParam(required = false) @Nullable Instant from,
             @RequestParam(required = false) @Nullable Instant to,
+            @RequestParam(required = false) @Nullable Integer demandClass,
+            @RequestParam(required = false) @Nullable Integer demandHour,
+            @RequestParam(required = false) @Nullable Boolean served,
             @RequestParam(required = false) @Nullable String tag,
             @RequestParam(required = false) @Nullable String sort,
             @RequestParam(required = false) @Nullable String cursor,
@@ -181,6 +187,12 @@ class AdminSessionsController {
                         from == null ? null : Timestamp.from(from),
                         "to",
                         to == null ? null : Timestamp.from(to),
+                        "demandClass",
+                        demandClass,
+                        "demandHour",
+                        demandHour,
+                        "served",
+                        served,
                         "tagged",
                         tagged.subjects("session", tag)),
                 cursor,

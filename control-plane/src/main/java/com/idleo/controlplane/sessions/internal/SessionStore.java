@@ -280,7 +280,22 @@ class SessionStore {
             events.publishEvent(
                     new SessionNeverRan(sessionId, renterId, to.get().name(), now));
         }
+        if (to.get() == SessionState.NO_HOST_FREE) {
+            recordUnmet(sessionId, reason, now);
+        }
         return Outcome.APPLIED;
+    }
+
+    /** A booking that ended without a host (ADR 0056): the class it asked for and the hour it asked. */
+    private void recordUnmet(UUID sessionId, String why, Instant now) {
+        jdbc.sql("insert into sessions.unmet_bookings (session_id, gpu_class_mb, asked_hour, why, asked_at, ended_at)"
+                        + " select id, " + SessionsControlRoom.CLASS_ASKED + ", " + SessionsControlRoom.HOUR_ASKED
+                        + ", :why, created_at, :now from sessions.sessions where id = :id"
+                        + " on conflict (session_id) do nothing")
+                .param("why", why)
+                .param("now", Timestamp.from(now))
+                .param("id", sessionId)
+                .update();
     }
 
     /** The host of the session's last attempt that ran: a started session always has one. */

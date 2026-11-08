@@ -22,4 +22,20 @@ class PayoutsControlRoom implements ControlRoom.FunnelSource {
                 .single();
         return List.of(new ControlRoom.Step("hosts", 4, "first payout", paid));
     }
+
+    @Override
+    public List<ControlRoom.Reached> reached(java.time.Instant since) {
+        return jdbc.sql("""
+                        select user_id, min(processed_at) as first from payouts.payouts
+                        where status = 'processed' and processed_at >= :from group by user_id
+                        """)
+                .param("from", java.sql.Timestamp.from(since))
+                .query((rs, n) -> new ControlRoom.Reached(
+                        "hosts",
+                        4,
+                        "first payout",
+                        rs.getObject("user_id", java.util.UUID.class),
+                        rs.getTimestamp("first").toInstant()))
+                .list();
+    }
 }

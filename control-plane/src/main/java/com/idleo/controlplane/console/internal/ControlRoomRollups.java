@@ -25,7 +25,7 @@ import tools.jackson.databind.json.JsonMapper;
 /**
  * The live dashboard's rollups (ADR 0056): one job, on one instance at a time, asks each module's {@link ControlRoom}
  * part and keeps what it gives in {@code console.rollups}, which every page view reads. The health checks run every 10
- * s, every other part every minute; a part that fails keeps its last rollup, which says when it was worked out.
+ * s, the cohorts every 10 minutes, every other part every minute; a part that fails keeps its last rollup, which says when it was worked out.
  */
 @Component
 class ControlRoomRollups {
@@ -63,6 +63,7 @@ class ControlRoomRollups {
                 new Part("money", minute, () -> one(money, source -> source.money(clock.instant()))),
                 new Part("marketplace", minute, () -> one(marketplace, source -> source.marketplace(clock.instant()))),
                 new Part("supply", minute, () -> one(supply, source -> source.supply(clock.instant()))),
+                new Part("demand", minute, () -> one(marketplace, source -> source.demand(clock.instant()))),
                 new Part(
                         "funnels",
                         minute,
@@ -71,6 +72,15 @@ class ControlRoomRollups {
                                 .sorted(Comparator.comparing(ControlRoom.Step::funnel)
                                         .thenComparing(ControlRoom.Step::order))
                                 .toList()),
+                new Part("cohorts", Duration.ofMinutes(10), () -> {
+                    var now = clock.instant();
+                    var since = ControlRoomCohorts.since(now);
+                    return ControlRoomCohorts.cohorts(
+                            funnels.orderedStream()
+                                    .flatMap(source -> source.reached(since).stream())
+                                    .toList(),
+                            now);
+                }),
                 new Part(
                         "health",
                         Duration.ofSeconds(10),
