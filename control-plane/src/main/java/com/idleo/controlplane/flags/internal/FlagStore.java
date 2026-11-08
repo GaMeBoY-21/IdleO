@@ -264,18 +264,21 @@ class FlagStore implements Flags, MessageListener {
                         "/admin/flags/"));
             }
         }
-        ValkeyHints.afterCommit(this::hint);
+        // This instance knows at once; the others when the hint reaches them, or at their next read.
+        ValkeyHints.afterCommit(() -> {
+            cache.reload();
+            hint();
+        });
     }
 
     private void hint() {
         try {
             redis.convertAndSend(CHANNEL, "changed");
         } catch (RuntimeException valkeyDown) {
-            // Each instance reads the flags again within refresh-every anyway; this one does now.
+            // Each instance reads the flags again within refresh-every anyway; this one already has.
             log.info(
                     "Couldn't send the flags' hint ({}); instances read them within their refresh",
                     valkeyDown.toString());
-            cache.reload();
         }
     }
 
