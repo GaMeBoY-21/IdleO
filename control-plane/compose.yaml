@@ -6,6 +6,7 @@ services:
     # PostgreSQL with WAL-G (ops/postgres, ADR 0036): the tests' image (a test keeps the Dockerfile's FROM identical),
     # archiving to this MinIO when LOCAL_BACKUP_PREFIX is set (./start.sh sets it; the end-to-end stack doesn't),
     # encrypted with the development backup key's public half (ops/backup/dev-key.sh).
+    # Its build context needs WAL-G: ops/postgres/fetch-wal-g.sh, which ./start.sh and the stack scripts run first.
     build: ../ops/postgres
     # Built on every start (from cache, seconds), so a change to ops/postgres is never left behind in an old image.
     pull_policy: build

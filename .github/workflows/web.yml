@@ -128,6 +128,7 @@ jobs:
           cache-dependency-path: web/pnpm-lock.yaml
       - name: Install Playwright's browser and its system libraries
         run: scripts/e2e/install-browser.sh
+      - uses: ./.github/actions/wal-g
       # The baselines are the last successful run on main's artifact, not files in git. Without one (the first
       # run, or after 90 days), the run writes them; a ticked "update screenshots" replaces them.
       # Visual comparison is off while the redesign settles (the product owner, Oct 8); the screens are checked by hand.

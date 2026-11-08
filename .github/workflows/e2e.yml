@@ -76,6 +76,7 @@ jobs:
           cache-dependency-path: web/pnpm-lock.yaml
       - name: Install Playwright's browser and its system libraries
         run: scripts/e2e/install-browser.sh
+      - uses: ./.github/actions/wal-g
       - name: The agent comes online, runs, loses and resumes sessions, and goes offline
         if: matrix.parts != ''
         env:

@@ -97,4 +97,26 @@ PY
 for script in scripts/ops/*.sh ops/backup/*.sh ops/postgres/*.sh; do
   [[ -f "$script" ]] && bash -n "$script"
 done
+# WAL-G's download: a wrong file is tried again and then refused, saying what came back; the right one is kept and used
+# without asking again.
+wal_g_check="$(mktemp -d)"
+trap 'rm -rf "$wal_g_check"' EXIT
+mkdir -p "$wal_g_check/served"
+printf 'not wal-g' >"$wal_g_check/served/wal-g-pg-24.04-amd64"
+right="$(shasum -a 256 "$wal_g_check/served/wal-g-pg-24.04-amd64" | cut -d' ' -f1)"
+fetch() {
+  WAL_G_BASE="file://$wal_g_check/served" WAL_G_ARCH=amd64 WAL_G_TRIES=2 WAL_G_CACHE="$wal_g_check/cache" \
+    WAL_G_OUT="$wal_g_check/out" WAL_G_PINS="$wal_g_check/pins" ops/postgres/fetch-wal-g.sh
+}
+echo "0000000000000000000000000000000000000000000000000000000000000000  wal-g-amd64" >"$wal_g_check/pins"
+if refused="$(fetch 2>&1)"; then
+  echo "ops: fetch-wal-g accepted a file that isn't the pinned one"; exit 1
+fi
+[[ "$refused" == *"FAILED"*"$right"* ]] || { echo "ops: fetch-wal-g's refusal doesn't say what came back: $refused"; exit 1; }
+echo "$right  wal-g-amd64" >"$wal_g_check/pins"
+fetch >/dev/null
+rm "$wal_g_check/served/wal-g-pg-24.04-amd64"
+fetch >/dev/null || { echo "ops: fetch-wal-g asked again for a file it had kept"; exit 1; }
+[[ "$(cat "$wal_g_check/out/wal-g-amd64")" == "not wal-g" ]] || { echo "ops: fetch-wal-g didn't put the file in the build context"; exit 1; }
+grep -q "sha256sum --check --strict" ops/postgres/Dockerfile || { echo "ops: the Dockerfile no longer checks WAL-G's hash"; exit 1; }
 echo "ops: rules, routing, dashboards and scripts pass"

@@ -1,0 +1,13 @@
+name: WAL-G for the database's image
+description: >
+  Restores WAL-G from the Actions cache, or downloads it with retries, and checks its pinned hash, before anything builds
+  ops/postgres (ops/postgres/fetch-wal-g.sh). A wrong download is tried again, never a run's failure by chance.
+runs:
+  using: composite
+  steps:
+    - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ~/.cache/idleo/wal-g
+        key: wal-g-${{ runner.arch }}-${{ hashFiles('ops/postgres/wal-g.sha256') }}
+    - shell: bash
+      run: ops/postgres/fetch-wal-g.sh

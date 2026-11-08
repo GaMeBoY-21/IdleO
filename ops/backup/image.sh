@@ -4,6 +4,9 @@
 # same Dockerfile itself.
 set -euo pipefail
 cd "$(dirname "$0")/../postgres"
-tag="idleo-postgres:$(cat Dockerfile archive-wal backup-full idleo-postgres | shasum -a 256 | cut -c1-12)"
-docker image inspect "$tag" >/dev/null 2>&1 || docker build -q -t "$tag" . >/dev/null
+tag="idleo-postgres:$(cat Dockerfile wal-g.sha256 archive-wal backup-full idleo-postgres | shasum -a 256 | cut -c1-12)"
+if ! docker image inspect "$tag" >/dev/null 2>&1; then
+  ./fetch-wal-g.sh >&2
+  docker build -q -t "$tag" . >/dev/null
+fi
 echo "$tag"

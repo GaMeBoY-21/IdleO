@@ -52,6 +52,11 @@ ops() {
 # the stack doesn't depend on a developer's local overrides. A caller's stack_control_plane_settings, when defined,
 # runs just before the start and exports what that caller wants beside the common settings.
 stack_start_control_plane() {
+  # compose.yaml builds the database's image; WAL-G goes in its build context first.
+  "$root/ops/postgres/fetch-wal-g.sh" >>"$out/compose.log" 2>&1 || {
+    tail -n 5 "$out/compose.log" >&2
+    return 1
+  }
   set -m
   (
     cd "$root/control-plane"
@@ -157,6 +162,7 @@ stack_start_scanner() {
 # control plane's own compose support then finds them running and starts nothing; had only the registry been started, it
 # would think the stack up and find no database.
 stack_compose_up() {
+  "$root/ops/postgres/fetch-wal-g.sh" || return 1
   (
     export COMPOSE_PROJECT_NAME="$compose_project" LOCAL_SIGN_IN_PORT="$sign_in_port" LOCAL_STORAGE_PORT="$storage_port"
     export LOCAL_MAIL_SMTP_PORT="$mail_smtp_port" LOCAL_MAIL_WEB_PORT="$mail_web_port"
