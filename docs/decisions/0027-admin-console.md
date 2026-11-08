@@ -88,7 +88,7 @@ Constraints:
 - **Reconciliation:** every complete run, nightly or asked for, is kept with its mismatches (`billing.reconciliation_runs`), and the console can run one now.
 
 **The dashboard.**
-- Identity declares `DashboardFigures`. Hosts, sessions, metering and billing each implement it for the figures they own, so nothing depends on metering.
+- Identity declares `DashboardFigures`. Hosts, sessions, metering and billing each implement it for the figures they own, so nothing depends on metering. (ADR 0056 replaced this dashboard with the control room's rollups.)
 - The figures: hosts online, sessions running, sessions today (from midnight IST), settlement backlog, the latest reconciliation's mismatches, and the review queue's size. A test checks each figure comes from exactly one module.
 
 **The web console.**

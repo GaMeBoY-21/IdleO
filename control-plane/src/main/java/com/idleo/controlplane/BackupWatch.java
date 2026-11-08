@@ -95,6 +95,11 @@ class BackupWatch implements DisposableBean {
                 .register(registry);
     }
 
+    /** How old the newest full backup is, when this instance watches one (./start.sh's stack); empty in the cluster. */
+    Optional<Duration> fullAge() {
+        return s3 == null ? Optional.empty() : Optional.of(Duration.ofMillis((long) (fullAgeSeconds() * 1000)));
+    }
+
     double fullAgeSeconds() {
         var since = Optional.ofNullable(newestFull).orElse(watchingSince);
         return Duration.between(since, Instant.now(clock)).toMillis() / 1000.0;

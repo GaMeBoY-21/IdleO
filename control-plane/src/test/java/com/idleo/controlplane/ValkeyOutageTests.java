@@ -69,6 +69,9 @@ class ValkeyOutageTests {
     Clock clock;
 
     @Autowired
+    org.springframework.context.ApplicationContext context;
+
+    @Autowired
     @Qualifier("dedicatedValkey")
     GenericContainer<?> valkey;
 
@@ -108,11 +111,14 @@ class ValkeyOutageTests {
                     .andExpect(jsonPath("$.presence").value("UNKNOWN"));
             assertThat(meters.counter("agents.presence.unavailable").count()).isEqualTo(unavailableBefore + 1);
 
-            // The admin console's hosts online are unknown too, not zero, and its host list and page say so.
+            // The dashboard's hosts online are unknown too, not zero (ADR 0056), and the host list and page say so.
             var admin = TestAdmins.signIn(mvc, jdbc, clock);
-            mvc.perform(admin.as(get("/admin/v1/dashboard")))
+            Object rollups = org.springframework.test.util.AopTestUtils.getUltimateTargetObject(
+                    context.getBean(Class.forName("com.idleo.controlplane.console.internal.ControlRoomRollups")));
+            org.springframework.test.util.ReflectionTestUtils.invokeMethod(rollups, "rollUp", true);
+            mvc.perform(admin.as(get("/admin/v1/control-room")))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.hostsOnline").value(nullValue()));
+                    .andExpect(jsonPath("$.supply.online").value(nullValue()));
             mvc.perform(admin.as(get("/admin/v1/hosts")))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.hosts[0].presence").value("UNKNOWN"));

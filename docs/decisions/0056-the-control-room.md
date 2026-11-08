@@ -106,10 +106,55 @@ Some things aren't `/v1` writes at all, so maintenance never touches them:
 own words, never an admin's reason. The app's frame shows it as a banner after the first screen, and at once when a
 request meets a pause. The website's footer shows it in a status line.
 
+### Presence history
+
+The agent gateway, which alone writes presence (ADR 0011), records each host's changes in
+`agentgateway.presence_changes`: online, offline or unknown, with when, and never an address. They're kept 90 days
+(`retention.periods.presence-changes`), are in the person's export under hosting, and are deleted with their records.
+
+- A stream opening is always an online row, so a reconnect counts even when the new stream replaced the old before the
+  old one closed.
+- A close that still owned the record is offline.
+- A 30-second sweep, on one instance at a time, catches a record that lapsed with no close (offline). It also catches
+  Valkey not answering: a host recorded online becomes unknown until presence can be read.
+- Every other change is written only when it is one, and only if nothing newer is recorded
+  (`agentgateway.presence_states`), so a late observation never writes over a newer state.
+
+The host page's **Presence history** tab reads it, with the streams opened each day.
+
+### The live dashboard
+
+The control room replaces the first dashboard (ADR 0027): one dashboard, not two. Its permission is
+`ops.dashboard.read`, which every role that had `dashboard.read` was given. The first dashboard's figures became health
+checks in the modules that own them.
+
+**It's built from rollups, never from queries per page view:**
+
+- each module implements the kernel's `ControlRoom` part it owns, from its own tables;
+- one job (`ControlRoomRollups`, under `OneAtATime`) asks them and keeps each part in `console.rollups`: the health
+  checks every 10 s, everything else every minute;
+- `GET /admin/v1/control-room` reads the rollups;
+- `GET /admin/v1/control-room/stream` sends the same every 10 s as server-sent events;
+- a part that fails keeps its last rollup, and the page says when each was worked out, marking it stale after two missed
+  turns.
+
+| Panel | From |
+|---|---|
+| Money: GMV, take, refunds, chargebacks, for today, 7 and 30 days | billing, by the money reports' own code (ADR 0055), so they're the same figures; only for an admin who also holds `money.read`, decided on the server |
+| Marketplace: running, waiting to match, booked today, time to match (p50, p95), starts that ran, the top five failure reasons | sessions |
+| Supply and demand: hosts online by GPU model, utilisation (busy over online GPU-hours, 24 h), heatmaps by model and hour of day in India (7 days) | the agent gateway's presence history for supply, sessions' attempts for demand; the console divides them |
+| Funnels: renters signed up, first top-up, first and second session; hosts linked, self-test passed, first session, first payout | each step from the module that owns it: everyone who ever reached it |
+| Health: database, Valkey, backup age, agent streams, scanner, settlement and wallet reconciliation, settlement backlog, review queue, inbox targets | each check from its module; alerts stay in Grafana, linked by the build's `VITE_GRAFANA_URL`, with no Grafana token anywhere in the control plane |
+
+Every figure links to the list behind it.
+
 ## Alternatives considered
 
 - **Flags in Valkey only**: fast, but Valkey holds only what may expire (ADR 0011) and is never in readiness. A restart
   would silently run everything again.
+- **The dashboard's queries on each page view**: cheap on a seed, not on a year's sessions, and every admin's tab would
+  ask again every 10 s. One job per minute costs the same however many admins watch.
+- **Two dashboards, the first one kept**: two places for the same figures drift apart.
 - **A third-party flag service**: another outside dependency for eight switches. It would also put a kill switch behind
   someone else's outage.
 - **A cooling-off for running a switch again, as for money**: rejected above; it lengthens outages.

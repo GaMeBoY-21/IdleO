@@ -511,6 +511,63 @@ export function UserTabs({ id, can }: { id: string; can: (permission: string) =>
   );
 }
 
+/**
+ * When a host was online (ADR 0056): each change over the 90 days kept, newest first, and how many streams it opened a
+ * day; more than one is a day it reconnected.
+ */
+function HostPresence({ id }: { id: string }) {
+  const query = useQuery({
+    queryKey: [ADMIN, "record-host-presence", id],
+    queryFn: () => adminData(adminApi.GET("/admin/v1/hosts/{id}/presence", { params: { path: { id } } })),
+  });
+  return (
+    <QueryView
+      query={query}
+      what="this host's presence"
+      isEmpty={(presence) => presence.changes.length === 0}
+      empty={<Empty title="No presence yet">It shows here once the host's agent has connected.</Empty>}
+    >
+      {(presence) => (
+        <div className="flex flex-col gap-6">
+          <Section title="Streams opened, a day">
+            <Table caption="Streams opened, a day" columns={["Day", "Opened", "Reconnects"]}>
+              {presence.days.map((day) => (
+                <Row key={day.day}>
+                  <Cell>{day.day}</Cell>
+                  <Cell className="tabular">{day.opened}</Cell>
+                  <Cell className="tabular">{Math.max(0, day.opened - 1)}</Cell>
+                </Row>
+              ))}
+            </Table>
+          </Section>
+          <Section title="Changes">
+            <Table caption="Presence changes" columns={["When", "Became"]}>
+              {presence.changes.map((change, index) => (
+                <Row key={`${change.at}-${index}`}>
+                  <Cell>{when(change.at)}</Cell>
+                  <Cell>
+                    <Pill
+                      tone={
+                        change.state === "online"
+                          ? "running"
+                          : change.state === "offline"
+                            ? "plain"
+                            : "danger"
+                      }
+                    >
+                      {change.state}
+                    </Pill>
+                  </Cell>
+                </Row>
+              ))}
+            </Table>
+          </Section>
+        </div>
+      )}
+    </QueryView>
+  );
+}
+
 function HostHistory({ id }: { id: string }) {
   const query = useQuery({
     queryKey: [ADMIN, "record-host-history", id],
@@ -594,6 +651,12 @@ export function HostTabs({ id }: { id: string }) {
             label: "Score and tests",
             needs: "hosts.read",
             render: () => <HostHistory id={id} />,
+          },
+          {
+            id: "presence",
+            label: "Presence history",
+            needs: "hosts.read",
+            render: () => <HostPresence id={id} />,
           },
           { id: "sessions", label: "Sessions", needs: "sessions.read", render: () => <Sessions host={id} /> },
           { id: "earnings", label: "Earnings", needs: "money.read", render: () => <HostEarnings id={id} /> },

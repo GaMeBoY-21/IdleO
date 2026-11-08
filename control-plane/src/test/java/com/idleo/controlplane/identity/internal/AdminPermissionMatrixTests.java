@@ -183,7 +183,7 @@ class AdminPermissionMatrixTests {
                 .getContentAsString());
         assertThat(status.get("active").asBoolean()).isTrue();
         assertThat(status.get("permissions").isEmpty()).isTrue();
-        assertThat(mvc.perform(none.as(request(HttpMethod.GET, "/admin/v1/dashboard")))
+        assertThat(mvc.perform(none.as(request(HttpMethod.GET, "/admin/v1/control-room")))
                         .andReturn()
                         .getResponse()
                         .getStatus())

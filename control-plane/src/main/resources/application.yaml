@@ -544,6 +544,8 @@ retention:
     outputs: 30d
     # Messages to agents (a StartSession holds the renter's parameters), once delivered or given up on.
     agent-commands: 30d
+    # Each host's presence changes (ADR 0056): the host page's history, utilisation and reconnects.
+    presence-changes: 90d
     # How each session was matched; setup's measurements; what each person was told; durable events once delivered;
     # the nightly wallet check's results.
     offers: 365d

@@ -51,7 +51,7 @@ const routes = (overrides: Record<string, Answer> = {}): Record<string, Answer> 
   "/admin/v1/admins": { json: admin.adminAccounts },
   "/admin/v1/audit/standing": { json: admin.auditStanding },
   "/admin/v1/personal-data/access-log": { json: admin.accessLog },
-  "/admin/v1/dashboard": { json: admin.dashboard },
+  "/admin/v1/control-room": { json: admin.controlRoom },
   "/admin/v1/installs": { json: admin.installs },
   "/admin/v1/users": { json: admin.users },
   [`/admin/v1/users/${admin.RENTER_ID}`]: { json: admin.renter },
@@ -175,7 +175,7 @@ test.describe("the way in", () => {
     await expectAccessible(page);
     await capture(page, info, "admin-recovery-codes");
     await page.getByRole("button", { name: "I've saved them" }).click();
-    await expect(page.getByRole("heading", { level: 1, name: "Dashboard" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Control room" })).toBeVisible();
   });
 
   test("asks for a code, or a recovery code, and says when one is wrong", async ({ page }, info) => {
@@ -206,16 +206,31 @@ test.describe("the way in", () => {
 });
 
 test.describe("the console", () => {
-  test("opens on the dashboard, its figures counted by each module", async ({ page }, info) => {
+  test("opens on the control room: every panel from the rollups, each figure linked to its list", async ({
+    page,
+  }, info) => {
     await open(page, "/admin/");
-    await expect(page.getByRole("heading", { level: 1, name: "Dashboard" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Control room" })).toBeVisible();
     await expect(page.getByRole("navigation", { name: "Admin" }).getByRole("link")).toHaveCount(31);
-    const figures = page.getByRole("list", { name: "Figures" }).getByRole("listitem");
-    await expect(figures.filter({ hasText: "Hosts online" })).toContainText(
-      String(admin.dashboard.hostsOnline),
+    await expect(page.getByRole("table", { name: "Money, tied to the ledger" })).toContainText("₹3,100");
+    const now = page.getByRole("list", { name: "The marketplace now" }).getByRole("listitem");
+    await expect(now.filter({ hasText: "Sessions running" })).toContainText(
+      String(admin.controlRoom.marketplace.sessionsRunning),
     );
-    await expect(figures.filter({ hasText: "Review queue" })).toContainText(
-      String(admin.dashboard.reviewQueue),
+    await expect(now.filter({ hasText: "Sessions running" }).getByRole("link")).toHaveAttribute(
+      "href",
+      "/admin/sessions/?state=RUNNING",
+    );
+    await expect(page.getByRole("table", { name: "Hosts by GPU model" })).toContainText("25%");
+    await expect(
+      page.getByRole("table", { name: "Supply: hosts online by hour of day, India, last 7 days" }),
+    ).toBeVisible();
+    await expect(page.getByRole("table", { name: "Renters" })).toContainText("33%");
+    const checks = page.getByRole("list", { name: "The control plane's checks" });
+    await expect(checks.getByRole("listitem").filter({ hasText: "inbox targets" })).toContainText("look");
+    await expect(checks.getByRole("link", { name: "inbox targets" })).toHaveAttribute(
+      "href",
+      "/admin/inbox/",
     );
     // The Installs card: the median minutes to listed, the last installs, and the failures by reason.
     await expect(page.getByText(`${admin.installs.medianMinutes!.toFixed(1)} min`).first()).toBeVisible();
@@ -232,7 +247,7 @@ test.describe("the console", () => {
     await expect(toggle).toHaveAttribute("aria-expanded", "true");
     await expect(page.getByText(stuck.details[0]!.detail)).toBeVisible();
     await expectAccessible(page);
-    await capture(page, info, "admin-dashboard");
+    await capture(page, info, "admin-control-room");
   });
 
   test("the inbox shows what's waiting, who's on it and what's past its target, and says who has what you tried to claim", async ({
@@ -303,22 +318,22 @@ test.describe("the console", () => {
     await capture(page, info, "admin-appeal");
   });
 
-  test("while the dashboard loads", async ({ page }, info) => {
-    await open(page, "/admin/", { "/admin/v1/dashboard": "hold" });
-    await expect(page.getByRole("status", { name: "Loading the dashboard" })).toBeVisible();
+  test("while the control room loads", async ({ page }, info) => {
+    await open(page, "/admin/", { "/admin/v1/control-room": "hold" });
+    await expect(page.getByRole("status", { name: "Loading the control room" })).toBeVisible();
     await expectAccessible(page);
     await capture(page, info, "admin-dashboard-loading");
   });
 
-  test("when the dashboard can't be loaded, with a retry that works", async ({ page }, info) => {
-    await open(page, "/admin/", { "/admin/v1/dashboard": { status: 503 } });
-    await expect(page.getByText(/couldn't load the dashboard/)).toBeVisible({ timeout: 15_000 });
+  test("when the control room can't be loaded, with a retry that works", async ({ page }, info) => {
+    await open(page, "/admin/", { "/admin/v1/control-room": { status: 503 } });
+    await expect(page.getByText(/couldn't load the control room/)).toBeVisible({ timeout: 15_000 });
     await expectAccessible(page);
     await capture(page, info, "admin-dashboard-error");
     await page.unrouteAll({ behavior: "ignoreErrors" });
     await fakeApi(page, routes());
     await page.getByRole("button", { name: "Try again" }).click();
-    await expect(page.getByRole("list", { name: "Figures" })).toBeVisible();
+    await expect(page.getByRole("list", { name: "The marketplace now" })).toBeVisible();
   });
 
   test("finds users", async ({ page }, info) => {
@@ -446,6 +461,26 @@ test.describe("the console", () => {
     await sheet.getByRole("button", { name: "Run self-test" }).click();
     await expect(sheet).toBeHidden();
     expect(sent).toEqual({ reason: "after a driver update" });
+  });
+
+  test("shows when a host was online, and how often it reconnected a day", async ({ page }, info) => {
+    await open(page, `/admin/hosts/?id=${admin.HOST_ID}&tab=presence`, {
+      [`/admin/v1/hosts/${admin.HOST_ID}/presence`]: {
+        json: {
+          changes: [
+            { state: "online", at: "2026-11-08T09:40:00Z" },
+            { state: "offline", at: "2026-11-08T09:38:00Z" },
+            { state: "online", at: "2026-11-08T04:00:00Z" },
+          ],
+          days: [{ day: "2026-11-08", opened: 2 }],
+        },
+      },
+    });
+    await page.getByRole("tab", { name: "Presence history" }).click();
+    await expect(page.getByRole("table", { name: "Streams opened, a day" })).toContainText("2026-11-08");
+    await expect(page.getByRole("table", { name: "Presence changes" }).getByRole("row")).toHaveCount(4);
+    await expectAccessible(page);
+    await capture(page, info, "admin-host-presence");
   });
 
   test("a host with no score yet says so, and the button says why when the host can't run one", async ({

@@ -19,8 +19,9 @@ GET /admin/v1/audit/standing,audit.read,allow,403,403,403,403,allow
 GET /admin/v1/chargebacks,payments.read,allow,403,allow,403,allow,allow
 GET /admin/v1/chargebacks/{id},payments.read,allow,403,allow,403,allow,allow
 GET /admin/v1/clawbacks,clawbacks.read,allow,403,403,403,allow,allow
+GET /admin/v1/control-room,ops.dashboard.read,allow,allow,allow,allow,allow,allow
+GET /admin/v1/control-room/stream,ops.dashboard.read,allow,allow,allow,allow,allow,allow
 GET /admin/v1/credit-grants,money.read,allow,403,403,403,allow,allow
-GET /admin/v1/dashboard,dashboard.read,allow,allow,allow,allow,allow,allow
 GET /admin/v1/disputes,disputes.read,allow,403,allow,allow,allow,allow
 GET /admin/v1/disputes/host-flags,disputes.read,allow,403,allow,allow,allow,allow
 GET /admin/v1/disputes/{id},disputes.read,allow,403,allow,allow,allow,allow
@@ -30,6 +31,7 @@ GET /admin/v1/hosts,hosts.read,allow,allow,allow,allow,403,allow
 GET /admin/v1/hosts/{id},hosts.read,allow,allow,allow,allow,403,allow
 GET /admin/v1/hosts/{id}/earnings,money.read,allow,403,403,403,allow,allow
 GET /admin/v1/hosts/{id}/history,hosts.read,allow,allow,allow,allow,403,allow
+GET /admin/v1/hosts/{id}/presence,hosts.read,allow,allow,allow,allow,403,allow
 GET /admin/v1/hosts/{id}/self-test,hosts.read,allow,allow,allow,allow,403,allow
 GET /admin/v1/images,images.read,allow,allow,403,allow,403,allow
 GET /admin/v1/images/{id},images.read,allow,allow,403,allow,403,allow

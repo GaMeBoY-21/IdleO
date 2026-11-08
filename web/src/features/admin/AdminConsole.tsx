@@ -44,7 +44,7 @@ import { Users } from "./Users";
  * left navigation and dense tables, in the app's Night Shift tokens (and Day Shift, with the device).
  */
 export const ADMIN_SCREENS = [
-  { href: "/admin/", label: "Dashboard", needs: "dashboard.read" },
+  { href: "/admin/", label: "Control room", needs: "ops.dashboard.read" },
   { href: "/admin/inbox/", label: "Inbox", needs: "queues.read" },
   { href: "/admin/users/", label: "Users", needs: "users.read" },
   { href: "/admin/hosts/", label: "Hosts", needs: "hosts.read" },

@@ -5,6 +5,7 @@ interface ImportMetaEnv {
   readonly VITE_STORAGE_URL?: string;
   readonly VITE_CHECKOUT_URL?: string;
   readonly VITE_HOST_RUNBOOK_URL?: string;
+  readonly VITE_GRAFANA_URL?: string;
   readonly VITE_AUTH?: string;
   readonly VITE_OIDC_ISSUER?: string;
   readonly VITE_OIDC_CLIENT_ID?: string;

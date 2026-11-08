@@ -1265,6 +1265,51 @@ paths:
         idToken: []
       tags:
       - adminClawbacks
+  /admin/v1/control-room:
+    get:
+      operationId: adminControlRoomDashboard
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ControlRoomDashboard"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminControlRoom
+  /admin/v1/control-room/stream:
+    get:
+      description: "The dashboard as a `dashboard` event at once and every 10 seconds,\
+        \ the same body as GET /admin/v1/control-room. It closes after 10 minutes:\
+        \ reconnect."
+      operationId: adminControlRoomStream
+      responses:
+        "200":
+          content:
+            text/event-stream:
+              schema:
+                $ref: "#/components/schemas/SseEmitter"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminControlRoom
   /admin/v1/credit-grants:
     get:
       operationId: adminMoneyList
@@ -1369,27 +1414,6 @@ paths:
         idToken: []
       tags:
       - adminMoney
-  /admin/v1/dashboard:
-    get:
-      operationId: adminDashboardDashboard
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/AdminDashboard"
-          description: OK
-        default:
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ProblemDetail"
-          description: "An error, as an RFC 9457 problem detail"
-      security:
-      - adminSession: []
-        idToken: []
-      tags:
-      - adminDashboard
   /admin/v1/disputes:
     get:
       operationId: adminDisputesList
@@ -2005,6 +2029,34 @@ paths:
         idToken: []
       tags:
       - adminHostHistory
+  /admin/v1/hosts/{id}/presence:
+    get:
+      operationId: adminPresencePresence
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminPresenceHistory"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminPresence
   /admin/v1/hosts/{id}/revoke-certificates:
     post:
       operationId: adminHostsRevokeCertificates
@@ -10811,39 +10863,6 @@ components:
       - id
       - paymentId
       - status
-    AdminDashboard:
-      type: object
-      properties:
-        at:
-          type: string
-          format: date-time
-        hostsOnline:
-          type:
-          - integer
-          - "null"
-          format: int64
-        reconciliationMismatches:
-          type: integer
-          format: int64
-        reviewQueue:
-          type: integer
-          format: int64
-        sessionsRunning:
-          type: integer
-          format: int64
-        sessionsToday:
-          type: integer
-          format: int64
-        settlementBacklog:
-          type: integer
-          format: int64
-      required:
-      - at
-      - reconciliationMismatches
-      - reviewQueue
-      - sessionsRunning
-      - sessionsToday
-      - settlementBacklog
     AdminDeletion:
       type: object
       properties:
@@ -13114,6 +13133,43 @@ components:
       required:
       - current
       - months
+    AdminPresenceChange:
+      type: object
+      properties:
+        at:
+          type: string
+          format: date-time
+        state:
+          type: string
+      required:
+      - at
+      - state
+    AdminPresenceDay:
+      type: object
+      properties:
+        day:
+          type: string
+          format: date
+        opened:
+          type: integer
+          format: int64
+      required:
+      - day
+      - opened
+    AdminPresenceHistory:
+      type: object
+      properties:
+        changes:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminPresenceChange"
+        days:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminPresenceDay"
+      required:
+      - changes
+      - days
     AdminQueueCounts:
       type: object
       properties:
@@ -15542,6 +15598,213 @@ components:
       required:
       - anyOf
       - message
+    ControlRoomByModel:
+      type: object
+      properties:
+        model:
+          type: string
+        value:
+          type: number
+          format: double
+      required:
+      - model
+      - value
+    ControlRoomCell:
+      type: object
+      properties:
+        hour:
+          type: integer
+          format: int32
+        model:
+          type: string
+        value:
+          type: number
+          format: double
+      required:
+      - hour
+      - model
+      - value
+    ControlRoomCheck:
+      type: object
+      properties:
+        detail:
+          type: string
+        name:
+          type: string
+        ok:
+          type: boolean
+      required:
+      - detail
+      - name
+      - ok
+    ControlRoomDashboard:
+      type: object
+      properties:
+        computedAt:
+          type: object
+          additionalProperties:
+            type: string
+            format: date-time
+        funnels:
+          type: array
+          items:
+            $ref: "#/components/schemas/ControlRoomStep"
+        health:
+          type: array
+          items:
+            $ref: "#/components/schemas/ControlRoomCheck"
+        marketplace:
+          oneOf:
+          - $ref: "#/components/schemas/ControlRoomMarketplace"
+          - type: "null"
+        money:
+          oneOf:
+          - $ref: "#/components/schemas/ControlRoomMoney"
+          - type: "null"
+        supply:
+          oneOf:
+          - $ref: "#/components/schemas/ControlRoomSupply"
+          - type: "null"
+        utilisation:
+          type: array
+          items:
+            $ref: "#/components/schemas/ControlRoomByModel"
+      required:
+      - computedAt
+      - funnels
+      - health
+      - utilisation
+    ControlRoomMarketplace:
+      type: object
+      properties:
+        bookingsToday:
+          type: integer
+          format: int64
+        bookingsWaiting:
+          type: integer
+          format: int64
+        busyGpuHours:
+          type: array
+          items:
+            $ref: "#/components/schemas/ControlRoomByModel"
+        demand:
+          type: array
+          items:
+            $ref: "#/components/schemas/ControlRoomCell"
+        failures:
+          type: array
+          items:
+            $ref: "#/components/schemas/ControlRoomReason"
+        matchP50Seconds:
+          type:
+          - number
+          - "null"
+          format: double
+        matchP95Seconds:
+          type:
+          - number
+          - "null"
+          format: double
+        sessionsRunning:
+          type: integer
+          format: int64
+        startsAttempted:
+          type: integer
+          format: int64
+        startsSucceeded:
+          type: integer
+          format: int64
+      required:
+      - bookingsToday
+      - bookingsWaiting
+      - busyGpuHours
+      - demand
+      - failures
+      - sessionsRunning
+      - startsAttempted
+      - startsSucceeded
+    ControlRoomMoney:
+      type: object
+      properties:
+        month:
+          $ref: "#/components/schemas/ControlRoomMoneyWindow"
+        today:
+          $ref: "#/components/schemas/ControlRoomMoneyWindow"
+        week:
+          $ref: "#/components/schemas/ControlRoomMoneyWindow"
+      required:
+      - month
+      - today
+      - week
+    ControlRoomMoneyWindow:
+      type: object
+      properties:
+        chargebacksPaise:
+          type: integer
+          format: int64
+        gmvPaise:
+          type: integer
+          format: int64
+        refundsPaise:
+          type: integer
+          format: int64
+        takePaise:
+          type: integer
+          format: int64
+      required:
+      - chargebacksPaise
+      - gmvPaise
+      - refundsPaise
+      - takePaise
+    ControlRoomReason:
+      type: object
+      properties:
+        count:
+          type: integer
+          format: int64
+        reason:
+          type: string
+      required:
+      - count
+      - reason
+    ControlRoomStep:
+      type: object
+      properties:
+        funnel:
+          type: string
+        order:
+          type: integer
+          format: int32
+        people:
+          type: integer
+          format: int64
+        step:
+          type: string
+      required:
+      - funnel
+      - order
+      - people
+      - step
+    ControlRoomSupply:
+      type: object
+      properties:
+        online:
+          type:
+          - array
+          - "null"
+          items:
+            $ref: "#/components/schemas/ControlRoomByModel"
+        onlineGpuHours:
+          type: array
+          items:
+            $ref: "#/components/schemas/ControlRoomByModel"
+        supply:
+          type: array
+          items:
+            $ref: "#/components/schemas/ControlRoomCell"
+      required:
+      - onlineGpuHours
+      - supply
     CreateApiKeyRequest:
       type: object
       properties:
@@ -19005,6 +19268,12 @@ components:
       required:
       - pauses
       - reason
+    SseEmitter:
+      type: object
+      properties:
+        timeout:
+          type: integer
+          format: int64
     StartCliLoginRequest:
       type: object
       properties:

@@ -22,6 +22,7 @@ One schema per module. Backups hold the same data for 30 days (see "Backups").
 | `console.notes` | id, subject_kind, subject_id, subject_user_id, author_id, **body**, pinned, open_investigation, created_at, edited_at, version | `subject_user_id = :user` | account: staffNotes | Notes by staff about a person, or their host, session or payment (ADR 0052). In their export, LEGAL(confirm), except one written for a fraud investigation while it's open, LEGAL(confirm) | Until they go, or the record does | Deleted |
 | `console.tags` | id, label, colour, created_at | — | — | The Owner's vocabulary of tags (ADR 0052) | Kept: no person | Kept: no person |
 | `console.saved_views` | id, owner_id, list_name, name, shared, **query**, created_at | `owner_id = :user` | — | An admin's saved views of a list (ADR 0052): the query is the list's filters, which an admin can type a name into. Not about the person who saved them, so not in their export | Until they delete it, or they go | Deleted |
+| `console.rollups` | part, body, took_ms, computed_at | — | — | The live dashboard's rollups (ADR 0056): counts, sums and figures by GPU model, about no one person | Replaced each turn | Kept: no person |
 | `console.tag_assignments` | subject_kind, subject_id, tag_id, subject_user_id, added_by, added_at | `subject_user_id = :user` | account: staffTags | Which tag is on what (ADR 0052). In their export, LEGAL(confirm) | Until they go | Deleted |
 | `identity.users` | id, status, **email**, email_verified, **display_name**, created_at, updated_at, version, suspension_cause, **email_canonical** | `id = :user` | account: account | The account: who to write to and what to call them | The account's life | Cleared: email and name, status `erased`; the row stays as a tombstone, so the ids money records keep resolve to "an erased account" and to nobody |
 | `identity.external_identities` | id, user_id, **issuer**, **subject**, created_at, last_sign_in_at, signed_in_at | `user_id = :user` | account: signInIdentities | Which sign-in provider account is this person; `signed_in_at` is the newest token's `auth_time` | The account's life | Deleted |
@@ -74,6 +75,8 @@ One schema per module. Backups hold the same data for 30 days (see "Backups").
 | Table | Columns (personal in bold) | Whose | Export | Why | Kept | On erasure |
 | --- | --- | --- | --- | --- | --- | --- |
 | `agentgateway.agent_commands` | id, host_id, session_id, type, **payload**, message_id, requires_ack, status, attempts, expires_at, created_at, sent_at, acked_at | `session_id in (:sessions)` | — | Every message to an agent; a StartSession carries the renter's parameters and input links | `rule: agent-commands` | Deleted: their sessions' commands |
+| `agentgateway.presence_changes` | id, host_id, state, at | `host_id in (select id from hosts.hosts where owner_user_id = :user)` | hosting: presenceChanges | When each of their machines came online, went offline or couldn't be seen (ADR 0056): the host page's history, utilisation and reconnects. Never an address | `rule: presence-changes` | Deleted |
+| `agentgateway.presence_states` | host_id, state, since | `host_id in (select id from hosts.hosts where owner_user_id = :user)` | — | Each machine's last recorded presence, what a change is checked against | While the machine exists | Deleted |
 | `scheduling.offers` | id, session_id, host_id, attempt_number, status, decline_reason, expires_at, created_at, answered_at, session_attempt, **gpu_uuid** | `host_id in (:hosts)` | — | Which host was offered a session | `rule: offers` | Cleared: the GPU's uuid of the owner's machines; the offers stay, ids only |
 
 ### sessions
@@ -306,6 +309,7 @@ Each rule is one scheduled job (`RetentionRule`), idempotent, run daily under an
 | `self-test-results` | Whether each self-test passed, once the host score is done with it | 60 days | `retention.periods.self-test-results` |
 | `self-test-runs` | The self-tests asked for in the web app | 30 days | `retention.periods.self-test-runs` |
 | `agent-commands` | Messages to agents once delivered or given up on (a StartSession's parameters and input links) | 30 days | `retention.periods.agent-commands` |
+| `presence-changes` | Each machine's presence changes: online, offline or unknown, with when (ADR 0056) | 90 days | `retention.periods.presence-changes` |
 | `offers` | How each session was matched (a GPU's uuid) | A year | `retention.periods.offers` |
 | `notifications` | What each person was told, once any email of it is sent | A year | `retention.periods.notifications` |
 | `event-publications` | Durable events between modules, once delivered | 7 days | `retention.periods.event-publications` |
