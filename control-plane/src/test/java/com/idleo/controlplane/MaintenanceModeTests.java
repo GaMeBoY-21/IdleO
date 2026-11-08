@@ -117,7 +117,8 @@ class MaintenanceModeTests {
                         .getResponse()
                         .getStatus())
                 .isEqualTo(200);
-        var adminWrite = mvc.perform(admin.as(post("/admin/v1/flags/topups/pause"))
+        // A flag that emails no one: this checks the console writes, not who's told.
+        var adminWrite = mvc.perform(admin.as(post("/admin/v1/flags/signups/pause"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"reason\":\"belt and braces during maintenance\"}"))
                 .andReturn()

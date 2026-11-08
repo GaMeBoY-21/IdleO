@@ -2409,7 +2409,9 @@ PY
   # approves), the renter books. Then maintenance: a top-up started before it, paid while it's on, is credited by
   # Razorpay's webhook, while another write is 503 with Retry-After; off again, writes work.
   local flag_run version answer started
-  flag_run="$(token="$buyer_token" user="$user" book flag-run long-run 10000)"
+  # Every machine here prices a minute at 60 paise (above), so the booking's ceiling is above that.
+  flag_run="$(token="$buyer_token" api_post /v1/sessions -H "Idempotency-Key: \"$user-flag-run\"" \
+    -d '{"templateId": "long-run", "maxPricePaisePerMin": 100, "maxSpendPaise": 10000}' | json_get .id)"
   [[ -n "$flag_run" ]] || fail "the renter couldn't book the session the kill switch must leave running"
   token="$buyer_token" await_state "$flag_run" RUNNING 120
   version="$(sql "select version from flags.flags where key = 'bookings.new'")"
@@ -2418,7 +2420,7 @@ PY
     fail "pausing bookings.new failed"
   answer="$(curl -s -o "$out/flag-refused.json" -w '%{http_code}' -X POST "$api/v1/sessions" \
     -H "Authorization: Bearer $buyer_token" -H 'Content-Type: application/json' -H "Idempotency-Key: \"$user-flag-refused\"" \
-    -d '{"templateId": "long-run", "maxPricePaisePerMin": 5, "maxSpendPaise": 10000}')"
+    -d '{"templateId": "long-run", "maxPricePaisePerMin": 100, "maxSpendPaise": 10000}')"
   [[ "$answer" == 503 && "$(json_get .type <"$out/flag-refused.json")" == /problems/paused ]] ||
     fail "a booking while bookings.new was paused wasn't refused as paused: $answer $(cat "$out/flag-refused.json")"
   curl -sf "$api/v1/public/status" | grep -q '"flag":"bookings.new"' || fail "the public status didn't say bookings are paused"
@@ -2435,7 +2437,8 @@ PY
   [[ "$(sql "select paused from flags.flags where key = 'bookings.new'")" == f ]] || fail "bookings.new didn't run again once approved"
   token="$buyer_token" api_post "/v1/sessions/$flag_run/stop" -d '{}' >/dev/null || fail "the renter couldn't stop the kill switch's session"
   local deadline=$((SECONDS + 10)) booked=""
-  until booked="$(token="$buyer_token" user="$user" book flag-after charged-run 10000)" && [[ -n "$booked" ]]; do
+  until booked="$(token="$buyer_token" api_post /v1/sessions -H "Idempotency-Key: \"$user-flag-after\"" \
+    -d '{"templateId": "charged-run", "maxPricePaisePerMin": 100, "maxSpendPaise": 10000}' | json_get .id)" && [[ -n "$booked" ]]; do
     ((SECONDS < deadline)) || fail "the renter couldn't book once bookings ran again"
     sleep 1
   done
