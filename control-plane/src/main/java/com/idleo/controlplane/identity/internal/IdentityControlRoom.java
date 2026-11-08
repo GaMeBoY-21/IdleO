@@ -22,4 +22,17 @@ class IdentityControlRoom implements ControlRoom.FunnelSource {
                 .single();
         return List.of(new ControlRoom.Step("renters", 1, "signed up", signedUp));
     }
+
+    @Override
+    public List<ControlRoom.Reached> reached(java.time.Instant since) {
+        return jdbc.sql("select id, created_at from identity.users where status <> 'erased' and created_at >= :from")
+                .param("from", java.sql.Timestamp.from(since))
+                .query((rs, n) -> new ControlRoom.Reached(
+                        "renters",
+                        1,
+                        "signed up",
+                        rs.getObject("id", java.util.UUID.class),
+                        rs.getTimestamp("created_at").toInstant()))
+                .list();
+    }
 }

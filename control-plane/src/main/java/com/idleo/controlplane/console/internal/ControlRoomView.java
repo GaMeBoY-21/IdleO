@@ -21,6 +21,8 @@ class ControlRoomView {
 
     private static final TypeReference<List<ControlRoom.Step>> STEPS = new TypeReference<>() {};
     private static final TypeReference<List<ControlRoom.Check>> CHECKS = new TypeReference<>() {};
+    private static final TypeReference<List<ControlRoom.DemandCell>> DEMAND = new TypeReference<>() {};
+    private static final TypeReference<List<ControlRoom.CohortStep>> COHORTS = new TypeReference<>() {};
 
     private final ControlRoomRollups rollups;
     private final AdminAccess access;
@@ -39,18 +41,24 @@ class ControlRoomView {
                 : null;
         var marketplace = read(kept.bodies().get("marketplace"), ControlRoom.Marketplace.class);
         var supply = read(kept.bodies().get("supply"), ControlRoom.Supply.class);
-        var funnels = kept.bodies().containsKey("funnels")
-                ? json.readValue(kept.bodies().get("funnels"), STEPS)
-                : List.<ControlRoom.Step>of();
-        var health = kept.bodies().containsKey("health")
-                ? json.readValue(kept.bodies().get("health"), CHECKS)
-                : List.<ControlRoom.Check>of();
+        var funnels = list(kept.bodies().get("funnels"), STEPS);
+        var demand = list(kept.bodies().get("demand"), DEMAND);
+        var cohorts = list(kept.bodies().get("cohorts"), COHORTS);
+        var health = list(kept.bodies().get("health"), CHECKS);
         var computedAt = new HashMap<>(kept.computedAt());
         if (money == null) {
             computedAt.remove("money");
         }
         return new ControlRoom.Dashboard(
-                money, marketplace, supply, utilisation(marketplace, supply), funnels, health, computedAt);
+                money,
+                marketplace,
+                supply,
+                utilisation(marketplace, supply),
+                funnels,
+                demand,
+                cohorts,
+                health,
+                computedAt);
     }
 
     /** Busy over online GPU-hours for each model online in the last 24 hours. */
@@ -69,6 +77,10 @@ class ControlRoomView {
             }
         }
         return ratios;
+    }
+
+    private <T> List<T> list(@Nullable String body, TypeReference<List<T>> type) {
+        return body == null || body.equals("null") ? List.of() : json.readValue(body, type);
     }
 
     private <T> @Nullable T read(@Nullable String body, Class<T> type) {

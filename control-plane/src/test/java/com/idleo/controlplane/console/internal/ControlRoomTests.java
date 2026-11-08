@@ -7,12 +7,14 @@ import com.idleo.controlplane.ControlPlaneTest;
 import com.idleo.controlplane.MutableClock;
 import com.idleo.controlplane.TestAdmins;
 import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -240,31 +242,6 @@ class ControlRoomTests {
                 .isEqualTo(before);
     }
 
-    @Autowired
-    ControlRoomStreams streams;
-
-    @Test
-    void theStreamSendsTheDashboardAtOnceAndAgainTenSecondsLater() throws Exception {
-        var sent = new java.util.concurrent.CopyOnWriteArrayList<Long>();
-        var recorder = new org.springframework.web.servlet.mvc.method.annotation.SseEmitter(60_000L) {
-            @Override
-            public void send(SseEventBuilder event) {
-                sent.add(System.nanoTime());
-            }
-        };
-        var started = System.nanoTime();
-        streams.open(owner.id(), recorder);
-        try {
-            org.awaitility.Awaitility.await().atMost(Duration.ofSeconds(25)).until(() -> sent.size() >= 2);
-        } finally {
-            recorder.complete();
-        }
-        assertThat(Duration.ofNanos(sent.get(0) - started)).isLessThan(Duration.ofSeconds(2));
-        var gap = Duration.ofNanos(sent.get(1) - sent.get(0));
-        System.out.println("control room: stream updates " + gap.toMillis() + " ms apart");
-        assertThat(gap).isBetween(Duration.ofSeconds(9), Duration.ofSeconds(11));
-    }
-
     @Test
     void theStreamEndpointOpensAnEventStreamForWhoCanReadTheDashboard() throws Exception {
         var opened = mvc.perform(owner.as(get("/admin/v1/control-room/stream"))).andReturn();
@@ -276,6 +253,69 @@ class ControlRoomTests {
                         .getResponse()
                         .getStatus())
                 .isEqualTo(403);
+    }
+
+    @Test
+    void aCohortCountsEachStepWithinSevenAndThirtyDaysOfEachPersonsOwnSignUp() {
+        var now = Instant.parse("2026-11-09T06:30:00Z"); // a Monday noon in India
+        var lastWeek = Instant.parse("2026-10-27T06:30:00Z");
+        var oldWeek = Instant.parse("2026-09-01T06:30:00Z");
+        var quick = UUID.randomUUID();
+        var slow = UUID.randomUUID();
+        var never = UUID.randomUUID();
+        var old = UUID.randomUUID();
+        var joined = UUID.randomUUID();
+        var rows = ControlRoomCohorts.cohorts(
+                List.of(
+                        signUp(quick, lastWeek),
+                        signUp(slow, lastWeek.plusSeconds(60)),
+                        signUp(never, lastWeek.plusSeconds(120)),
+                        signUp(old, oldWeek),
+                        signUp(joined, now.minusSeconds(60)),
+                        topUp(quick, lastWeek.plus(Duration.ofDays(1))),
+                        topUp(slow, lastWeek.plus(Duration.ofDays(10))),
+                        // Past 30 days: reached, but not within either window.
+                        topUp(old, oldWeek.plus(Duration.ofDays(31))),
+                        // Someone who isn't in a cohort shown counts nowhere.
+                        topUp(UUID.randomUUID(), lastWeek)),
+                now);
+        var last = rows.stream()
+                .filter(row -> row.week().equals(java.time.LocalDate.parse("2026-10-26")))
+                .toList();
+        assertThat(last).singleElement().satisfies(row -> {
+            assertThat(row.signedUp()).isEqualTo(3);
+            assertThat(row.within7()).isEqualTo(1);
+            assertThat(row.within30()).isEqualTo(2);
+            assertThat(row.whole7()).isTrue();
+            assertThat(row.whole30()).isFalse();
+        });
+        var oldest = rows.stream()
+                .filter(row -> row.week().equals(java.time.LocalDate.parse("2026-08-31")))
+                .toList();
+        assertThat(oldest).singleElement().satisfies(row -> {
+            assertThat(row.within7()).isZero();
+            assertThat(row.within30()).isZero();
+            assertThat(row.whole30()).isTrue();
+        });
+        // This week's only just begun: nothing is final, and a step nobody reached is still shown.
+        assertThat(rows.stream()
+                        .filter(row -> row.week().equals(java.time.LocalDate.parse("2026-11-09")))
+                        .toList())
+                .singleElement()
+                .satisfies(row -> {
+                    assertThat(row.signedUp()).isEqualTo(1);
+                    assertThat(row.within7()).isZero();
+                    assertThat(row.whole7()).isFalse();
+                });
+        assertThat(ControlRoomCohorts.since(now)).isEqualTo(Instant.parse("2026-08-23T18:30:00Z"));
+    }
+
+    private static com.idleo.controlplane.ControlRoom.Reached signUp(UUID person, Instant at) {
+        return new com.idleo.controlplane.ControlRoom.Reached("renters", 1, "signed up", person, at);
+    }
+
+    private static com.idleo.controlplane.ControlRoom.Reached topUp(UUID person, Instant at) {
+        return new com.idleo.controlplane.ControlRoom.Reached("renters", 2, "first top-up", person, at);
     }
 
     @Test

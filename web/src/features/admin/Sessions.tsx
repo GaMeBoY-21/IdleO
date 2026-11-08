@@ -62,14 +62,26 @@ function indiaMidnight(date: string): string {
 }
 
 function SessionSearch({ user, host }: { user: string; host: string }) {
-  const [asked, setAsked] = useListParams({ session: "", user, host, state: "", from: "", to: "" });
+  const [asked, setAsked] = useListParams({
+    session: "",
+    user,
+    host,
+    state: "",
+    from: "",
+    to: "",
+    // From a cell of the control room's demand heatmap.
+    demandClass: "",
+    demandHour: "",
+    served: "",
+    since: "",
+  });
   const [form, setForm] = useState(asked);
   const view = useListView();
   const set = (field: keyof typeof form) => (value: string) => setForm({ ...form, [field]: value });
   const sessions = useInfiniteQuery({
     queryKey: [ADMIN, "sessions", asked, view],
     queryFn: ({ pageParam }) => {
-      const from = indiaMidnight(asked.from);
+      const from = asked.since || indiaMidnight(asked.from);
       const to = indiaMidnight(asked.to);
       return adminData(
         adminApi.GET("/admin/v1/sessions", {
@@ -81,6 +93,9 @@ function SessionSearch({ user, host }: { user: string; host: string }) {
               ...(asked.state ? { state: asked.state } : {}),
               ...(from ? { from } : {}),
               ...(to ? { to } : {}),
+              ...(asked.demandClass ? { demandClass: Number(asked.demandClass) } : {}),
+              ...(asked.demandHour ? { demandHour: Number(asked.demandHour) } : {}),
+              ...(asked.served ? { served: asked.served === "true" } : {}),
               ...view,
               ...(pageParam ? { cursor: pageParam } : {}),
             },
@@ -99,10 +114,27 @@ function SessionSearch({ user, host }: { user: string; host: string }) {
         filters={{ session: "id", user: "user", host: "host" }}
         extra={{
           ...(asked.state ? { state: asked.state.toUpperCase() } : {}),
-          ...(indiaMidnight(asked.from) ? { from: indiaMidnight(asked.from) } : {}),
+          ...(asked.since || indiaMidnight(asked.from)
+            ? { from: asked.since || indiaMidnight(asked.from) }
+            : {}),
           ...(indiaMidnight(asked.to) ? { to: indiaMidnight(asked.to) } : {}),
+          ...(asked.demandClass ? { demandClass: asked.demandClass } : {}),
+          ...(asked.demandHour ? { demandHour: asked.demandHour } : {}),
+          ...(asked.served ? { served: asked.served } : {}),
         }}
       />
+      {asked.demandClass && (
+        <p role="status" className="flex flex-wrap items-center gap-3 text-small">
+          Bookings for a {Math.round(Number(asked.demandClass) / 1_000)} GB GPU asked at {asked.demandHour}:00 in
+          India, over the last 7 days.
+          <Link
+            href="/admin/sessions/"
+            className="inline-flex min-h-touch items-center underline underline-offset-4 md:min-h-9"
+          >
+            Show every session
+          </Link>
+        </p>
+      )}
       <Filters
         onSubmit={() =>
           setAsked({ ...form, session: form.session.trim(), user: form.user.trim(), host: form.host.trim() })

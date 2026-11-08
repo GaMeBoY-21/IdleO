@@ -628,6 +628,20 @@ export const controlRoom = {
     { funnel: "renters", order: 3, step: "first session", people: 30 },
     { funnel: "renters", order: 4, step: "second session", people: 18 },
   ],
+  demand: [
+    { gpu: "12 GB", classMb: 12_000, hour: 14, asked: 9, served: 5, gap: 3 },
+    { gpu: "12 GB", classMb: 12_000, hour: 20, asked: 4, served: 4, gap: 0 },
+    { gpu: "8 GB", classMb: 8_000, hour: 20, asked: 6, served: 6, gap: 0 },
+    { gpu: "24 GB", classMb: 24_000, hour: 21, asked: 2, served: 0, gap: 2 },
+  ],
+  cohorts: [
+    { funnel: "hosts", week: "2026-09-28", signedUp: 40, order: 1, step: "linked a machine", within7: 3, within30: 4, whole7: true, whole30: true },
+    { funnel: "hosts", week: "2026-09-28", signedUp: 40, order: 3, step: "first session", within7: 1, within30: 2, whole7: true, whole30: true },
+    { funnel: "renters", week: "2026-09-28", signedUp: 40, order: 2, step: "first top-up", within7: 10, within30: 14, whole7: true, whole30: true },
+    { funnel: "renters", week: "2026-09-28", signedUp: 40, order: 3, step: "first session", within7: 8, within30: 12, whole7: true, whole30: true },
+    { funnel: "renters", week: "2026-10-05", signedUp: 25, order: 2, step: "first top-up", within7: 5, within30: 6, whole7: true, whole30: false },
+    { funnel: "renters", week: "2026-10-05", signedUp: 25, order: 3, step: "first session", within7: 2, within30: 3, whole7: true, whole30: false },
+  ],
   health: [
     { name: "database", ok: true, detail: "answered in 2 ms" },
     { name: "valkey", ok: true, detail: "answered PONG" },
@@ -649,6 +663,8 @@ export const controlRoom = {
     marketplace: NOW.toISOString(),
     supply: NOW.toISOString(),
     funnels: NOW.toISOString(),
+    demand: NOW.toISOString(),
+    cohorts: NOW.toISOString(),
     health: NOW.toISOString(),
   },
 };

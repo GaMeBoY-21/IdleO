@@ -57,6 +57,22 @@ class BillingControlRoom implements ControlRoom.MoneySource, ControlRoom.FunnelS
         return List.of(new ControlRoom.Step("renters", 2, "first top-up", toppedUp));
     }
 
+    @Override
+    public List<ControlRoom.Reached> reached(Instant since) {
+        return jdbc.sql("""
+                        select user_id, min(paid_at) as first from billing.topups
+                        where status = 'paid' and paid_at >= :from group by user_id
+                        """)
+                .param("from", java.sql.Timestamp.from(since))
+                .query((rs, n) -> new ControlRoom.Reached(
+                        "renters",
+                        2,
+                        "first top-up",
+                        rs.getObject("user_id", java.util.UUID.class),
+                        rs.getTimestamp("first").toInstant()))
+                .list();
+    }
+
     /**
      * What the latest wallet reconciliation found wrong, an unbalanced ledger included (zero before the first run); and
      * Razorpay's settlements whose items don't all agree with the ledger yet.

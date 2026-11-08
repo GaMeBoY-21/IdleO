@@ -5798,6 +5798,23 @@ paths:
           type: string
           format: date-time
       - in: query
+        name: demandClass
+        required: false
+        schema:
+          type: integer
+          format: int32
+      - in: query
+        name: demandHour
+        required: false
+        schema:
+          type: integer
+          format: int32
+      - in: query
+        name: served
+        required: false
+        schema:
+          type: boolean
+      - in: query
         name: tag
         required: false
         schema:
@@ -16261,14 +16278,58 @@ components:
       - detail
       - name
       - ok
+    ControlRoomCohortStep:
+      type: object
+      properties:
+        funnel:
+          type: string
+        order:
+          type: integer
+          format: int32
+        signedUp:
+          type: integer
+          format: int64
+        step:
+          type: string
+        week:
+          type: string
+          format: date
+        whole30:
+          type: boolean
+        whole7:
+          type: boolean
+        within30:
+          type: integer
+          format: int64
+        within7:
+          type: integer
+          format: int64
+      required:
+      - funnel
+      - order
+      - signedUp
+      - step
+      - week
+      - whole30
+      - whole7
+      - within30
+      - within7
     ControlRoomDashboard:
       type: object
       properties:
+        cohorts:
+          type: array
+          items:
+            $ref: "#/components/schemas/ControlRoomCohortStep"
         computedAt:
           type: object
           additionalProperties:
             type: string
             format: date-time
+        demand:
+          type: array
+          items:
+            $ref: "#/components/schemas/ControlRoomDemand"
         funnels:
           type: array
           items:
@@ -16294,10 +16355,39 @@ components:
           items:
             $ref: "#/components/schemas/ControlRoomByModel"
       required:
+      - cohorts
       - computedAt
+      - demand
       - funnels
       - health
       - utilisation
+    ControlRoomDemand:
+      type: object
+      properties:
+        asked:
+          type: integer
+          format: int64
+        classMb:
+          type: integer
+          format: int32
+        gap:
+          type: integer
+          format: int64
+        gpu:
+          type: string
+        hour:
+          type: integer
+          format: int32
+        served:
+          type: integer
+          format: int64
+      required:
+      - asked
+      - classMb
+      - gap
+      - gpu
+      - hour
+      - served
     ControlRoomMarketplace:
       type: object
       properties:

@@ -22,6 +22,17 @@ import org.springframework.stereotype.Component;
 @Component
 class SessionsControlRoom implements ControlRoom.MarketplaceSource, ControlRoom.FunnelSource {
 
+    /** The GPU class a booking asked for, in SQL: {@link com.idleo.controlplane.sessions.GpuClasses#roundUp} of its need. */
+    static final String CLASS_ASKED = "case "
+            + com.idleo.controlplane.sessions.GpuClasses.GB.stream()
+                    .map(com.idleo.controlplane.sessions.GpuClasses::mb)
+                    .map(mb -> "when vram_needed_mb <= " + mb + " then " + mb)
+                    .collect(java.util.stream.Collectors.joining(" "))
+            + " else vram_needed_mb end";
+
+    /** The hour of the day in India a booking asked, in SQL. */
+    static final String HOUR_ASKED = "extract(hour from created_at at time zone 'Asia/Kolkata')::int";
+
     /** What a session ended or stopped short with, counted as a failure. */
     static final List<String> FAILED_STATES = List.of("FAILED", "NO_HOST_FREE", "HOST_LOST");
 
@@ -122,6 +133,36 @@ class SessionsControlRoom implements ControlRoom.MarketplaceSource, ControlRoom.
                 demand);
     }
 
+    @Override
+    public List<ControlRoom.DemandCell> demand(Instant now) {
+        var from = Timestamp.from(now.minus(Duration.ofDays(7)));
+        var gaps = new HashMap<List<Integer>, Long>();
+        jdbc.sql("""
+                        select gpu_class_mb, asked_hour, count(*) as n from sessions.unmet_bookings
+                        where asked_at >= :from group by gpu_class_mb, asked_hour
+                        """).param("from", from).query(rs -> {
+            gaps.put(List.of(rs.getInt("gpu_class_mb"), rs.getInt("asked_hour")), rs.getLong("n"));
+        });
+        return jdbc.sql("select " + CLASS_ASKED + " as gpu_class, " + HOUR_ASKED + """
+                         as hour, count(*) as asked, count(started_at) as served
+                        from sessions.sessions where created_at >= :from
+                        group by 1, 2 order by 1, 2
+                        """)
+                .param("from", from)
+                .query((rs, n) -> {
+                    int classMb = rs.getInt("gpu_class");
+                    int hour = rs.getInt("hour");
+                    return new ControlRoom.DemandCell(
+                            Math.round(classMb / 1000.0) + " GB",
+                            classMb,
+                            hour,
+                            rs.getLong("asked"),
+                            rs.getLong("served"),
+                            gaps.getOrDefault(List.of(classMb, hour), 0L));
+                })
+                .list();
+    }
+
     /** Every attempt's running stretch that overlaps {@code from} to {@code to}, cut to it. */
     private List<Ran> ran(Instant from, Instant to) {
         return jdbc
@@ -171,5 +212,41 @@ class SessionsControlRoom implements ControlRoom.MarketplaceSource, ControlRoom.
                 new ControlRoom.Step("renters", 3, "first session", first),
                 new ControlRoom.Step("renters", 4, "second session", second),
                 new ControlRoom.Step("hosts", 3, "first session", ownersThatRan.size()));
+    }
+
+    @Override
+    public List<ControlRoom.Reached> reached(Instant since) {
+        var from = Timestamp.from(since);
+        var reached = new java.util.ArrayList<ControlRoom.Reached>();
+        jdbc.sql("""
+                        select renter_id, (array_agg(started_at order by started_at))[1] as first,
+                               (array_agg(started_at order by started_at))[2] as second
+                        from sessions.sessions where started_at >= :from group by renter_id
+                        """).param("from", from).query(rs -> {
+            var renter = rs.getObject("renter_id", UUID.class);
+            reached.add(new ControlRoom.Reached(
+                    "renters",
+                    3,
+                    "first session",
+                    renter,
+                    rs.getTimestamp("first").toInstant()));
+            var second = rs.getTimestamp("second");
+            if (second != null) {
+                reached.add(new ControlRoom.Reached("renters", 4, "second session", renter, second.toInstant()));
+            }
+        });
+        var firstByOwner = new HashMap<UUID, Instant>();
+        jdbc.sql("""
+                        select host_id, min(running_at) as first from sessions.attempts
+                        where running_at >= :from group by host_id
+                        """).param("from", from).query(rs -> {
+            var first = rs.getTimestamp("first").toInstant();
+            owners.ownerOf(rs.getObject("host_id", UUID.class))
+                    .ifPresent(owner ->
+                            firstByOwner.merge(owner, first, (one, other) -> one.isBefore(other) ? one : other));
+        });
+        firstByOwner.forEach(
+                (owner, first) -> reached.add(new ControlRoom.Reached("hosts", 3, "first session", owner, first)));
+        return reached;
     }
 }

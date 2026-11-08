@@ -229,7 +229,21 @@ test.describe("the console", () => {
     await expect(
       page.getByRole("table", { name: "Supply: hosts online by hour of day, India, last 7 days" }),
     ).toBeVisible();
-    await expect(page.getByRole("table", { name: "Renters" })).toContainText("33%");
+    // The funnels open by sign-up week; a week still inside its window says so. All time is the other tab.
+    const cohort = page.getByRole("table", { name: "Renters by sign-up week" });
+    await expect(cohort.getByRole("row", { name: /2026-09-28/ })).toContainText("25% (10)");
+    await expect(cohort.getByRole("row", { name: /2026-10-05/ })).toContainText("24% (6), so far");
+    await page.getByRole("tab", { name: "All time" }).click();
+    await expect(page.getByRole("table", { name: "Renters, all time" })).toContainText("33%");
+    // What was missed, by GPU class and hour, most missed first; each figure opens the bookings behind it.
+    const demand = page.getByRole("table", { name: "Every hour with a booking, the most missed first" });
+    await expect(demand.getByRole("row").nth(1)).toContainText("12 GB");
+    const missed = demand.getByRole("link", { name: /Missed: no host, 12 GB at 14:00/ });
+    await expect(missed).toHaveAttribute("href", /demandClass=12000&demandHour=14&since=.*&state=NO_HOST_FREE/);
+    const map = page.getByRole("table", { name: /^Missed: no host: bookings by GPU class/ });
+    await expect(map.getByRole("link", { name: /at 14:00, 12 GB/ })).toBeVisible();
+    await page.getByLabel("Show", { exact: true }).selectOption("served");
+    await expect(page.getByRole("table", { name: /^Served: bookings by GPU class/ })).toBeVisible();
     const checks = page.getByRole("list", { name: "The control plane's checks" });
     await expect(checks.getByRole("listitem").filter({ hasText: "inbox targets" })).toContainText("look");
     await expect(checks.getByRole("link", { name: "inbox targets" })).toHaveAttribute(
@@ -320,6 +334,28 @@ test.describe("the console", () => {
     await expect(page.getByRole("button", { name: "Keep the decision" })).toBeVisible();
     await expectAccessible(page);
     await capture(page, info, "admin-appeal");
+  });
+
+  test("the list behind a demand cell says what it's showing and passes every filter to the server", async ({
+    page,
+  }) => {
+    const asked = page.waitForRequest((request) => new URL(request.url()).pathname === "/admin/v1/sessions");
+    await open(
+      page,
+      "/admin/sessions/?demandClass=12000&demandHour=14&since=2026-11-01T00%3A00%3A00.000Z&state=NO_HOST_FREE",
+    );
+    const query = new URL((await asked).url()).searchParams;
+    expect(Object.fromEntries(query)).toMatchObject({
+      demandClass: "12000",
+      demandHour: "14",
+      from: "2026-11-01T00:00:00.000Z",
+      state: "NO_HOST_FREE",
+    });
+    await expect(page.getByRole("status").filter({ hasText: "12 GB GPU asked at 14:00" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Show every session" })).toHaveAttribute(
+      "href",
+      "/admin/sessions/",
+    );
   });
 
   test("while the control room loads", async ({ page }, info) => {
