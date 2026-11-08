@@ -47,6 +47,7 @@ One schema per module. Backups hold the same data for 30 days (see "Backups").
 | `identity.audit_chain_head` | one, seq, hash | — | — | The newest row's place and hash | As the log | Kept: no person |
 | `identity.audit_chain_checks` | id, trigger, rows_read, head_seq, intact, broken_seq, detail, took_ms, checked_at | — | — | Each check of the chain (ADR 0051) | As the log | Kept: no person |
 | `identity.audit_offsite_copies` | day, rows_held, first_seq, last_seq, head_hash, object_key, sha256, written_at | — | — | Which day's rows went off site (ADR 0051) | As the log | Kept: no person |
+| `flags.flags` | key, paused, until, resume_automatically, **reason**, changed_by, changed_at, version | — | — | The kill switches and maintenance mode (ADR 0056): each flag's state and its last change, by the admin's id, with their free-text reason. Not about the person who changed it, so not in their export | As long as the flag exists; the history is the audit log | Kept: an admin's id and words |
 
 ### hosts
 

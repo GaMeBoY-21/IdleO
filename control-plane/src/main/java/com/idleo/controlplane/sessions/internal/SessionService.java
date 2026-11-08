@@ -1,6 +1,8 @@
 package com.idleo.controlplane.sessions.internal;
 
 import com.idleo.controlplane.ApiProblem;
+import com.idleo.controlplane.Flag;
+import com.idleo.controlplane.Flags;
 import com.idleo.controlplane.IdGenerator;
 import com.idleo.controlplane.Paise;
 import com.idleo.controlplane.Problem;
@@ -44,6 +46,8 @@ class SessionService {
     private final SessionLimits limits;
     private final CheckedImages images;
 
+    private final Flags flags;
+
     SessionService(
             SessionStore store,
             SessionStops stops,
@@ -58,7 +62,9 @@ class SessionService {
             PlatformTransactionManager transactionManager,
             IdGenerator ids,
             SessionLimits limits,
-            CheckedImages images) {
+            CheckedImages images,
+            Flags flags) {
+        this.flags = flags;
         this.limits = limits;
         this.images = images;
         this.store = store;
@@ -102,6 +108,9 @@ class SessionService {
             if (existing.isPresent()) {
                 return repeat(existing.get(), hash);
             }
+            // The kill switches (ADR 0056): a booking that can't start isn't taken either.
+            flags.require(Flag.BOOKINGS_NEW);
+            flags.require(Flag.SESSIONS_START);
             limits.checkNewSession(renterId);
             int ceiling = ceilings.ceiling(
                     request.maxPricePaisePerMin(),

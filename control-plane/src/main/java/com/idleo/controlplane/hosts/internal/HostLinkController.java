@@ -1,6 +1,8 @@
 package com.idleo.controlplane.hosts.internal;
 
 import com.idleo.controlplane.ApiProblem;
+import com.idleo.controlplane.Flag;
+import com.idleo.controlplane.Flags;
 import com.idleo.controlplane.Problem;
 import com.idleo.controlplane.hosts.HostListings;
 import com.idleo.controlplane.identity.BrowserSignInOnly;
@@ -42,7 +44,10 @@ class HostLinkController {
 
     private final HostLinks links;
 
-    HostLinkController(HostLinks links) {
+    private final Flags flags;
+
+    HostLinkController(HostLinks links, Flags flags) {
+        this.flags = flags;
         this.links = links;
     }
 
@@ -97,6 +102,7 @@ class HostLinkController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     StartedLink start(@Valid @RequestBody StartLinkRequest request) {
+        flags.require(Flag.HOSTS_LINK);
         var machine = new HostLinks.Machine(
                 request.machineName().strip(),
                 request.os().strip(),
@@ -131,6 +137,7 @@ class HostLinkController {
             @AuthenticationPrincipal CurrentUser user,
             @PathVariable UUID id,
             @Valid @RequestBody ApproveLinkRequest request) {
+        flags.require(Flag.HOSTS_LINK);
         var terms = new HostLinks.Terms(
                 request.name().strip(),
                 request.batchPricePaisePerMin(),

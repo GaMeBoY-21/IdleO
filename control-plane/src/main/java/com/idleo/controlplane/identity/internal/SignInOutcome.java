@@ -16,4 +16,7 @@ sealed interface SignInOutcome {
     record Suspended(UUID userId) implements SignInOutcome {}
 
     record EmailNotVerified() implements SignInOutcome {}
+
+    /** Someone new, while sign-ups are paused (ADR 0056): nothing is created. */
+    record SignupsPaused(String message) implements SignInOutcome {}
 }

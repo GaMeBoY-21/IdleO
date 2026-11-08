@@ -3,6 +3,8 @@ package com.idleo.controlplane.images.internal;
 import com.idleo.controlplane.AccountLimits;
 import com.idleo.controlplane.ApiProblem;
 import com.idleo.controlplane.ApiProblem.FieldError;
+import com.idleo.controlplane.Flag;
+import com.idleo.controlplane.Flags;
 import com.idleo.controlplane.IdGenerator;
 import com.idleo.controlplane.Problem;
 import com.idleo.controlplane.billing.VerifiedPans;
@@ -43,6 +45,8 @@ class ImageService implements CheckedImages {
 
     private static final String LIMITED = "Your own images are limited on your account for now. See Account for why.";
 
+    private final Flags flags;
+
     ImageService(
             AccountLimits limits,
             ImageStore images,
@@ -53,7 +57,9 @@ class ImageService implements CheckedImages {
             ImagesMetrics metrics,
             IdGenerator ids,
             PlatformTransactionManager transactionManager,
-            Clock clock) {
+            Clock clock,
+            Flags flags) {
+        this.flags = flags;
         this.limits = limits;
         this.images = images;
         this.scans = scans;
@@ -76,7 +82,10 @@ class ImageService implements CheckedImages {
 
     /** Whether the renter may use their own images now. */
     boolean allowed(UUID renterId) {
-        return enabled() && !limits.noCustomImages(renterId) && pans.verified(renterId);
+        return enabled()
+                && !flags.paused(Flag.IMAGES_CUSTOM)
+                && !limits.noCustomImages(renterId)
+                && pans.verified(renterId);
     }
 
     /** What the renter would have to do to use their own images, said to them; null when they can. */
@@ -84,6 +93,10 @@ class ImageService implements CheckedImages {
     String whyNot(UUID renterId) {
         if (!enabled()) {
             return NOT_YET;
+        }
+        var paused = flags.pause(Flag.IMAGES_CUSTOM);
+        if (paused.isPresent()) {
+            return paused.get().message();
         }
         if (limits.noCustomImages(renterId)) {
             return LIMITED;
@@ -95,6 +108,7 @@ class ImageService implements CheckedImages {
         if (!enabled()) {
             throw ApiProblem.of(Problem.NOT_FOUND, NOT_YET);
         }
+        flags.require(Flag.IMAGES_CUSTOM);
         if (limits.noCustomImages(renterId)) {
             throw ApiProblem.of(Problem.ACTION_REFUSED, LIMITED);
         }

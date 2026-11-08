@@ -124,6 +124,10 @@ export const PROBLEM_MESSAGES: Record<ProblemSlug, string> = {
   "too-many-upi-checks": "That's a lot of checks today: each one asks your bank. Try again tomorrow.",
   "upi-check-not-usable": "That check can't be used any more. Check the UPI ID again.",
   "payout-in-progress": "A payout is on its way to your UPI ID. Wait for it to arrive first.",
+  paused:
+    "We've paused this part of IdleO for a while. The banner at the top says when we expect it back; your running sessions carry on.",
+  maintenance:
+    "IdleO is read-only while we do maintenance. You can look at everything; try changes again once we're done. Your running sessions carry on.",
   "storage-unavailable":
     "Our file storage can't be reached just now, so files can't be uploaded or read. Your sessions keep running. Try again in a minute.",
   "internal-error": "Something went wrong on our side. Try again in a moment.",

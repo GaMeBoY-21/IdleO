@@ -73,6 +73,8 @@ describe("the public site's bundle", () => {
             // Contact and Privacy (ADR 0037): the grievance officer and the topics, and the Contact form's message.
             "/v1/public/contact",
             "/v1/support/tickets",
+            // The footer's status line on every page (ADR 0056).
+            "/v1/public/status",
           ],
           relative(out, script),
         ).toContain(call[0]);

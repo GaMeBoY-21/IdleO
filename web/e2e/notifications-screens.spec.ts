@@ -261,3 +261,32 @@ test.describe("what arrives while the app is open", () => {
     await expect(page.getByRole("link", { name: "Notifications, 4 unread" })).toBeVisible();
   });
 });
+
+test.describe("what's paused", () => {
+  test("says what's paused and when it's back, under the header", async ({ page }, info) => {
+    await fakeApi(
+      page,
+      signedIn({
+        "/v1/public/status": {
+          json: {
+            maintenance: false,
+            paused: [
+              {
+                flag: "bookings.new",
+                message: "Bookings are paused: we expect to be back by 8 Nov, 4:00 pm India time.",
+                until: "2026-11-08T10:30:00Z",
+              },
+            ],
+          },
+        },
+      }),
+    );
+    await signIn(page, "asha", "/");
+    const banner = page.getByRole("region", { name: "Service status" });
+    await expect(banner).toContainText(
+      "Bookings are paused: we expect to be back by 8 Nov, 4:00 pm India time.",
+    );
+    await expectAccessible(page);
+    await capture(page, info, "status-paused");
+  });
+});

@@ -832,6 +832,15 @@ class PauseRequest(BaseModel):
     until: AwareDatetime | None = None
 
 
+class Paused(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    flag: str
+    message: str
+    until: AwareDatetime | None = None
+
+
 class PayoutView(BaseModel):
     model_config = ConfigDict(
         populate_by_name=True,
@@ -1019,6 +1028,8 @@ class Type(Enum):
     field_problems_step_up_required = "/problems/step-up-required"
     field_problems_passkey_not_accepted = "/problems/passkey-not-accepted"
     field_problems_action_refused = "/problems/action-refused"
+    field_problems_paused = "/problems/paused"
+    field_problems_maintenance = "/problems/maintenance"
     field_problems_storage_unavailable = "/problems/storage-unavailable"
     field_problems_internal_error = "/problems/internal-error"
 
@@ -1051,6 +1062,14 @@ class PublicClassAvailability(BaseModel):
     live_price_paise_per_hour: Annotated[HourlyPriceRange | None, Field(alias="livePricePaisePerHour")] = None
     online: bool
     typical_price_paise_per_hour: Annotated[HourlyPriceRange, Field(alias="typicalPricePaisePerHour")]
+
+
+class PublicStatus(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    maintenance: bool
+    paused: list[Paused]
 
 
 class QuoteResponse(BaseModel):

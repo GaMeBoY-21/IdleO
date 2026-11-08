@@ -88,6 +88,7 @@ const routes = (overrides: Record<string, Answer> = {}): Record<string, Answer> 
   [`/admin/v1/ledger/transactions/${admin.grant.txnId}`]: { json: admin.ledgerTransaction },
   "/admin/v1/adjustments": { json: admin.adjustments },
   "/admin/v1/periods": { json: admin.periods },
+  "/admin/v1/flags": { json: admin.flags },
   "/admin/v1/money/report": { json: admin.moneyReport },
   "/admin/v1/money/liabilities": { json: admin.liabilities },
   "/admin/v1/settlements": { json: admin.settlements },
@@ -208,7 +209,7 @@ test.describe("the console", () => {
   test("opens on the dashboard, its figures counted by each module", async ({ page }, info) => {
     await open(page, "/admin/");
     await expect(page.getByRole("heading", { level: 1, name: "Dashboard" })).toBeVisible();
-    await expect(page.getByRole("navigation", { name: "Admin" }).getByRole("link")).toHaveCount(30);
+    await expect(page.getByRole("navigation", { name: "Admin" }).getByRole("link")).toHaveCount(31);
     const figures = page.getByRole("list", { name: "Figures" }).getByRole("listitem");
     await expect(figures.filter({ hasText: "Hosts online" })).toContainText(
       String(admin.dashboard.hostsOnline),
@@ -1037,6 +1038,42 @@ test.describe("the console", () => {
     await expect(page.getByRole("list", { name: "New invite codes" }).getByRole("listitem")).toHaveCount(2);
     await expectAccessible(page);
     await capture(page, info, "admin-invites");
+  });
+
+  test("pauses a flag for two hours with a reason, and asks to run a paused one again", async ({
+    page,
+  }, info) => {
+    const paused: unknown[] = [];
+    await open(page, "/admin/flags/", {
+      "/admin/v1/flags/bookings.new/pause": (_call, request) => {
+        paused.push(request.postDataJSON());
+        return { json: { ...admin.flags.items[0], paused: true, version: 2 } };
+      },
+      "/admin/v1/flags/topups/resume": () => ({ json: admin.approvals.requests[0], status: 202 }),
+    });
+    const table = page.getByRole("table", { name: "Every flag, what it stops and its state" });
+    await expect(table).toContainText("A wave of failed UPI payments");
+    await expect(table).toContainText("runs again");
+    await table
+      .getByRole("row", { name: /bookings\.new/ })
+      .getByRole("button", { name: "Pause" })
+      .click();
+    const sheet = page.getByRole("dialog", { name: "Pause bookings.new?" });
+    await sheet.getByLabel("For how long").selectOption("2h");
+    await sheet.getByLabel("Reason").fill("A bad matcher release");
+    await sheet.getByRole("button", { name: "Pause now" }).click();
+    await expect(sheet).toHaveCount(0);
+    expect(paused).toHaveLength(1);
+    expect(paused[0]).toMatchObject({ reason: "A bad matcher release", resumeAutomatically: true });
+    await table
+      .getByRole("row", { name: /topups/ })
+      .getByRole("button", { name: "Run again" })
+      .click();
+    const again = page.getByRole("dialog", { name: "Run topups again?" });
+    await again.getByLabel("Reason").fill("Razorpay says the UPI issue is fixed");
+    await again.getByRole("button", { name: "Ask to run again" }).click();
+    await expectAccessible(page);
+    await capture(page, info, "admin-flags");
   });
 
   test("reads the audit log", async ({ page }, info) => {

@@ -16,4 +16,7 @@ public interface AdminAccess {
 
     /** Every admin who can be reached: enrolled, not locked out, on an active account. */
     List<Mentionable> mentionable();
+
+    /** The Owners, for what they're told by email (ADR 0056: a change of a flag that says so). */
+    List<UUID> owners();
 }

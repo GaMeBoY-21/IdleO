@@ -54,6 +54,8 @@ class SignInAuthenticationConverter implements Converter<Jwt, AbstractAuthentica
                 security.record(SecurityLog.Kind.SIGN_IN_REFUSED, suspended.userId(), "suspended");
                 yield IdentityAuthenticationToken.denied(Problem.ACCOUNT_SUSPENDED, SUSPENDED);
             }
+            case SignInOutcome.SignupsPaused paused ->
+                IdentityAuthenticationToken.denied(Problem.PAUSED, paused.message());
             case SignInOutcome.EmailNotVerified _ -> {
                 security.record(SecurityLog.Kind.SIGN_IN_REFUSED, null, "email_not_verified");
                 yield IdentityAuthenticationToken.denied(Problem.EMAIL_NOT_VERIFIED, EMAIL_NOT_VERIFIED);

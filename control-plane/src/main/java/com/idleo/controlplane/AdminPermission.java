@@ -114,7 +114,12 @@ public enum AdminPermission {
     TAGS_MANAGE("tags.manage", false),
     /** Who might be the same person as whom (ADR 0052): shown to Trust &amp; Safety, and it never acts by itself. */
     TRUST_READ("trust.read", false),
-    EXPORT_CREATE("export.create", true);
+    EXPORT_CREATE("export.create", true),
+
+    /** The kill switches and maintenance mode, and who changed them (ADR 0056). */
+    FLAGS_READ("flags.read", false),
+    /** Pausing one at once, and asking to run one again, which another admin approves when there is one. */
+    FLAGS_CHANGE("flags.change", true);
 
     private final String key;
     private final boolean sensitive;

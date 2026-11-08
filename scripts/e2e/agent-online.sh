@@ -2403,6 +2403,71 @@ PY
              (gen_random_uuid(), '00000000-0000-7000-8000-00000000c105', 'gateway_clearing', 1, 'credit', 'e2e', gen_random_uuid(), '$last_month-15T12:00:00+05:30')" 2>&1 || true)"
   [[ "$refused" == *"the month is closed"* ]] || fail "an entry dated in the closed month $last_month wasn't refused: $refused"
   note "month close: $last_month closed by the Owner with a second admin's approval once its checklist held (the ledger's checks, settlements, payout batches, the CA pack); an entry dated in it then refused by the database itself: PASS"
+
+  # 9. The kill switches (ADR 0056). bookings.new paused by the admin: the renter's next booking is refused as paused,
+  # the public status says so, and the session already running carries on, its lease renewed; run again (the approver
+  # approves), the renter books. Then maintenance: a top-up started before it, paid while it's on, is credited by
+  # Razorpay's webhook, while another write is 503 with Retry-After; off again, writes work.
+  local flag_run version answer started
+  flag_run="$(token="$buyer_token" user="$user" book flag-run long-run 10000)"
+  [[ -n "$flag_run" ]] || fail "the renter couldn't book the session the kill switch must leave running"
+  token="$buyer_token" await_state "$flag_run" RUNNING 120
+  version="$(sql "select version from flags.flags where key = 'bookings.new'")"
+  started=$SECONDS
+  admin_post --if-match "$version" /admin/v1/flags/bookings.new/pause '{"reason":"End-to-end kill switch"}' >/dev/null ||
+    fail "pausing bookings.new failed"
+  answer="$(curl -s -o "$out/flag-refused.json" -w '%{http_code}' -X POST "$api/v1/sessions" \
+    -H "Authorization: Bearer $buyer_token" -H 'Content-Type: application/json' -H "Idempotency-Key: \"$user-flag-refused\"" \
+    -d '{"templateId": "long-run", "maxPricePaisePerMin": 5, "maxSpendPaise": 10000}')"
+  [[ "$answer" == 503 && "$(json_get .type <"$out/flag-refused.json")" == /problems/paused ]] ||
+    fail "a booking while bookings.new was paused wasn't refused as paused: $answer $(cat "$out/flag-refused.json")"
+  curl -sf "$api/v1/public/status" | grep -q '"flag":"bookings.new"' || fail "the public status didn't say bookings are paused"
+  local renewed_before
+  renewed_before="$(sql "select lease_expires_at from sessions.sessions where id = '$flag_run'")"
+  sleep 12
+  [[ "$(token="$buyer_token" api_get "/v1/sessions/$flag_run" | json_get .state)" == RUNNING ]] ||
+    fail "the running session stopped while bookings were paused"
+  [[ "$(sql "select lease_expires_at > '$renewed_before'::timestamptz from sessions.sessions where id = '$flag_run'")" == t ]] ||
+    fail "the running session's lease wasn't renewed while bookings were paused"
+  version="$(sql "select version from flags.flags where key = 'bookings.new'")"
+  admin_post --if-match "$version" /admin/v1/flags/bookings.new/resume '{"reason":"End-to-end: the incident is over"}' >/dev/null ||
+    fail "running bookings.new again failed"
+  [[ "$(sql "select paused from flags.flags where key = 'bookings.new'")" == f ]] || fail "bookings.new didn't run again once approved"
+  token="$buyer_token" api_post "/v1/sessions/$flag_run/stop" -d '{}' >/dev/null || fail "the renter couldn't stop the kill switch's session"
+  local deadline=$((SECONDS + 10)) booked=""
+  until booked="$(token="$buyer_token" user="$user" book flag-after charged-run 10000)" && [[ -n "$booked" ]]; do
+    ((SECONDS < deadline)) || fail "the renter couldn't book once bookings ran again"
+    sleep 1
+  done
+  token="$buyer_token" api_post "/v1/sessions/$booked/cancel" -d '{}' >/dev/null || true
+  note "kill switch: bookings.new paused by an admin refused the renter's booking as paused (the public status said so) while their running session carried on, its lease renewed; run again with the approver's approval, the renter booked; $((SECONDS - started)) s in all: PASS"
+
+  local topup paid_id
+  topup="$(curl -s -X POST "$api/v1/wallet/topups" -H "Authorization: Bearer $buyer_token" \
+    -H 'Content-Type: application/json' -H "Idempotency-Key: \"$user-maintenance-topup\"" -d '{"amountPaise":20000}')"
+  [[ "$(json_get .status <<<"$topup" 2>/dev/null)" == pending ]] || fail "the renter couldn't start the maintenance top-up: $topup"
+  version="$(sql "select version from flags.flags where key = 'maintenance'")"
+  admin_post --if-match "$version" /admin/v1/flags/maintenance/pause \
+    "{\"reason\":\"End-to-end maintenance\",\"until\":\"$(python3 -c 'import datetime; print((datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(minutes=30)).isoformat())')\"}" >/dev/null ||
+    fail "starting maintenance failed"
+  answer="$(curl -s -D "$out/maintenance-headers.txt" -o "$out/maintenance-refused.json" -w '%{http_code}' -X PUT "$api/v1/wallet/billing-details" \
+    -H "Authorization: Bearer $buyer_token" -H 'Content-Type: application/json' -d '{"stateCode":"29"}')"
+  [[ "$answer" == 503 && "$(json_get .type <"$out/maintenance-refused.json")" == /problems/maintenance ]] ||
+    fail "a write during maintenance wasn't refused with 503 maintenance: $answer $(cat "$out/maintenance-refused.json")"
+  grep -qi '^retry-after:' "$out/maintenance-headers.txt" || fail "the maintenance refusal had no Retry-After"
+  paid_id="$(curl -sf -X POST "http://localhost:$razorpay_port/_fake/pay" -H 'Content-Type: application/json' \
+    -d "{\"order_id\":\"$(json_get .orderId <<<"$topup")\"}" | json_get .razorpay_payment_id)" || fail "the fake Razorpay didn't take the maintenance payment"
+  deadline=$((SECONDS + 20))
+  until [[ "$(sql "select status || ':' || coalesce(credited_by, '') from billing.topups where id = '$(json_get .id <<<"$topup")'")" == paid:webhook ]]; do
+    ((SECONDS < deadline)) || fail "Razorpay's webhook for $paid_id didn't credit the top-up during maintenance"
+    sleep 0.5
+  done
+  version="$(sql "select version from flags.flags where key = 'maintenance'")"
+  admin_post --if-match "$version" /admin/v1/flags/maintenance/resume '{"reason":"End-to-end: maintenance is done"}' >/dev/null ||
+    fail "ending maintenance failed"
+  curl -sf -X PUT "$api/v1/wallet/billing-details" -H "Authorization: Bearer $buyer_token" -H 'Content-Type: application/json' \
+    -d '{"stateCode":"29"}' >/dev/null || fail "a write after maintenance still failed"
+  note "maintenance: on, a write got 503 with Retry-After while Razorpay's webhook for a payment made then credited the top-up; off again, writes work: PASS"
 }
 scenario="payouts"
 : >"$out/summary-payouts.txt"

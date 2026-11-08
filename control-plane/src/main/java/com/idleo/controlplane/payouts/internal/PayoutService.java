@@ -2,6 +2,8 @@ package com.idleo.controlplane.payouts.internal;
 
 import com.idleo.controlplane.AccountLimits;
 import com.idleo.controlplane.FinancialYear;
+import com.idleo.controlplane.Flag;
+import com.idleo.controlplane.Flags;
 import com.idleo.controlplane.IdGenerator;
 import com.idleo.controlplane.LegalSettings;
 import com.idleo.controlplane.Paise;
@@ -72,6 +74,8 @@ class PayoutService {
     private final AccountStandings standings;
     private final AccountLimits limits;
 
+    private final Flags flags;
+
     PayoutService(
             JdbcClient jdbc,
             PlatformTransactionManager transactionManager,
@@ -87,7 +91,9 @@ class PayoutService {
             ApplicationEventPublisher events,
             PayoutsMetrics metrics,
             AccountStandings standings,
-            AccountLimits limits) {
+            AccountLimits limits,
+            Flags flags) {
+        this.flags = flags;
         this.limits = limits;
         this.standings = standings;
         this.jdbc = jdbc;
@@ -310,6 +316,11 @@ class PayoutService {
     void send(UUID payoutId) {
         var payout = find(payoutId).orElseThrow();
         if (!payout.status().equals("created")) {
+            return;
+        }
+        if (flags.paused(Flag.PAYOUTS_SEND)) {
+            // Payouts are paused (ADR 0056): it stays created, and resend() sends it once they run again.
+            log.info("Payout {} waits: payouts.send is paused", payoutId);
             return;
         }
         RazorpayXClient.Payout answer;

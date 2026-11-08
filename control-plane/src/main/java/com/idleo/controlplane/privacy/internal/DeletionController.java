@@ -2,6 +2,7 @@ package com.idleo.controlplane.privacy.internal;
 
 import com.idleo.controlplane.ApiProblem;
 import com.idleo.controlplane.LegalSettings;
+import com.idleo.controlplane.OpenDuringMaintenance;
 import com.idleo.controlplane.PersonalData;
 import com.idleo.controlplane.Problem;
 import com.idleo.controlplane.identity.BrowserSignInOnly;
@@ -128,6 +129,7 @@ class DeletionController {
     @OpenToWaitingUsers
     @OpenToHeldAccounts
     @BrowserSignInOnly
+    @OpenDuringMaintenance
     @DeleteMapping("/v1/me/deletion")
     DeletionStanding cancel(@AuthenticationPrincipal CurrentUser user, Authentication authentication) {
         deletions.cancel(user.id());
@@ -144,6 +146,7 @@ class DeletionController {
      * Cancels a scheduled deletion with a link from its emails, with no sign-in: the link's token is the proof. 400
      * {@code deletion-link-invalid} for a link that isn't one; 409 {@code no-deletion-pending} once erasing has begun.
      */
+    @OpenDuringMaintenance
     @PostMapping("/v1/deletion-requests/{id}/cancel")
     DeletionCancelled cancelByLink(@PathVariable UUID id, @Valid @RequestBody CancelDeletion request) {
         return new DeletionCancelled(deletions.cancelByLink(id, request.token()).state());

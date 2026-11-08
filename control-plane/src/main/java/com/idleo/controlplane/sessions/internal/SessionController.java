@@ -1,6 +1,7 @@
 package com.idleo.controlplane.sessions.internal;
 
 import com.idleo.controlplane.IdempotentRequests;
+import com.idleo.controlplane.OpenDuringMaintenance;
 import com.idleo.controlplane.identity.CurrentUser;
 import com.idleo.controlplane.identity.RequiresAcceptedTerms;
 import com.idleo.controlplane.sessions.CreateSessionRequest;
@@ -188,6 +189,7 @@ class SessionController {
 
     record StopRequest(@Nullable Boolean checkpointFirst) {}
 
+    @OpenDuringMaintenance
     @PostMapping("/{id}/stop")
     SessionViews.SessionResponse stop(
             @AuthenticationPrincipal CurrentUser user,
@@ -197,6 +199,7 @@ class SessionController {
         return view(sessions.stop(user.id(), id, checkpointFirst));
     }
 
+    @OpenDuringMaintenance
     @PostMapping("/{id}/cancel")
     SessionViews.SessionResponse cancel(@AuthenticationPrincipal CurrentUser user, @PathVariable UUID id) {
         return view(sessions.cancel(user.id(), id));

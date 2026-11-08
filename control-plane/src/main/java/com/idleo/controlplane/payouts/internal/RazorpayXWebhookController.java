@@ -1,6 +1,7 @@
 package com.idleo.controlplane.payouts.internal;
 
 import com.idleo.controlplane.ApiProblem;
+import com.idleo.controlplane.OpenDuringMaintenance;
 import com.idleo.controlplane.Problem;
 import com.idleo.controlplane.RazorpayWebhookSignature;
 import jakarta.servlet.http.HttpServletRequest;
@@ -36,6 +37,7 @@ class RazorpayXWebhookController {
         this.metrics = metrics;
     }
 
+    @OpenDuringMaintenance
     @PostMapping("/v1/payouts/razorpayx/webhook")
     @ResponseStatus(HttpStatus.OK)
     void receive(HttpServletRequest request) throws IOException {

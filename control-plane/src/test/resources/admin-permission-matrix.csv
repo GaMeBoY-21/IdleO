@@ -25,6 +25,7 @@ GET /admin/v1/disputes,disputes.read,allow,403,allow,allow,allow,allow
 GET /admin/v1/disputes/host-flags,disputes.read,allow,403,allow,allow,allow,allow
 GET /admin/v1/disputes/{id},disputes.read,allow,403,allow,allow,allow,allow
 GET /admin/v1/enforcements,enforcement.read,allow,allow,allow,allow,403,allow
+GET /admin/v1/flags,flags.read,allow,allow,allow,allow,allow,allow
 GET /admin/v1/hosts,hosts.read,allow,allow,allow,allow,403,allow
 GET /admin/v1/hosts/{id},hosts.read,allow,allow,allow,allow,403,allow
 GET /admin/v1/hosts/{id}/earnings,money.read,allow,403,403,403,allow,allow
@@ -124,6 +125,8 @@ POST /admin/v1/disputes/{id}/refund,disputes.refund,allow,403,403,403,allow,403
 POST /admin/v1/enforcements,enforcement.apply,allow,403,403,allow,403,403
 POST /admin/v1/enforcements/{id}/lift,enforcement.lift,allow,403,403,allow,403,403
 POST /admin/v1/exports,export.create,allow,403,403,403,allow,403
+POST /admin/v1/flags/{id}/pause,flags.change,allow,allow,403,allow,allow,403
+POST /admin/v1/flags/{id}/resume,flags.change,allow,allow,403,allow,allow,403
 POST /admin/v1/hosts/{id}/activate,hosts.activate,allow,allow,403,403,403,403
 POST /admin/v1/hosts/{id}/revoke-certificates,hosts.certificates.revoke,allow,allow,403,allow,403,403
 POST /admin/v1/hosts/{id}/self-tests,hosts.self-test,allow,allow,403,403,403,403

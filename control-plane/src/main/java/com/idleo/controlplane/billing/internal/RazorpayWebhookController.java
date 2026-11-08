@@ -1,6 +1,7 @@
 package com.idleo.controlplane.billing.internal;
 
 import com.idleo.controlplane.ApiProblem;
+import com.idleo.controlplane.OpenDuringMaintenance;
 import com.idleo.controlplane.Problem;
 import jakarta.servlet.http.HttpServletRequest;
 import java.io.IOException;
@@ -38,6 +39,7 @@ class RazorpayWebhookController {
         this.clock = clock;
     }
 
+    @OpenDuringMaintenance
     @PostMapping("/v1/payments/razorpay/webhook")
     @ResponseStatus(HttpStatus.OK)
     void receive(HttpServletRequest request) throws IOException {

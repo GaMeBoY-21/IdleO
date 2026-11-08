@@ -87,3 +87,24 @@ export function witnessSummary<M extends WitnessedMinute>(minutes: M[]) {
     unusual: minutes.filter((minute) => !(bothWitnesses(minute) && minute.billed && !minute.waived)),
   };
 }
+
+/**
+ * How long a flag is paused (ADR 0056): until someone runs it again, or for a while, after which it runs again by itself
+ * ("off for 2 h"). The server takes the end as a time, and refuses one in the past.
+ */
+export const PAUSE_CHOICES = [
+  { value: "open", label: "Until someone runs it again", minutes: 0 },
+  { value: "30m", label: "30 minutes, then it runs again", minutes: 30 },
+  { value: "1h", label: "1 hour, then it runs again", minutes: 60 },
+  { value: "2h", label: "2 hours, then it runs again", minutes: 120 },
+  { value: "4h", label: "4 hours, then it runs again", minutes: 240 },
+  { value: "8h", label: "8 hours, then it runs again", minutes: 480 },
+] as const;
+
+export type PauseChoice = (typeof PAUSE_CHOICES)[number]["value"];
+
+/** When a pause of `choice` made at `now` ends, or null when it lasts until someone runs it again. */
+export function pauseEnd(choice: PauseChoice, now: Date): Date | null {
+  const minutes = PAUSE_CHOICES.find((option) => option.value === choice)?.minutes ?? 0;
+  return minutes === 0 ? null : new Date(now.getTime() + minutes * 60_000);
+}

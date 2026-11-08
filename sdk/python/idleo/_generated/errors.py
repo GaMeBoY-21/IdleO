@@ -766,6 +766,22 @@ class ActionRefused(IdleoError):
     title = "Action refused"
 
 
+class Paused(IdleoError):
+    """Paused (HTTP 503)."""
+
+    slug = "paused"
+    status = 503
+    title = "Paused"
+
+
+class Maintenance(IdleoError):
+    """Down for maintenance (HTTP 503)."""
+
+    slug = "maintenance"
+    status = 503
+    title = "Down for maintenance"
+
+
 class StorageUnavailable(IdleoError):
     """Storage unavailable (HTTP 503)."""
 
@@ -878,6 +894,8 @@ __all__ = [
     "StepUpRequired",
     "PasskeyNotAccepted",
     "ActionRefused",
+    "Paused",
+    "Maintenance",
     "StorageUnavailable",
     "InternalError",
 ]
@@ -978,6 +996,8 @@ PROBLEMS: dict[str, type[IdleoError]] = {
     "step-up-required": StepUpRequired,
     "passkey-not-accepted": PasskeyNotAccepted,
     "action-refused": ActionRefused,
+    "paused": Paused,
+    "maintenance": Maintenance,
     "storage-unavailable": StorageUnavailable,
     "internal-error": InternalError,
 }

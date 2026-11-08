@@ -21,10 +21,14 @@ import tools.jackson.databind.JsonNode;
  */
 public interface Approvals {
 
-    /** How long a request with no one else to approve it waits before it runs: money's, or access's. */
+    /**
+     * How long a request with no one else to approve it waits before it runs: money's, or access's; or not at all, for
+     * running a kill switch again (ADR 0056), where waiting would only make an outage longer.
+     */
     enum Cooling {
         MONEY,
-        ACCESS
+        ACCESS,
+        NONE
     }
 
     /** One line of what the action will change, for the approver to read. */

@@ -88,6 +88,7 @@ class ConsoleListsTests {
             Map.entry("/admin/v1/audit/standing", "the chain's state and its newest copies"),
             Map.entry("/admin/v1/chargebacks/{id}", "one record"),
             Map.entry("/admin/v1/disputes/{id}", "one record"),
+            Map.entry("/admin/v1/flags", "the flags, a fixed list of eight"),
             Map.entry("/admin/v1/hosts/{id}", "one record"),
             Map.entry("/admin/v1/hosts/{id}/history", "a record's fixed-window chart"),
             Map.entry("/admin/v1/images/{id}", "one record"),

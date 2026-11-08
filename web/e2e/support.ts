@@ -65,6 +65,10 @@ export async function fakeApi(
     ...("/v1/notifications" in routes
       ? {}
       : { "/v1/notifications": { json: { items: [], nextCursor: null, unread: 0 } } }),
+    // And the frame asks what's paused (ADR 0056): nothing, unless a test says otherwise.
+    ...("/v1/public/status" in routes
+      ? {}
+      : { "/v1/public/status": { json: { maintenance: false, paused: [] } } }),
   };
   const respond = async (route: Route) => {
     if (delayMs > 0) {
