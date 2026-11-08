@@ -9,6 +9,11 @@ import org.springframework.context.annotation.Configuration;
 class SupportListings {
 
     @Bean
+    AdminListing broadcastsListing() {
+        return Broadcasts.LIST;
+    }
+
+    @Bean
     AdminListing ticketsListing() {
         return AdminTicketsController.LIST;
     }

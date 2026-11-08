@@ -10,8 +10,10 @@ import org.springframework.stereotype.Service;
 class UserDirectoryService implements UserDirectory {
 
     private final UserRepository users;
+    private final org.springframework.jdbc.core.simple.JdbcClient jdbc;
 
-    UserDirectoryService(UserRepository users) {
+    UserDirectoryService(UserRepository users, org.springframework.jdbc.core.simple.JdbcClient jdbc) {
+        this.jdbc = jdbc;
         this.users = users;
     }
 
@@ -33,5 +35,12 @@ class UserDirectoryService implements UserDirectory {
     @Override
     public Optional<String> displayName(UUID userId) {
         return users.findById(userId).map(User::displayName);
+    }
+
+    @Override
+    public java.util.List<UUID> activeUsers() {
+        return jdbc.sql("select id from identity.users where status = 'active' order by id")
+                .query(UUID.class)
+                .list();
     }
 }

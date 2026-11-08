@@ -25,4 +25,11 @@ public interface AccountEmails {
      * @throws RuntimeException when the mail server refused it; the caller tries again later
      */
     void sendOnce(String to, UUID messageId, String title, String body, String link);
+
+    /**
+     * A broadcast notice (ADR 0056), once for {@code dedupeKey}: always in the app, and by email when {@code email}.
+     *
+     * @throws RuntimeException when the mail server refused it; the caller tries again later
+     */
+    void announce(UUID userId, String dedupeKey, String title, String body, String link, boolean email);
 }

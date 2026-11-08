@@ -254,6 +254,16 @@ hosts:
     public-key: ${IDLEO_RELEASE_PUBLIC_KEY:}
     refresh-every: 5m
     link-ttl: 1h
+  # Staged rollouts (ADR 0056): every check-every, a rolling release whose hosts, over window, lost more than
+  # failure-margin more of their sessions than the rest (from min-sessions of them), or reconnected at least
+  # min-reconnects times a day each and more than reconnect-factor times the rest, pauses itself.
+  rollouts:
+    check-every: 5m
+    window: 24h
+    min-sessions: 5
+    failure-margin: 0.10
+    min-reconnects: 3
+    reconnect-factor: 2
   ca:
     # Our online intermediate CA (ADR 0010), from the environment: PEM content
     # or a location. The root's private key is never here, only its certificate.

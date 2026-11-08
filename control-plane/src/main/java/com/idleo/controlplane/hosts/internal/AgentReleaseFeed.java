@@ -66,11 +66,19 @@ class AgentReleaseFeed implements AgentReleases, Blocklists, DisposableBean {
     private final @Nullable S3Presigner presigner;
     private final AtomicReference<@Nullable ReleaseManifest> latest = new AtomicReference<>();
     private final AtomicReference<@Nullable BlocklistFile> blocklist = new AtomicReference<>();
+    private final AgentRollouts rollouts;
+    /** The share offered at the last refresh, so a widening or a pause on another instance is offered here too. */
+    private volatile int lastOffered = -1;
 
-    AgentReleaseFeed(AgentReleaseProperties properties, JdbcClient jdbc, ApplicationEventPublisher events) {
+    AgentReleaseFeed(
+            AgentReleaseProperties properties,
+            JdbcClient jdbc,
+            ApplicationEventPublisher events,
+            AgentRollouts rollouts) {
         this.properties = properties;
         this.jdbc = jdbc;
         this.events = events;
+        this.rollouts = rollouts;
         if (!properties.configured()) {
             log.info("The Windows app's release feed is off: hosts.releases needs an endpoint, keys and public-key");
             this.publicKey = null;
@@ -120,6 +128,25 @@ class AgentReleaseFeed implements AgentReleases, Blocklists, DisposableBean {
             return;
         }
         accept(manifest, signature);
+        var cached = latest.get();
+        if (cached != null) {
+            // Its staged rollout (ADR 0056) starts at 5% of hosts the first time it's seen.
+            rollouts.started(cached.version());
+        }
+        offerAnyChange();
+    }
+
+    /** When the cached release's rollout changed since the last refresh (on any instance), its agents are offered it. */
+    private void offerAnyChange() {
+        var manifest = latest.get();
+        if (manifest == null) {
+            return;
+        }
+        int offered = rollouts.offered(manifest.version(), manifest.rolloutPercent());
+        if (lastOffered != -1 && offered != lastOffered) {
+            events.publishEvent(new AgentReleaseCached(manifest.version()));
+        }
+        lastOffered = offered;
     }
 
     /** The abuse blocklist's own file, read like the manifest and cached on the same terms. */
@@ -209,7 +236,7 @@ class AgentReleaseFeed implements AgentReleases, Blocklists, DisposableBean {
         }
         latest.set(verified);
         if (previous == null || !Arrays.equals(previous.bytes(), verified.bytes())) {
-            log.info("Cached release {} ({}% rollout)", verified.version(), verified.rolloutPercent());
+            log.info("Cached release {} ({}% rollout signed)", verified.version(), verified.rolloutPercent());
             events.publishEvent(new AgentReleaseCached(verified.version()));
         }
     }
@@ -236,8 +263,9 @@ class AgentReleaseFeed implements AgentReleases, Blocklists, DisposableBean {
     }
 
     /**
-     * The release a host should update to: newer than {@code agentVersion}, the host in its rollout, and not rolled
-     * back there. The one rule, for {@code UpdateAgent} and for the machine page's "Updating when idle".
+     * The release a host should update to: newer than {@code agentVersion}, the host in its staged rollout (no more than
+     * the signed manifest allows, and nothing while it's paused; ADR 0056), and not rolled back there. The one rule, for
+     * {@code UpdateAgent} and for the machine page's "Updating when idle".
      */
     Optional<ReleaseManifest> eligible(UUID hostId, @Nullable String agentVersion) {
         var manifest = latest.get();
@@ -248,7 +276,8 @@ class AgentReleaseFeed implements AgentReleases, Blocklists, DisposableBean {
         if (running.isEmpty() || manifest.semver().compareTo(running.get()) <= 0) {
             return Optional.empty();
         }
-        if (!manifest.includes(hostId) || rolledBack(hostId, manifest.version())) {
+        int offered = rollouts.offered(manifest.version(), manifest.rolloutPercent());
+        if (ReleaseManifest.bucket(hostId, manifest.version()) >= offered || rolledBack(hostId, manifest.version())) {
             return Optional.empty();
         }
         return Optional.of(manifest);

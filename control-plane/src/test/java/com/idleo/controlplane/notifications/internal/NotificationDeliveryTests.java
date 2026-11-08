@@ -113,6 +113,11 @@ class NotificationDeliveryTests {
                         .map(entry -> new OwnedHost(entry.getKey(), machineNames.get(entry.getKey()), false))
                         .toList();
             }
+
+            @Override
+            public List<UUID> ownersRunning(String minAgentVersion, String maxAgentVersion) {
+                return List.copyOf(new java.util.LinkedHashSet<>(owners.values()));
+            }
         };
         listeners = new NotificationListeners(sessions, costs, hostOwners, messages, notifier);
     }

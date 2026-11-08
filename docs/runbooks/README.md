@@ -8,4 +8,4 @@ Operator commands name who runs them with `OPERATOR=<handle>`: a short handle (l
 
 The inbox (ADR 0053): breaching-chargeback.md, handling-an-appeal.md, writing-a-macro.md, and payer-upi-pepper.md for the same-payer signal.
 
-The control room (ADR 0056): stop-the-bleeding.md (which kill switch for which incident) and maintenance-mode.md.
+The control room (ADR 0056): stop-the-bleeding.md (which kill switch for which incident), maintenance-mode.md and rolling-out-an-agent-release.md.

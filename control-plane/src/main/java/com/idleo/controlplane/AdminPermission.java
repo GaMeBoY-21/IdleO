@@ -122,6 +122,15 @@ public enum AdminPermission {
     TRUST_READ("trust.read", false),
     EXPORT_CREATE("export.create", true),
 
+    /** The fleet: hosts by agent, distro, GPU and driver version, and the staged rollouts (ADR 0056). */
+    FLEET_READ("fleet.read", false),
+    /** Pausing a rollout: immediate, as stopping always is. */
+    ROLLOUTS_PAUSE("rollouts.pause", false),
+    /** Widening one, or starting it again: a factor, and another admin's approval when there is one. */
+    ROLLOUTS_WIDEN("rollouts.widen", true),
+    /** A notice to renters, hosts, a tag or an agent-version range, at a time, in the app and by email. */
+    BROADCASTS_SEND("broadcasts.send", false),
+
     /** The kill switches and maintenance mode, and who changed them (ADR 0056). */
     FLAGS_READ("flags.read", false),
     /** Pausing one at once, and asking to run one again, which another admin approves when there is one. */

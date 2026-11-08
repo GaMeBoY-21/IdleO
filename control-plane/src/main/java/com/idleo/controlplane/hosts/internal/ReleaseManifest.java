@@ -128,14 +128,10 @@ record ReleaseManifest(
     }
 
     /**
-     * Whether a host is in the rollout: the first 8 bytes of SHA-256 over the host id's text and the version's, as
-     * an unsigned number, modulo 100, below {@code rolloutPercent}. The same host and version always land in the same
-     * bucket, so raising the percentage only ever adds hosts.
+     * A host's bucket for a release, 0 to 99: the first 8 bytes of SHA-256 over the host id's text and the version's, as
+     * an unsigned number, modulo 100. A host is offered the release while its bucket is below the share offered (ADR
+     * 0056). The same host and version always land in the same bucket, so widening only ever adds hosts.
      */
-    boolean includes(UUID hostId) {
-        return bucket(hostId, version) < rolloutPercent;
-    }
-
     static int bucket(UUID hostId, String version) {
         try {
             var digest = MessageDigest.getInstance("SHA-256")

@@ -87,8 +87,10 @@ final class AgentMessages {
                     blankToNull(gpu.getCudaDriverVersion()),
                     blankToNull(gpu.getComputeCapability())));
         }
-        return new HelloResult.Valid(
-                new ValidHello(new AgentHello(os, hello.getAgentVersion(), gpus), version.get(), Set.copyOf(uuids)));
+        return new HelloResult.Valid(new ValidHello(
+                new AgentHello(os, hello.getAgentVersion(), gpus, hello.getBlocklistVersion()),
+                version.get(),
+                Set.copyOf(uuids)));
     }
 
     /** Why a heartbeat is invalid, or empty if it is valid for a host with these GPUs. */

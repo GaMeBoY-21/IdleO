@@ -1105,6 +1105,109 @@ paths:
         idToken: []
       tags:
       - auditLog
+  /admin/v1/broadcasts:
+    get:
+      operationId: adminBroadcastsList
+      parameters:
+      - in: query
+        name: state
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: sort
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: cursor
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: limit
+        required: false
+        schema:
+          type: integer
+          format: int32
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminBroadcastPage"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminBroadcasts
+    post:
+      operationId: adminBroadcastsSchedule
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminBroadcastRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminApproval"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminBroadcasts
+  /admin/v1/broadcasts/{id}/cancel:
+    post:
+      operationId: adminBroadcastsCancel
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminReason"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminBroadcast"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminBroadcasts
   /admin/v1/chargebacks:
     get:
       operationId: adminPaymentsChargebacks
@@ -1852,6 +1955,105 @@ paths:
         idToken: []
       tags:
       - adminFlags
+  /admin/v1/fleet:
+    get:
+      operationId: adminFleetFleet
+      parameters:
+      - in: query
+        name: status
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: agentVersion
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: distroVersion
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: gpuModel
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: driverVersion
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: blocklistVersion
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: offline
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: tag
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: sort
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: cursor
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: limit
+        required: false
+        schema:
+          type: integer
+          format: int32
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminFleetPage"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminFleet
+  /admin/v1/fleet/summary:
+    get:
+      operationId: adminFleetSummary
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminFleetSummary"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminFleet
   /admin/v1/hosts:
     get:
       operationId: adminHostsSearch
@@ -5274,6 +5476,93 @@ paths:
         idToken: []
       tags:
       - adminReview
+  /admin/v1/rollouts:
+    get:
+      operationId: adminRolloutsList
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminRollouts"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminRollouts
+  /admin/v1/rollouts/{id}/pause:
+    post:
+      operationId: adminRolloutsPause
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminReason"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminRollouts"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminRollouts
+  /admin/v1/rollouts/{id}/widen:
+    post:
+      operationId: adminRolloutsWiden
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WidenRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminApproval"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminRollouts
   /admin/v1/search:
     get:
       operationId: adminSearchSearch
@@ -10311,6 +10600,136 @@ components:
       - expiredPaise
       - month
       - toExpirePaise
+    AdminBroadcast:
+      type: object
+      properties:
+        audience:
+          type: string
+        body:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        createdBy:
+          type: string
+          format: uuid
+        email:
+          type: boolean
+        id:
+          type: string
+          format: uuid
+        maxAgentVersion:
+          type:
+          - string
+          - "null"
+        minAgentVersion:
+          type:
+          - string
+          - "null"
+        reached:
+          type:
+          - integer
+          - "null"
+          format: int32
+        reason:
+          type: string
+        sendAt:
+          type: string
+          format: date-time
+        sentAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        state:
+          type: string
+        subject:
+          type: string
+        tag:
+          type:
+          - string
+          - "null"
+        version:
+          type: integer
+          format: int64
+      required:
+      - audience
+      - body
+      - createdAt
+      - createdBy
+      - email
+      - id
+      - reason
+      - sendAt
+      - state
+      - subject
+      - version
+    AdminBroadcastPage:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminBroadcast"
+        nextCursor:
+          type:
+          - string
+          - "null"
+      required:
+      - items
+    AdminBroadcastRequest:
+      type: object
+      properties:
+        audience:
+          type: string
+          enum:
+          - RENTERS
+          - HOSTS
+          - TAG
+          - AGENT_VERSIONS
+        body:
+          type: string
+          maxLength: 10000
+          minLength: 0
+        email:
+          type: boolean
+        maxAgentVersion:
+          type:
+          - string
+          - "null"
+          maxLength: 40
+          minLength: 0
+        minAgentVersion:
+          type:
+          - string
+          - "null"
+          maxLength: 40
+          minLength: 0
+        reason:
+          type: string
+          maxLength: 500
+          minLength: 5
+        sendAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        subject:
+          type: string
+          maxLength: 200
+          minLength: 0
+        tag:
+          type:
+          - string
+          - "null"
+          maxLength: 60
+          minLength: 0
+      required:
+      - audience
+      - body
+      - email
+      - reason
+      - subject
     AdminBulkAction:
       type: object
       properties:
@@ -11232,6 +11651,139 @@ components:
             $ref: "#/components/schemas/AdminFlag"
       required:
       - items
+    AdminFleetCount:
+      type: object
+      properties:
+        hosts:
+          type: integer
+          format: int64
+        value:
+          type: string
+      required:
+      - hosts
+      - value
+    AdminFleetHost:
+      type: object
+      properties:
+        agentVersion:
+          type:
+          - string
+          - "null"
+        blocklistVersion:
+          type:
+          - string
+          - "null"
+        distroVersion:
+          type:
+          - string
+          - "null"
+        driverVersion:
+          type:
+          - string
+          - "null"
+        gpuModel:
+          type:
+          - string
+          - "null"
+        id:
+          type: string
+          format: uuid
+        lastSeenAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        name:
+          type: string
+        ownerId:
+          type: string
+          format: uuid
+        reconnectsPerDay:
+          type: number
+          format: double
+        selfTestPassRate:
+          type:
+          - number
+          - "null"
+          format: double
+        status:
+          type: string
+        straggler:
+          type: boolean
+        version:
+          type: integer
+          format: int64
+      required:
+      - id
+      - name
+      - ownerId
+      - reconnectsPerDay
+      - status
+      - straggler
+      - version
+    AdminFleetPage:
+      type: object
+      properties:
+        hosts:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminFleetHost"
+        nextCursor:
+          type:
+          - string
+          - "null"
+      required:
+      - hosts
+    AdminFleetSummary:
+      type: object
+      properties:
+        agentVersions:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminFleetCount"
+        blocklistVersions:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminFleetCount"
+        distroVersions:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminFleetCount"
+        driverVersions:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminFleetCount"
+        gpuModels:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminFleetCount"
+        hosts:
+          type: integer
+          format: int64
+        latestRelease:
+          type:
+          - string
+          - "null"
+        offlineDay:
+          type: integer
+          format: int64
+        selfTestPassRate:
+          type:
+          - number
+          - "null"
+          format: double
+        stragglers:
+          type: integer
+          format: int64
+      required:
+      - agentVersions
+      - blocklistVersions
+      - distroVersions
+      - driverVersions
+      - gpuModels
+      - hosts
+      - offlineDay
+      - stragglers
     AdminHost:
       type: object
       properties:
@@ -13617,6 +14169,78 @@ components:
       - id
       - name
       - permissions
+    AdminRollout:
+      type: object
+      properties:
+        changedAt:
+          type: string
+          format: date-time
+        changedBy:
+          type:
+          - string
+          - "null"
+          format: uuid
+        failureRate:
+          type: number
+          format: double
+        hosts:
+          type: integer
+          format: int32
+        id:
+          type: string
+        paused:
+          type: boolean
+        percent:
+          type: integer
+          format: int32
+        reason:
+          type: string
+        reconnectsPerHostDay:
+          type: number
+          format: double
+        restFailureRate:
+          type: number
+          format: double
+        restHosts:
+          type: integer
+          format: int32
+        restReconnectsPerHostDay:
+          type: number
+          format: double
+        sessions:
+          type: integer
+          format: int64
+        signedPercent:
+          type:
+          - integer
+          - "null"
+          format: int32
+        version:
+          type: integer
+          format: int64
+      required:
+      - changedAt
+      - failureRate
+      - hosts
+      - id
+      - paused
+      - percent
+      - reason
+      - reconnectsPerHostDay
+      - restFailureRate
+      - restHosts
+      - restReconnectsPerHostDay
+      - sessions
+      - version
+    AdminRollouts:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminRollout"
+      required:
+      - items
     AdminSavedView:
       type: object
       properties:
@@ -20242,6 +20866,19 @@ components:
       - frozenPaise
       - refundingPaise
       - reservedPaise
+    WidenRequest:
+      type: object
+      properties:
+        percent:
+          type: integer
+          format: int32
+        reason:
+          type: string
+          maxLength: 500
+          minLength: 5
+      required:
+      - percent
+      - reason
     YourData:
       type: object
       properties:

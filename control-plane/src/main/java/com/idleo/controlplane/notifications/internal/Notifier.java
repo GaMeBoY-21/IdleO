@@ -94,4 +94,9 @@ class Notifier {
         registry.counter("notifications.emails", "outcome", "sent").increment();
         log.info("Emailed message {} ({})", stored.id(), kind.slug());
     }
+
+    /** In the app only, once for {@code dedupeKey}, whatever the kind would email: a broadcast without email (ADR 0056). */
+    void tellInApp(UUID userId, NotificationKind kind, String dedupeKey, Message message) {
+        own.execute(status -> store.make(userId, kind, dedupeKey, message, true, false));
+    }
 }

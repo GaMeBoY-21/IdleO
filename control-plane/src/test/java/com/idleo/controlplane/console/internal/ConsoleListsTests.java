@@ -90,6 +90,8 @@ class ConsoleListsTests {
             Map.entry("/admin/v1/control-room", "one dashboard, its parts in fixed shapes"),
             Map.entry("/admin/v1/disputes/{id}", "one record"),
             Map.entry("/admin/v1/flags", "the flags, a fixed list of eight"),
+            Map.entry("/admin/v1/fleet/summary", "counts, at most twenty of each kind"),
+            Map.entry("/admin/v1/rollouts", "the last twenty releases"),
             Map.entry("/admin/v1/hosts/{id}", "one record"),
             Map.entry("/admin/v1/hosts/{id}/history", "a record's fixed-window chart"),
             Map.entry("/admin/v1/hosts/{id}/presence", "a record's 90 days kept, at most 500 changes"),

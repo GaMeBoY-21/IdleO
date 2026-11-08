@@ -38,7 +38,7 @@ class BlocklistFeedTests {
                 TestReleaseKeys.get().publicKeyBase64(),
                 Duration.ofMinutes(5),
                 Duration.ofHours(1));
-        feed = new AgentReleaseFeed(properties, (JdbcClient) null, events);
+        feed = new AgentReleaseFeed(properties, (JdbcClient) null, events, null);
     }
 
     private static byte[] list(String version, String learned) {

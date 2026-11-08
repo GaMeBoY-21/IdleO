@@ -4,6 +4,8 @@ import { TextArea } from "@/components/ui/Inputs";
 import { ActionSheet, SheetProblem } from "./ActionSheet";
 import { adminApi, adminData } from "./api";
 import { AdminPage, Section } from "./ui";
+import { Broadcasts } from "./Broadcasts";
+import { useCan } from "./permissions";
 import { ActionButton } from "./permissions";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -13,6 +15,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
  * account id, in words a person decided on. The audit log records who was told, by id, and why; never their addresses.
  */
 export function Notices() {
+  const canBroadcast = useCan()("broadcasts.send");
   const [people, setPeople] = useState("");
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
@@ -85,6 +88,7 @@ export function Notices() {
           }
         }}
       />
+      {canBroadcast && <Broadcasts />}
     </AdminPage>
   );
 }

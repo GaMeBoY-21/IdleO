@@ -16,6 +16,7 @@ GET /admin/v1/approvals/count,approvals.read,allow,allow,allow,allow,allow,allow
 GET /admin/v1/approvals/{id},approvals.read,allow,allow,allow,allow,allow,allow
 GET /admin/v1/audit,audit.read,allow,403,403,403,403,allow
 GET /admin/v1/audit/standing,audit.read,allow,403,403,403,403,allow
+GET /admin/v1/broadcasts,broadcasts.send,allow,allow,403,403,403,403
 GET /admin/v1/chargebacks,payments.read,allow,403,allow,403,allow,allow
 GET /admin/v1/chargebacks/{id},payments.read,allow,403,allow,403,allow,allow
 GET /admin/v1/clawbacks,clawbacks.read,allow,403,403,403,allow,allow
@@ -27,6 +28,8 @@ GET /admin/v1/disputes/host-flags,disputes.read,allow,403,allow,allow,allow,allo
 GET /admin/v1/disputes/{id},disputes.read,allow,403,allow,allow,allow,allow
 GET /admin/v1/enforcements,enforcement.read,allow,allow,allow,allow,403,allow
 GET /admin/v1/flags,flags.read,allow,allow,allow,allow,allow,allow
+GET /admin/v1/fleet,fleet.read,allow,allow,allow,403,403,allow
+GET /admin/v1/fleet/summary,fleet.read,allow,allow,allow,403,403,allow
 GET /admin/v1/hosts,hosts.read,allow,allow,allow,allow,403,allow
 GET /admin/v1/hosts/{id},hosts.read,allow,allow,allow,allow,403,allow
 GET /admin/v1/hosts/{id}/earnings,money.read,allow,403,403,403,allow,allow
@@ -77,6 +80,7 @@ GET /admin/v1/records/{subject}/{id}/tags,notes.read,allow,allow,allow,allow,all
 GET /admin/v1/refunds,refunds.read,allow,403,allow,403,allow,allow
 GET /admin/v1/refunds/{id},refunds.read,allow,403,allow,403,allow,allow
 GET /admin/v1/review-minutes,review.read,allow,allow,403,allow,allow,allow
+GET /admin/v1/rollouts,fleet.read,allow,allow,allow,403,403,allow
 GET /admin/v1/search,self,allow,allow,allow,allow,allow,allow
 GET /admin/v1/session,self,allow,allow,allow,allow,allow,allow
 GET /admin/v1/sessions,sessions.read,allow,allow,allow,allow,403,allow
@@ -119,6 +123,8 @@ POST /admin/v1/approvals/{id}/cancel,approvals.decide,allow,allow,allow,allow,al
 POST /admin/v1/approvals/{id}/download,approvals.decide,allow,allow,allow,allow,allow,403
 POST /admin/v1/approvals/{id}/reject,approvals.decide,allow,allow,allow,allow,allow,403
 POST /admin/v1/audit/verify,audit.read,allow,403,403,403,403,allow
+POST /admin/v1/broadcasts,broadcasts.send,allow,allow,403,403,403,403
+POST /admin/v1/broadcasts/{id}/cancel,broadcasts.send,allow,allow,403,403,403,403
 POST /admin/v1/clawbacks/{id}/waive,clawbacks.waive,allow,403,403,403,allow,403
 POST /admin/v1/credit-grants,money.adjust,allow,403,403,403,allow,403
 POST /admin/v1/credit-grants/{id}/reverse,money.adjust,allow,403,403,403,allow,403
@@ -178,6 +184,8 @@ POST /admin/v1/refunds/{id}/approve,refunds.approve,allow,403,403,403,allow,403
 POST /admin/v1/refunds/{id}/decline,refunds.decline,allow,403,403,403,allow,403
 POST /admin/v1/review-minutes/{sessionId}/{minuteIndex}/charge,review.charge,allow,403,403,403,allow,403
 POST /admin/v1/review-minutes/{sessionId}/{minuteIndex}/waive,review.waive,allow,allow,403,403,allow,403
+POST /admin/v1/rollouts/{id}/pause,rollouts.pause,allow,allow,403,403,403,403
+POST /admin/v1/rollouts/{id}/widen,rollouts.widen,allow,allow,403,403,403,403
 POST /admin/v1/second-factor,self,allow,allow,allow,allow,allow,allow
 POST /admin/v1/second-factor/confirm,self,allow,allow,allow,allow,allow,allow
 POST /admin/v1/session,self,allow,allow,allow,allow,allow,allow

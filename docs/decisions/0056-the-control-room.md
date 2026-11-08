@@ -148,6 +148,55 @@ checks in the modules that own them.
 
 Every figure links to the list behind it.
 
+### The fleet
+
+`GET /admin/v1/fleet` lists every host on the one list engine (ADR 0052), so it filters, saves and exports like every list:
+
+- agent version;
+- distribution version, as its last self-test said;
+- largest GPU and its driver;
+- self-test pass rate over 30 days;
+- the signed blocklist it holds, now recorded from each Hello;
+- when it was last seen ("not for a day" is a filter).
+
+Reconnects a day come from the presence history through the hosts module's `HostConnections` port, which the agent
+gateway implements. `/admin/v1/fleet/summary` counts the whole fleet the same ways, and names the stragglers behind the
+release the feed holds. "Notify these owners" sends the existing notice (ADR 0037) to the owners listed, and more than
+20 people goes to another admin first.
+
+### Staged rollouts
+
+The signed manifest's `rollout_percent` stays the ceiling and the agent's checks of the signature don't change (ADR
+0034). The control plane only decides who is offered the release:
+
+- **Starting:** a newly cached release starts at 5% of hosts (`hosts.agent_rollouts`, audited as the system).
+- **Who:** a host is offered it while its bucket (SHA-256 of host id and version, modulo 100) is below the share, so the
+  choice is stable and widening only adds hosts.
+- **Widening:** to 25, 50 or 100% is `rollout.widen` through `Approvals`, with a factor (`rollouts.widen`). With no one
+  else to approve it, it runs at once, as running a kill switch again does, and for the same reason.
+- **Pausing:** immediate (`rollouts.pause`). Narrowing is refused: pause instead.
+- **Reaching agents:** each instance's feed notices a changed share at its refresh and offers it to the agents it holds;
+  the instance that widened offers at once.
+
+**The automatic pause.** Every 5 minutes, on one instance, the release's hosts (those already on it) are compared with
+the rest over 24 hours. A rolling release pauses itself, audited as the system, and the Owners are told, when either:
+
+| Signal | Threshold (`hosts.rollouts.*`) |
+|---|---|
+| Sessions lost to the host | at least 5 of its hosts' sessions, and a lost share more than 10 points above the rest's |
+| Reconnects a host a day | at least 3, and more than twice the rest's |
+
+### Broadcast notices
+
+The written notice (ADR 0037), for many (`broadcasts.send`):
+
+- **To:** every renter, every host's owner, the people carrying a tag, or the owners whose agent runs a version in a
+  range.
+- **When:** at a time, in the app always and by email when asked.
+- **Approval:** every broadcast reaches many, so each is an approved request, as a notice to more than 20 people is.
+- **Sending:** claimed once when it's due, and each person is told once for it. It's logged with how many it reached,
+  never who by address. One not sent yet can be cancelled.
+
 ## Alternatives considered
 
 - **Flags in Valkey only**: fast, but Valkey holds only what may expire (ADR 0011) and is never in readiness. A restart
@@ -169,5 +218,7 @@ Every figure links to the list behind it.
 - A new `/v1` write is refused in maintenance unless it's marked open, and the test listing the open ones changes with
   it.
 - The flags' copy is per instance by design. Anything that must agree across instances reads the database.
+- The rollout's thresholds are first guesses with a handful of hosts; they are settings so they can be tuned with real
+  numbers.
 - Open question: whether Finance alone should be able to pause `payouts.send`. Today any holder of `flags.change` may
   pause any flag.

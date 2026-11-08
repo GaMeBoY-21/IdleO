@@ -18,4 +18,7 @@ public interface UserDirectory {
 
     /** What the user goes by, when they've said. */
     Optional<String> displayName(UUID userId);
+
+    /** Everyone whose account is active now, for a broadcast notice to renters (ADR 0056). */
+    java.util.List<UUID> activeUsers();
 }
