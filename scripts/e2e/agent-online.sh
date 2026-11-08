@@ -2477,19 +2477,19 @@ PY
   # audited.
   publish_test_release
   deadline=$((SECONDS + 30))
-  until [[ "$(sql "select percent || ':' || paused from hosts.agent_rollouts where release = '$release_version'")" == "5:f" ]]; do
+  until [[ "$(sql "select percent || ':' || paused from hosts.agent_rollouts where release = '$release_version'")" == "5:false" ]]; do
     ((SECONDS < deadline)) || fail "the release $release_version didn't start its rollout at 5%"
     sleep 1
   done
   version="$(sql "select version from hosts.agent_rollouts where release = '$release_version'")"
   admin_post --if-match "$version" "/admin/v1/rollouts/$release_version/widen" \
     '{"percent":25,"reason":"End-to-end: widen the rollout"}' >/dev/null || fail "widening the rollout failed"
-  [[ "$(sql "select percent || ':' || paused from hosts.agent_rollouts where release = '$release_version'")" == "25:f" ]] ||
+  [[ "$(sql "select percent || ':' || paused from hosts.agent_rollouts where release = '$release_version'")" == "25:false" ]] ||
     fail "the rollout didn't widen to 25% once approved"
   version="$(sql "select version from hosts.agent_rollouts where release = '$release_version'")"
   admin_post --if-match "$version" "/admin/v1/rollouts/$release_version/pause" '{"reason":"End-to-end: pause the rollout"}' \
     >/dev/null || fail "pausing the rollout failed"
-  [[ "$(sql "select percent || ':' || paused from hosts.agent_rollouts where release = '$release_version'")" == "25:t" ]] ||
+  [[ "$(sql "select percent || ':' || paused from hosts.agent_rollouts where release = '$release_version'")" == "25:true" ]] ||
     fail "the rollout didn't pause"
   [[ "$(sql "select string_agg(action, ',' order by seq) from identity.audit_log where target_type = 'rollout' and target_id = '$release_version'")" == \
     "rollout.start,rollout.widen,rollout.pause" ]] || fail "the rollout's steps weren't each audited"
