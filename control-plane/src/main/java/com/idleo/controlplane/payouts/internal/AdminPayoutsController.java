@@ -56,6 +56,7 @@ class AdminPayoutsController {
 
     /** The list, its filters, orders and CSV (ADR 0052). */
     static final AdminListing LIST = AdminListing.of("payouts", AdminPermission.PAYOUTS_READ, true)
+            .bulk("user", "user_id", "user_id", "'Payout ' || right(cast(id as text), 8)", "tag")
             .from("payouts.payouts")
             .sort("createdAt", AdminListing.Type.UUID, "id")
             .sort("net", AdminListing.Type.NUMBER, "net_paise")

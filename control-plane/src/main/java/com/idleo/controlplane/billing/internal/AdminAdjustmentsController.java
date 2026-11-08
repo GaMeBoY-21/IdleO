@@ -179,6 +179,7 @@ class AdminAdjustmentsController {
 
     /** The adjustments, their orders and CSV (ADR 0052). */
     static final AdminListing LIST = AdminListing.of("adjustments", AdminPermission.LEDGER_READ, false)
+            .noBulk("Its rows are money, and money is never bulk.")
             .from("billing.adjustments")
             .sort("createdAt", AdminListing.Type.UUID, "id")
             .sortedBy("createdAt", true)

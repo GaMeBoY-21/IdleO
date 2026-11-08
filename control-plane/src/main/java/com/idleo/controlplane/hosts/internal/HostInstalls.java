@@ -117,6 +117,7 @@ class HostInstalls {
 
     /** The installs, their filters, orders and CSV (ADR 0052). */
     static final AdminListing LIST = AdminListing.of("installs", AdminPermission.HOSTS_READ, true)
+            .noBulk("It's a record of what happened: nothing in it changes.")
             .from(STORIES)
             .id("install_id")
             .sort("openedAt", AdminListing.Type.TIME, "opened_at")

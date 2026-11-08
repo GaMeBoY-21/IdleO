@@ -68,6 +68,7 @@ GET /admin/v1/periods/{month},ledger.read,allow,403,403,403,allow,allow
 GET /admin/v1/personal-data/access-log,audit.read,allow,403,403,403,403,allow
 GET /admin/v1/queue,queues.read,allow,allow,allow,allow,allow,allow
 GET /admin/v1/queue/bulk,queues.read,allow,allow,allow,allow,allow,allow
+GET /admin/v1/queue/bulk/lists,queues.bulk,allow,allow,allow,allow,403,403
 GET /admin/v1/queue/bulk/{id},queues.read,allow,allow,allow,allow,allow,allow
 GET /admin/v1/queue/counts,queues.read,allow,allow,allow,allow,allow,allow
 GET /admin/v1/queue/macros,queues.read,allow,allow,allow,allow,allow,allow
@@ -93,6 +94,7 @@ GET /admin/v1/settlement-items,recon.read,allow,403,403,403,allow,allow
 GET /admin/v1/settlement-items/{id},recon.read,allow,403,403,403,allow,allow
 GET /admin/v1/settlements,recon.read,allow,403,403,403,allow,allow
 GET /admin/v1/settlements/{id},recon.read,allow,403,403,403,allow,allow
+GET /admin/v1/table-settings,self,allow,allow,allow,allow,allow,allow
 GET /admin/v1/tags,notes.read,allow,allow,allow,allow,allow,allow
 GET /admin/v1/tax/exports,tax.export,allow,403,403,403,allow,403
 GET /admin/v1/tickets,tickets.read,allow,allow,allow,allow,allow,allow
@@ -203,3 +205,4 @@ POST /admin/v1/users/{id}/exports,privacy.export,allow,403,allow,403,403,403
 POST /admin/v1/users/{id}/suspend,users.suspend,allow,allow,403,allow,403,403
 POST /admin/v1/users/{id}/unsuspend,users.unsuspend,allow,403,403,allow,403,403
 POST /admin/v1/views,self,allow,allow,allow,allow,allow,allow
+PUT /admin/v1/table-settings/{table},self,allow,allow,allow,allow,allow,allow

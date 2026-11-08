@@ -8,10 +8,13 @@ import com.idleo.controlplane.ApiProblem;
 import com.idleo.controlplane.IdGenerator;
 import com.idleo.controlplane.Problem;
 import com.idleo.controlplane.WorkQueue;
+import com.idleo.controlplane.identity.AdminAccess;
 import com.idleo.controlplane.identity.AuditTrail;
 import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.Instant;
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -28,7 +31,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * Bulk actions on the inbox (ADR 0053): a preview of exactly what each item will become, one batch that runs item by item
+ * Bulk actions (ADR 0053, ADR 0057), from the inbox or any list that allows them: a preview of exactly what each item will become, one batch that runs item by item
  * and reports each, and undo for what can be undone. The preview and the run share {@link #plan}, so a preview can't
  * promise what the run won't do. Money and any enforcement beyond a warning are never bulk: they aren't actions here.
  */
@@ -41,6 +44,9 @@ class BulkActions {
     static final Set<String> KINDS = Set.of("assign", "tag", "priority", "close", "macro", "warn");
 
     private static final Set<String> UNDOABLE = Set.of("assign", "tag", "priority", "close");
+
+    /** The list whose rows are this module's own items; every other list's rows come from its declaration. */
+    static final String INBOX = "inbox";
 
     /** The most one batch may hold: a file's worth of selections, far past anything a person reviews. */
     static final int MOST_ITEMS = 500;
@@ -99,6 +105,7 @@ class BulkActions {
 
     /** The batches, their orders and CSV (ADR 0052). */
     static final AdminListing LIST = AdminListing.of("bulk-actions", AdminPermission.QUEUES_READ, false)
+            .noBulk("It's a record of what happened: nothing in it changes.")
             .from("queues.bulk_batches")
             .sort("createdAt", AdminListing.Type.UUID, "id")
             .sortedBy("createdAt", true)
@@ -124,6 +131,8 @@ class BulkActions {
     private final QueueProperties properties;
     private final JsonMapper json;
     private final TransactionTemplate transactions;
+    private final List<AdminListing> listings;
+    private final AdminAccess access;
 
     BulkActions(
             JdbcClient jdbc,
@@ -138,7 +147,9 @@ class BulkActions {
             AuditTrail audit,
             QueueProperties properties,
             JsonMapper json,
-            PlatformTransactionManager transactionManager) {
+            PlatformTransactionManager transactionManager,
+            List<AdminListing> listings,
+            AdminAccess access) {
         this.jdbc = jdbc;
         this.items = items;
         this.macros = macros;
@@ -152,6 +163,71 @@ class BulkActions {
         this.properties = properties;
         this.json = json;
         this.transactions = new TransactionTemplate(transactionManager);
+        this.listings = listings;
+        this.access = access;
+    }
+
+    /** One list and what a bulk action may do from it, or why nothing may. */
+    record BulkList(
+            String list, List<String> actions, @Nullable String why) {}
+
+    /** Every list this admin can read, and what it allows. */
+    List<BulkList> lists(UUID admin) {
+        var held = access.permissions(admin);
+        return listings.stream()
+                .filter(listing -> held.contains(listing.permission()))
+                .sorted(java.util.Comparator.comparing(AdminListing::name))
+                .map(listing -> new BulkList(
+                        listing.name(), listing.bulkActions().stream().sorted().toList(), listing.noBulkBecause()))
+                .toList();
+    }
+
+    /** The list as asked, for an admin who can read it; a kind it doesn't allow is refused. */
+    private AdminListing listing(UUID admin, String list, BulkAsked action) {
+        var listing = listings.stream()
+                .filter(each -> each.name().equals(list))
+                .findFirst()
+                .filter(each -> access.permissions(admin).contains(each.permission()))
+                .orElseThrow(() -> ApiProblem.of(Problem.NOT_FOUND, "There's no such list."));
+        if (!listing.bulkActions().contains(action.kind())) {
+            throw ApiProblem.invalid(
+                    "kind",
+                    listing.noBulkBecause() != null
+                            ? listing.noBulkBecause()
+                            : "This list allows only: "
+                                    + String.join(
+                                            ", ",
+                                            listing.bulkActions().stream()
+                                                    .sorted()
+                                                    .toList())
+                                    + ".");
+        }
+        return listing;
+    }
+
+    private static final BulkShape NOT_TAGGED = new BulkShape(null, "", null, "", false);
+    private static final BulkShape TAGGED = new BulkShape(null, "", null, "", true);
+
+    /** What this action makes of this row of a list: only tag and warn reach here, whatever a list declares. */
+    private BulkChange plan(AdminListing.BulkTarget target, BulkAsked action) {
+        var carries = action.tag() != null && tagged.carries(target.kind(), target.subject(), action.tag());
+        var before = carries ? TAGGED : NOT_TAGGED;
+        return switch (action.kind()) {
+            case "tag" ->
+                carries
+                        ? new BulkChange(target.id(), target.title(), before, before, false, "It has this tag already.")
+                        : new BulkChange(target.id(), target.title(), before, TAGGED, true, null);
+            case "warn" -> new BulkChange(target.id(), target.title(), before, before, true, null);
+            default -> throw new IllegalStateException(action.kind());
+        };
+    }
+
+    private List<AdminListing.BulkTarget> targets(AdminListing listing, Collection<UUID> ids) {
+        var found = listing.bulkTargets(jdbc, ids);
+        if (found.size() != new HashSet<>(ids).size()) {
+            throw ApiProblem.of(Problem.NOT_FOUND, "Some of those aren't in this list.");
+        }
+        return found;
     }
 
     private void check(BulkAsked action) {
@@ -287,48 +363,71 @@ class BulkActions {
         return new BulkChange(row.id(), row.title(), before, after, why == null, why);
     }
 
-    private List<QueueItems.Row> rows(UUID admin, List<UUID> ids) {
+    private static void checkCount(List<UUID> ids) {
         if (ids.isEmpty() || ids.size() > MOST_ITEMS) {
             throw ApiProblem.invalid("items", "must be from 1 to " + MOST_ITEMS + " items.");
         }
+    }
+
+    private List<QueueItems.Row> rows(UUID admin, List<UUID> ids) {
+        checkCount(ids);
         return ids.stream().distinct().map(id -> items.visible(admin, id)).toList();
     }
 
     /** Exactly what each item will become, changing nothing. */
-    BulkPreview preview(UUID admin, List<UUID> ids, BulkAsked action) {
+    BulkPreview preview(UUID admin, String list, List<UUID> ids, BulkAsked action) {
         check(action);
-        var changes = rows(admin, ids).stream().map(row -> plan(row, action)).toList();
+        List<BulkChange> changes;
+        if (list.equals(INBOX)) {
+            changes = rows(admin, ids).stream().map(row -> plan(row, action)).toList();
+        } else {
+            var listing = listing(admin, list, action);
+            checkCount(ids);
+            changes = targets(listing, ids).stream()
+                    .map(target -> plan(target, action))
+                    .toList();
+        }
         var willChange = (int) changes.stream().filter(BulkChange::applies).count();
         return new BulkPreview(changes, willChange, changes.size() - willChange);
     }
 
     /** Queues a batch. Its items are checked now, each is planned again as it runs. */
-    UUID start(UUID admin, List<UUID> ids, BulkAsked action, String reason) {
+    UUID start(UUID admin, String list, List<UUID> ids, BulkAsked action, String reason) {
         check(action);
-        var rows = rows(admin, ids);
+        List<UUID> items;
+        if (list.equals(INBOX)) {
+            items = rows(admin, ids).stream().map(QueueItems.Row::id).toList();
+        } else {
+            checkCount(ids);
+            items = targets(listing(admin, list, action), ids).stream()
+                    .map(AdminListing.BulkTarget::id)
+                    .toList();
+        }
         var id = this.ids.newId();
         var now = Timestamp.from(clock.instant());
         transactions.executeWithoutResult(status -> {
             jdbc.sql("""
-                            insert into queues.bulk_batches (id, requested_by, action, reason, state, total, undoable, created_at)
-                            values (:id, :admin, cast(:action as jsonb), :reason, 'queued', :total, :undoable, :now)
+                            insert into queues.bulk_batches
+                                (id, requested_by, list, action, reason, state, total, undoable, created_at)
+                            values (:id, :admin, :list, cast(:action as jsonb), :reason, 'queued', :total, :undoable, :now)
                             """)
                     .param("id", id)
                     .param("admin", admin)
+                    .param("list", list)
                     .param("action", json.writeValueAsString(action))
                     .param("reason", reason)
-                    .param("total", rows.size())
+                    .param("total", items.size())
                     .param("undoable", UNDOABLE.contains(action.kind()))
                     .param("now", now)
                     .update();
             int position = 0;
-            for (var row : rows) {
+            for (var item : items) {
                 jdbc.sql("""
                                 insert into queues.bulk_items (batch_id, item_id, position, state)
                                 values (:batch, :item, :position, 'pending')
                                 """)
                         .param("batch", id)
-                        .param("item", row.id())
+                        .param("item", item)
                         .param("position", position++)
                         .update();
             }
@@ -339,7 +438,7 @@ class BulkActions {
                     id.toString(),
                     reason,
                     null,
-                    Map.of("kind", action.kind(), "items", rows.size())));
+                    Map.of("kind", action.kind(), "items", items.size(), "list", list)));
         });
         return id;
     }
@@ -355,10 +454,10 @@ class BulkActions {
 
     /** Runs whatever batch is waiting, or one left behind by an instance that stopped: its finished items stay finished. */
     void run() {
-        record Next(UUID id, UUID admin, String action, String reason) {}
+        record Next(UUID id, UUID admin, String list, String action, String reason) {}
         var now = clock.instant();
         var next = transactions.execute(status -> jdbc.sql("""
-                        select id, requested_by, action::text as action, reason from queues.bulk_batches
+                        select id, requested_by, list, action::text as action, reason from queues.bulk_batches
                         where state = 'queued' or (state = 'running' and heartbeat_at < :stale)
                         order by created_at limit 1 for update skip locked
                         """)
@@ -366,6 +465,7 @@ class BulkActions {
                 .query((rs, n) -> new Next(
                         rs.getObject("id", UUID.class),
                         rs.getObject("requested_by", UUID.class),
+                        rs.getString("list"),
                         rs.getString("action"),
                         rs.getString("reason")))
                 .optional()
@@ -385,7 +485,11 @@ class BulkActions {
                         select item_id from queues.bulk_items where batch_id = :batch and state = 'pending' order by position
                         """).param("batch", next.id()).query(UUID.class).list();
         for (var item : pending) {
-            one(next.id(), next.admin(), item, action, next.reason());
+            if (next.list().equals(INBOX)) {
+                one(next.id(), next.admin(), item, action, next.reason());
+            } else {
+                oneOfAList(next.id(), next.admin(), next.list(), item, action, next.reason());
+            }
             jdbc.sql("update queues.bulk_batches set heartbeat_at = :now where id = :id")
                     .param("now", Timestamp.from(clock.instant()))
                     .param("id", next.id())
@@ -418,6 +522,29 @@ class BulkActions {
             outcome(batch, id, "done", change.before(), shape(after, action), null);
         } catch (RuntimeException failed) {
             log.warn("Bulk action {} failed on item {}: {}", batch, id, failed.getMessage());
+            outcome(batch, id, "failed", null, null, failed.getMessage());
+        }
+    }
+
+    /** One row of a list, in its own transaction, planned again as it runs. */
+    private void oneOfAList(UUID batch, UUID admin, String list, UUID id, BulkAsked action, String reason) {
+        try {
+            var target = targets(listing(admin, list, action), List.of(id)).getFirst();
+            var change = plan(target, action);
+            if (!change.applies()) {
+                outcome(batch, id, "skipped", change.before(), change.before(), change.why());
+                return;
+            }
+            switch (action.kind()) {
+                case "tag" ->
+                    transactions.executeWithoutResult(status ->
+                            tagged.add(target.kind(), target.subject(), Objects.requireNonNull(action.tag()), admin));
+                case "warn" -> warnings.warn(target.person(), Objects.requireNonNull(action.template()), reason, admin);
+                default -> throw new IllegalStateException(action.kind());
+            }
+            outcome(batch, id, "done", change.before(), change.after(), null);
+        } catch (RuntimeException failed) {
+            log.warn("Bulk action {} failed on row {}: {}", batch, id, failed.getMessage());
             outcome(batch, id, "failed", null, null, failed.getMessage());
         }
     }
@@ -539,13 +666,28 @@ class BulkActions {
                     "It can be undone for only " + properties.undoWindow().toMinutes()
                             + " minutes, and that's passed.");
         }
+        var list = jdbc.sql("select list from queues.bulk_batches where id = :id")
+                .param("id", id)
+                .query(String.class)
+                .single();
         for (var outcome : outcomes(id)) {
             if (!"done".equals(outcome.state())) {
                 continue;
             }
             try {
-                var row = items.find(outcome.item()).orElseThrow();
-                revert(admin, row, batch.action(), Objects.requireNonNull(outcome.before()));
+                if (list.equals(INBOX)) {
+                    var row = items.find(outcome.item()).orElseThrow();
+                    revert(admin, row, batch.action(), Objects.requireNonNull(outcome.before()));
+                } else {
+                    // Of a list's actions, only a tag can be undone.
+                    var target = targets(listing(admin, list, batch.action()), List.of(outcome.item()))
+                            .getFirst();
+                    transactions.executeWithoutResult(status -> tagged.remove(
+                            target.kind(),
+                            target.subject(),
+                            Objects.requireNonNull(batch.action().tag()),
+                            admin));
+                }
                 jdbc.sql("update queues.bulk_items set state = 'undone' where batch_id = :batch and item_id = :item")
                         .param("batch", id)
                         .param("item", outcome.item())

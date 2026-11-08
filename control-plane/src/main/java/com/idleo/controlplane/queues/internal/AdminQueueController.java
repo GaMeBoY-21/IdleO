@@ -420,19 +420,35 @@ class AdminQueueController {
 
     // ---- Bulk actions.
 
+    /** {@code list} is the list the rows are from; none means the inbox. */
     record BulkRequest(
+            @Nullable String list,
             @NotEmpty @Size(max = BulkActions.MOST_ITEMS) List<UUID> items,
             @NotNull @Valid BulkActions.BulkAsked action) {}
+
+    private static String listOr(@Nullable String list) {
+        return list == null || list.isBlank() ? BulkActions.INBOX : list;
+    }
+
+    record AdminBulkLists(List<BulkActions.BulkList> lists) {}
+
+    /** Every list this admin can read, and what a bulk action may do from it, or why nothing may. */
+    @RequiresPermission(AdminPermission.QUEUES_BULK)
+    @GetMapping("/bulk/lists")
+    AdminBulkLists bulkLists(@AuthenticationPrincipal CurrentUser admin) {
+        return new AdminBulkLists(bulk.lists(admin.id()));
+    }
 
     /** Exactly what each item will become, with the counts. It changes nothing. */
     @RequiresPermission(AdminPermission.QUEUES_BULK)
     @PostMapping("/bulk/preview")
     BulkActions.BulkPreview preview(
             @AuthenticationPrincipal CurrentUser admin, @Valid @RequestBody BulkRequest request) {
-        return bulk.preview(admin.id(), request.items(), request.action());
+        return bulk.preview(admin.id(), listOr(request.list()), request.items(), request.action());
     }
 
     record BulkRun(
+            @Nullable String list,
             @NotEmpty @Size(max = BulkActions.MOST_ITEMS) List<UUID> items,
             @NotNull @Valid BulkActions.BulkAsked action,
             @NotBlank String confirm,
@@ -500,7 +516,8 @@ class AdminQueueController {
         if (!request.confirm().strip().equals(String.valueOf(count))) {
             throw ApiProblem.invalid("confirm", "must be the number of items, " + count + ".");
         }
-        bulk.preview(admin.id(), request.items(), request.action());
+        var list = listOr(request.list());
+        bulk.preview(admin.id(), list, request.items(), request.action());
         if (count > properties.mostItemsWithoutApproval()) {
             return approvals.submit(
                     admin,
@@ -509,12 +526,10 @@ class AdminQueueController {
                     null,
                     request,
                     List.of(new Approvals.ApprovalChange(
-                            count + " items of the inbox",
-                            null,
-                            request.action().kind())),
+                            count + " items of " + list, null, request.action().kind())),
                     request.reason());
         }
-        var id = bulk.start(admin.id(), request.items(), request.action(), request.reason());
+        var id = bulk.start(admin.id(), list, request.items(), request.action(), request.reason());
         return ResponseEntity.ok(view(bulk.find(admin.id(), id)));
     }
 
@@ -525,7 +540,12 @@ class AdminQueueController {
     Approvals.GatedAction bulkAction(JsonMapper json) {
         return Approvals.action(BULK, AdminPermission.QUEUES_BULK, Approvals.Cooling.ACCESS, run -> {
             var asked = json.treeToValue(run.params(), BulkRun.class);
-            bulk.start(Objects.requireNonNull(run.actor().userId()), asked.items(), asked.action(), run.reason());
+            bulk.start(
+                    Objects.requireNonNull(run.actor().userId()),
+                    listOr(asked.list()),
+                    asked.items(),
+                    asked.action(),
+                    run.reason());
         });
     }
 

@@ -67,6 +67,7 @@ class AdminSessionRecordsController {
 
     /** Everyone's live sessions, their orders and CSV (ADR 0052). */
     static final AdminListing LIST = AdminListing.of("admin-sessions", AdminPermission.ADMINS_MANAGE, true)
+            .noBulk("Who can do what is decided one person at a time.")
             .select("id, user_id, created_at, last_used_at, expires_at, ends_by, host(ip) as address, user_agent")
             .from("identity.admin_sessions")
             .always("ended_at is null")

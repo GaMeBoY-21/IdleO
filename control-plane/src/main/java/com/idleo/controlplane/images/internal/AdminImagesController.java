@@ -46,6 +46,7 @@ class AdminImagesController {
 
     /** The list, its filters, orders and CSV (ADR 0052). */
     static final AdminListing LIST = AdminListing.of("images", AdminPermission.IMAGES_READ, false)
+            .bulk("user", "user_id", "user_id", "'Image ' || right(cast(id as text), 8)", "tag", "warn")
             .from("images.images")
             .sort("createdAt", AdminListing.Type.UUID, "id")
             .sort("state", AdminListing.Type.TEXT, "state")

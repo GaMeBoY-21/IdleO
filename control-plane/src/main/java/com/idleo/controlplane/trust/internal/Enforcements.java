@@ -48,6 +48,7 @@ class Enforcements implements AccountLimits, AccountWarnings {
 
     /** What's been done to accounts, its filters, orders and CSV (ADR 0052). */
     static final AdminListing LIST = AdminListing.of("enforcements", AdminPermission.ENFORCEMENT_READ, true)
+            .noBulk("Enforcement beyond a warning is never bulk.")
             .select("e.*, t.title, t.clause, (a.id is not null) as appealed")
             .from("trust.enforcements e join trust.enforcement_templates t on t.id = e.template_id"
                     + " left join trust.appeals a on a.enforcement_id = e.id")

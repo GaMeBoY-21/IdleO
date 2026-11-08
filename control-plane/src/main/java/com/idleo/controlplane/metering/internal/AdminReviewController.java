@@ -75,6 +75,7 @@ class AdminReviewController {
 
     /** The minutes in review, their filters, orders and CSV (ADR 0052). The oldest is the next to decide. */
     static final AdminListing LIST = AdminListing.of("review-minutes", AdminPermission.REVIEW_READ, true)
+            .noBulk("Its rows are money, and money is never bulk.")
             .select("r.*, m.renter_id")
             .from("metering.review_minutes r join metering.metered_sessions m on m.session_id = r.session_id")
             .id("r.session_id::text || ':' || lpad(r.minute_index::text, 10, '0')", AdminListing.Type.TEXT)

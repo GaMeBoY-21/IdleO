@@ -129,6 +129,7 @@ class AdminRefundsController {
 
     /** The list, its filters, orders and CSV (ADR 0052). */
     static final AdminListing LIST = AdminListing.of("refunds", AdminPermission.REFUNDS_READ, true)
+            .bulk("user", "user_id", "user_id", "'Refund ' || right(cast(id as text), 8)", "tag")
             .from("billing.credit_refunds")
             .sort("requestedAt", AdminListing.Type.TIME, "requested_at")
             .sort("status", AdminListing.Type.TEXT, "status")

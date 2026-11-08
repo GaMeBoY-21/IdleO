@@ -248,6 +248,7 @@ class Pans implements VerifiedPans {
 
     /** PANs and how they stand, their filters, orders and CSV (ADR 0052). */
     static final AdminListing LIST = AdminListing.of("verification-pans", AdminPermission.VERIFICATIONS_READ, true)
+            .noBulk("Each is decided on its own, by a person who has read it.")
             .from("payouts.pans")
             .id("user_id")
             .sort("submittedAt", AdminListing.Type.TIME, "submitted_at")

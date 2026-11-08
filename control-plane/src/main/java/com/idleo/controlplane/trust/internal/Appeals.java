@@ -36,6 +36,7 @@ class Appeals {
 
     /** The appeals, their filters, orders and CSV (ADR 0052). */
     static final AdminListing LIST = AdminListing.of("appeals", AdminPermission.ENFORCEMENT_READ, true)
+            .noBulk("Each is decided on its own, by a person who has read it.")
             .from("trust.appeals")
             .sort("createdAt", AdminListing.Type.UUID, "id")
             .sort("state", AdminListing.Type.TEXT, "state")

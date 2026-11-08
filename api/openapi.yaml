@@ -4451,6 +4451,27 @@ paths:
         idToken: []
       tags:
       - adminQueue
+  /admin/v1/queue/bulk/lists:
+    get:
+      operationId: adminQueueBulkLists
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminBulkLists"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminQueue
   /admin/v1/queue/bulk/preview:
     post:
       operationId: adminQueuePreview
@@ -6256,6 +6277,62 @@ paths:
         idToken: []
       tags:
       - adminSettlements
+  /admin/v1/table-settings:
+    get:
+      operationId: adminTableSettingsMine
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminTableSettings"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminTableSettings
+  /admin/v1/table-settings/{table}:
+    put:
+      operationId: adminTableSettingsKeep
+      parameters:
+      - in: path
+        name: table
+        required: true
+        schema:
+          type: string
+          maxLength: 120
+          minLength: 0
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TableSettings"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TableSettings"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminTableSettings
   /admin/v1/tags:
     get:
       operationId: adminNotesVocabulary
@@ -10817,6 +10894,15 @@ components:
           - "null"
       required:
       - actions
+    AdminBulkLists:
+      type: object
+      properties:
+        lists:
+          type: array
+          items:
+            $ref: "#/components/schemas/BulkList"
+      required:
+      - lists
     AdminCaPack:
       type: object
       properties:
@@ -14997,6 +15083,15 @@ components:
           format: date-time
       required:
       - until
+    AdminTableSettings:
+      type: object
+      properties:
+        tables:
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/TableSettings"
+      required:
+      - tables
     AdminTag:
       type: object
       properties:
@@ -16044,6 +16139,22 @@ components:
       - before
       - item
       - title
+    BulkList:
+      type: object
+      properties:
+        actions:
+          type: array
+          items:
+            type: string
+        list:
+          type: string
+        why:
+          type:
+          - string
+          - "null"
+      required:
+      - actions
+      - list
     BulkOutcome:
       type: object
       properties:
@@ -16096,6 +16207,10 @@ components:
             format: uuid
           maxItems: 500
           minItems: 0
+        list:
+          type:
+          - string
+          - "null"
       required:
       - action
       - items
@@ -16114,6 +16229,10 @@ components:
             format: uuid
           maxItems: 500
           minItems: 0
+        list:
+          type:
+          - string
+          - "null"
         reason:
           type: string
           maxLength: 500
@@ -20192,6 +20311,37 @@ components:
           minLength: 5
       required:
       - reason
+    TableSettings:
+      type: object
+      properties:
+        density:
+          type: string
+        order:
+          type: array
+          items:
+            type: string
+            maxLength: 100
+            minLength: 0
+          maxItems: 60
+          minItems: 0
+        pinned:
+          type: array
+          items:
+            type: string
+            maxLength: 100
+            minLength: 0
+          maxItems: 60
+          minItems: 0
+        widths:
+          type: object
+          additionalProperties:
+            type: integer
+            format: int32
+      required:
+      - density
+      - order
+      - pinned
+      - widths
     TagDefinition:
       type: object
       properties:

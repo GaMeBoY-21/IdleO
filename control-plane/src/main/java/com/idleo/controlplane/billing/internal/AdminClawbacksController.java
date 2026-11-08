@@ -41,6 +41,7 @@ class AdminClawbacksController {
 
     /** The list, its filters, orders and CSV (ADR 0052). */
     static final AdminListing LIST = AdminListing.of("clawbacks", AdminPermission.CLAWBACKS_READ, false)
+            .bulk("user", "owner_id", "owner_id", "'Clawback ' || right(cast(id as text), 8)", "tag")
             .from("billing.clawbacks")
             .sort("createdAt", AdminListing.Type.UUID, "id")
             .sort("amount", AdminListing.Type.NUMBER, "amount_paise")

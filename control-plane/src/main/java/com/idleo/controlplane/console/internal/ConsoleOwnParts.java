@@ -83,6 +83,9 @@ class ConsoleOwnParts implements PersonalData {
         jdbc.sql("delete from console.saved_views where owner_id = :user")
                 .param("user", userId)
                 .update();
+        jdbc.sql("delete from console.table_settings where admin_id = :user")
+                .param("user", userId)
+                .update();
     }
 
     @Bean

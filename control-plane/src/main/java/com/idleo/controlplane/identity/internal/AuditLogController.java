@@ -39,6 +39,7 @@ class AuditLogController {
      * export.create} without a second admin (ADR 0051): an auditor's reading of the log doesn't wait on the people in it.
      */
     static final AdminListing LIST = AdminListing.of("audit", AdminPermission.AUDIT_READ, false)
+            .noBulk("It's a record of what happened: nothing in it changes.")
             .select("a.*, coalesce(u.email, a.actor_name) as shown_name, host(a.ip) as address")
             .from("identity.audit_log a left join identity.users u on u.id = a.actor_user_id")
             .id("a.id")

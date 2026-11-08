@@ -454,6 +454,7 @@ class PayoutMethods {
 
     /** UPI IDs and how they stand, their filters, orders and CSV (ADR 0052). */
     static final AdminListing LIST = AdminListing.of("verification-upi-ids", AdminPermission.VERIFICATIONS_READ, true)
+            .noBulk("Each is decided on its own, by a person who has read it.")
             .from("payouts.methods")
             .sort("checkedAt", AdminListing.Type.TIME, "checked_at")
             .sort("score", AdminListing.Type.NUMBER, "coalesce(name_match_score, -1)")

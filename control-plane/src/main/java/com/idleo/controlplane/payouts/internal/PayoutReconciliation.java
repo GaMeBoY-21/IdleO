@@ -424,6 +424,7 @@ class PayoutReconciliation {
 
     /** What's been found, its filters, orders and CSV (ADR 0052). */
     static final AdminListing MISMATCHES = AdminListing.of("payout-mismatches", AdminPermission.PAYOUTS_READ, true)
+            .noBulk("Its rows are money, and money is never bulk.")
             .from("payouts.mismatches")
             .sort("foundAt", AdminListing.Type.TIME, "found_at")
             .sort("kind", AdminListing.Type.TEXT, "kind")
