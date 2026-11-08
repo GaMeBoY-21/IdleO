@@ -46,21 +46,7 @@ export function Clawbacks() {
             ]}
           />
         </div>
-        <ListBar
-          list="clawbacks"
-          columns={[
-            "When",
-            "Host's owner",
-            "Session",
-            "Refunded",
-            "From balance",
-            "Owed",
-            "Recovered",
-            "",
-            "",
-          ]}
-          filters={{ state: "state" }}
-        />
+        <ListBar list="clawbacks" filters={{ state: "state" }} />
         <PagedView
           query={clawbacks}
           what="the clawbacks"
@@ -74,6 +60,7 @@ export function Clawbacks() {
           {(rows) => (
             <Table
               caption="Clawbacks"
+              list="clawbacks"
               sorts={{ When: "createdAt", Refunded: "amount" }}
               columns={[
                 "When",

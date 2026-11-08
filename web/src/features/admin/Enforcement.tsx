@@ -7,6 +7,7 @@ import { RelativeTime } from "@/components/ui/Time";
 import { formatDateTime } from "@/lib/time";
 import { ActionSheet } from "./ActionSheet";
 import { ADMIN, adminApi, adminData, type Schemas } from "./api";
+import { word } from "./words";
 import { ListBar } from "./Lists";
 import { useListParam, useListView } from "./listView";
 import { ActionButton, useCan } from "./permissions";
@@ -83,7 +84,7 @@ export function UserEnforcement({ id }: { id: string }) {
               Strikes that still count: {found.renterStrikes ?? 0} as a renter, {found.hostStrikes ?? 0} as a
               host.
             </p>
-            <Table caption="Steps taken" columns={STEP_COLUMNS}>
+            <Table caption="Steps taken" list="enforcements" columns={STEP_COLUMNS}>
               {found.enforcements.map((each) => (
                 <Row key={each.id}>
                   <Cell>
@@ -230,7 +231,7 @@ function AppealList() {
           ]}
         />
       </div>
-      <ListBar list="appeals" columns={APPEAL_COLUMNS} tags={false} extra={{ state }} />
+      <ListBar list="appeals" tags={false} extra={{ state }} />
       <PagedView
         query={appeals}
         what="the appeals"
@@ -238,7 +239,12 @@ function AppealList() {
         empty={<Empty title="No appeals here">A person appeals from the link we send with a decision.</Empty>}
       >
         {(rows) => (
-          <Table caption="Appeals" sorts={{ Sent: "createdAt", State: "state" }} columns={APPEAL_COLUMNS}>
+          <Table
+            caption="Appeals"
+            list="appeals"
+            sorts={{ Sent: "createdAt", State: "state" }}
+            columns={APPEAL_COLUMNS}
+          >
             {rows.map((appeal) => (
               <Row key={appeal.id}>
                 <Cell>
@@ -324,7 +330,7 @@ function AppealRecord({ id }: { id: string }) {
                     <Cell>{each.role}</Cell>
                     <Cell>{each.step}</Cell>
                     <Cell className="max-w-64">{each.reason ?? "—"}</Cell>
-                    <Cell>{each.state}</Cell>
+                    <Cell>{word(each.state)}</Cell>
                   </Row>
                 ))}
               </Table>

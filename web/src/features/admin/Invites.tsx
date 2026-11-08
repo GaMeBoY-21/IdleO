@@ -119,12 +119,7 @@ export function Invites() {
       />
       <Section title="Codes">
         <div className="flex flex-wrap gap-3">
-          <ListBar
-            list="invites"
-            tags={false}
-            columns={["For", "Made by", "Made", "Lapses", "Used by"]}
-            extra={used ? { used: String(used === "used") } : {}}
-          />
+          <ListBar list="invites" tags={false} extra={used ? { used: String(used === "used") } : {}} />
           <SmallSelect
             label="Show"
             value={used}
@@ -145,6 +140,7 @@ export function Invites() {
           {(rows) => (
             <Table
               caption="Invite codes"
+              list="invites"
               sorts={{ Made: "createdAt" }}
               columns={["For", "Made by", "Made", "Lapses", "Used by"]}
             >

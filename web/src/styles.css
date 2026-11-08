@@ -225,3 +225,16 @@
     transform: rotate(360deg);
   }
 }
+
+/* A long table of the admin console scrolls inside itself, so its sticky header stays in view (ADR 0057). */
+@utility admin-table-window {
+  max-height: calc(100dvh - 7rem);
+}
+
+/* Anything to press in a table is big enough for a thumb, even inline (WCAG 2.5.8; ADR 0057). */
+.admin-table a,
+.admin-table button {
+  display: inline-flex;
+  min-height: 1.5rem;
+  align-items: center;
+}

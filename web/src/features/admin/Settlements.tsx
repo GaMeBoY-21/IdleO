@@ -68,7 +68,7 @@ function SettlementList() {
         </ActionButton>
       }
     >
-      <ListBar list="settlements" columns={SETTLEMENT_COLUMNS} tags={false} />
+      <ListBar list="settlements" tags={false} />
       <PagedView
         query={settlements}
         what="the settlements"
@@ -81,7 +81,12 @@ function SettlementList() {
         }
       >
         {(rows) => (
-          <Table caption="Settlements" sorts={{ Settled: "settledAt" }} columns={SETTLEMENT_COLUMNS}>
+          <Table
+            caption="Settlements"
+            list="settlements"
+            sorts={{ Settled: "settledAt" }}
+            columns={SETTLEMENT_COLUMNS}
+          >
             {rows.map((settlement) => (
               <Row key={settlement.id}>
                 <Cell>
@@ -181,7 +186,7 @@ function Items() {
           ]}
         />
       </div>
-      <ListBar list="settlement-items" columns={ITEM_COLUMNS} tags={false} extra={state ? { state } : {}} />
+      <ListBar list="settlement-items" tags={false} extra={state ? { state } : {}} />
       <PagedView
         query={items}
         what="the settlement items"
@@ -193,7 +198,12 @@ function Items() {
         }
       >
         {(rows) => (
-          <Table caption="Settlement items" sorts={{ Found: "foundAt" }} columns={ITEM_COLUMNS}>
+          <Table
+            caption="Settlement items"
+            list="settlement-items"
+            sorts={{ Found: "foundAt" }}
+            columns={ITEM_COLUMNS}
+          >
             {rows.map((item) => (
               <Row key={item.id}>
                 <Cell>

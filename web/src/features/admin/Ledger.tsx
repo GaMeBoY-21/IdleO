@@ -4,6 +4,7 @@ import { Link, useSearch } from "wouter";
 import { Money as Paise } from "@/components/ui/Money";
 import { RelativeTime } from "@/components/ui/Time";
 import { ADMIN, adminApi, adminData } from "./api";
+import { word } from "./words";
 import { recordHref } from "./links";
 import {
   AdminPage,
@@ -115,7 +116,7 @@ function Chart() {
                     href={ledgerHref({ account: account.account, owner: chart.owner ?? undefined })}
                     className="underline"
                   >
-                    {account.account}
+                    {word(account.account)}
                   </Link>
                 </Cell>
                 <Cell>
@@ -179,7 +180,7 @@ function TrialBalance() {
                 .filter((row) => row.debitPaise !== 0 || row.creditPaise !== 0)
                 .map((row) => (
                   <Row key={row.account}>
-                    <Cell>{row.account}</Cell>
+                    <Cell>{word(row.account)}</Cell>
                     <Cell className="tabular">{row.debitPaise ? <Paise paise={row.debitPaise} /> : ""}</Cell>
                     <Cell className="tabular">
                       {row.creditPaise ? <Paise paise={row.creditPaise} /> : ""}
@@ -212,7 +213,7 @@ function Transaction({ txn }: { txn: string }) {
                   href={recordHref(transaction.source.page, transaction.source.pageId)}
                   className="underline"
                 >
-                  {transaction.source.refType}
+                  {word(transaction.source.refType)}
                 </Link>
               ) : (
                 transaction.source.refType
@@ -222,7 +223,7 @@ function Transaction({ txn }: { txn: string }) {
             <Table caption="Every leg of the transaction" columns={LEG_COLUMNS}>
               {transaction.legs.map((leg) => (
                 <Row key={leg.id}>
-                  <Cell>{leg.account}</Cell>
+                  <Cell>{word(leg.account)}</Cell>
                   <Cell>{leg.ownerId ? <Id value={leg.ownerId} page="user" /> : "—"}</Cell>
                   <Cell className="tabular">
                     {leg.direction === "debit" ? <Paise paise={leg.amountPaise} /> : ""}
@@ -287,7 +288,7 @@ function Entries({ initial }: { initial: EntryFilters }) {
         <SmallField label="From (ISO moment)" value={form.from} onChange={set("from")} />
         <SmallField label="To (ISO moment, not included)" value={form.to} onChange={set("to")} />
       </Filters>
-      {ready && <ListBar list="ledger" columns={ENTRY_COLUMNS} tags={false} extra={query} />}
+      {ready && <ListBar list="ledger" tags={false} extra={query} />}
       {ready ? (
         <PagedView
           query={entries}
@@ -298,6 +299,7 @@ function Entries({ initial }: { initial: EntryFilters }) {
           {(rows) => (
             <Table
               caption="Ledger entries"
+              list="ledger"
               sorts={{ When: "createdAt", Amount: "amount" }}
               columns={ENTRY_COLUMNS}
             >
@@ -311,14 +313,14 @@ function Entries({ initial }: { initial: EntryFilters }) {
                       <Id value={entry.txnId} />
                     </Link>
                   </Cell>
-                  <Cell>{entry.account}</Cell>
+                  <Cell>{word(entry.account)}</Cell>
                   <Cell>{entry.ownerId ? <Id value={entry.ownerId} page="user" /> : "—"}</Cell>
                   <Cell className="tabular">
                     {entry.direction === "debit" ? "−" : "+"}
                     <Paise paise={entry.amountPaise} />
                   </Cell>
                   <Cell>
-                    {entry.refType} <Id value={entry.refId} />
+                    {word(entry.refType)} <Id value={entry.refId} />
                   </Cell>
                 </Row>
               ))}

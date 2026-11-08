@@ -6,6 +6,7 @@ import { RelativeTime } from "@/components/ui/Time";
 import { formatDateTime } from "@/lib/time";
 import { ActionSheet } from "./ActionSheet";
 import { ADMIN, adminApi, adminData, type AdminPayout, type AdminPayoutMismatch } from "./api";
+import { word } from "./words";
 import {
   AdminPage,
   Cell,
@@ -197,7 +198,7 @@ function RunsAndPayouts() {
                   </Cell>
                   <Cell>
                     {run.failure ? (
-                      <span className="text-danger">{run.failure}</span>
+                      <span className="text-danger">{word(run.failure)}</span>
                     ) : run.finishedAt ? (
                       <RelativeTime value={run.finishedAt} />
                     ) : (
@@ -207,11 +208,7 @@ function RunsAndPayouts() {
                 </Row>
               ))}
             </Table>
-            <ListBar
-              list="payouts"
-              columns={["Made", "Host", "Kind", "Gross", "Tax", "Net", "Status", "RazorpayX", ""]}
-              filters={{ status: "status" }}
-            />
+            <ListBar list="payouts" filters={{ status: "status" }} />
             <PagedView
               query={list}
               what="the payouts"
@@ -225,6 +222,7 @@ function RunsAndPayouts() {
               {(rows) => (
                 <Table
                   caption="Payouts"
+                  list="payouts"
                   sorts={{ Made: "createdAt", Net: "net", Status: "status" }}
                   columns={["Made", "Host", "Kind", "Gross", "Tax", "Net", "Status", "RazorpayX", ""]}
                 >
@@ -300,7 +298,7 @@ function PayoutRow({ payout, onRetry }: { payout: AdminPayout; onRetry: () => vo
         <Pill tone={STATUS_TONE[payout.status] ?? "plain"}>{payout.status}</Pill>
         {(payout.statusDescription ?? payout.lastError) && (
           <span className="block text-caption text-text-2">
-            {payout.statusReason ? `${payout.statusReason}: ` : ""}
+            {payout.statusReason ? `${word(payout.statusReason ?? "")}: ` : ""}
             {payout.statusDescription ?? payout.lastError}
           </span>
         )}
@@ -426,7 +424,7 @@ function Reconciliation() {
                   <Cell className="tabular">{run.open ?? "—"}</Cell>
                   <Cell>
                     {run.failure ? (
-                      <span className="text-danger">{run.failure}</span>
+                      <span className="text-danger">{word(run.failure)}</span>
                     ) : run.finishedAt ? (
                       <RelativeTime value={run.finishedAt} />
                     ) : (
@@ -544,7 +542,7 @@ function Batch({ id }: { id: string }) {
               ],
             ]}
           />
-          <ListBar list="payout-batch-items" columns={BATCH_COLUMNS} tags={false} extra={{ batch: id }} />
+          <ListBar list="payout-batch-items" tags={false} extra={{ batch: id }} />
           <PagedView
             query={items}
             what="the batch's hosts"
@@ -552,7 +550,12 @@ function Batch({ id }: { id: string }) {
             empty={<Empty title="Nobody in this batch">No host has a checked UPI ID yet.</Empty>}
           >
             {(rows) => (
-              <Table caption="The batch's hosts" sorts={{ Net: "net" }} columns={BATCH_COLUMNS}>
+              <Table
+                caption="The batch's hosts"
+                list="payout-batch-items"
+                sorts={{ Net: "net" }}
+                columns={BATCH_COLUMNS}
+              >
                 {rows.map((item) => (
                   <Row key={item.userId}>
                     <Cell>

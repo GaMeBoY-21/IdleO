@@ -6,6 +6,7 @@ import { RelativeTime } from "@/components/ui/Time";
 import { formatPaise } from "@/lib/money";
 import { ActionSheet } from "./ActionSheet";
 import { ADMIN, adminApi, adminData, type AdminHost, type AdminScore, type AdminSelfTestStatus } from "./api";
+import { word } from "./words";
 import {
   AdminPage,
   BackLink,
@@ -70,11 +71,7 @@ function HostSearch() {
   });
   return (
     <AdminPage title="Hosts">
-      <ListBar
-        list="hosts"
-        columns={["Name", "Status", "Agent", "GPUs", "Owner", "Last seen", ""]}
-        filters={{ query: "query", status: "status" }}
-      />
+      <ListBar list="hosts" filters={{ query: "query", status: "status" }} />
       <Filters onSubmit={() => setAsked({ query: query.trim(), status })}>
         <SmallField label="Name, host id or owner id" value={query} onChange={setQuery} width="w-72" />
         <SmallSelect label="Status" value={status} onChange={setStatus} options={STATUSES} />
@@ -88,6 +85,7 @@ function HostSearch() {
         {(rows) => (
           <Table
             caption="Hosts"
+            list="hosts"
             sorts={{ Name: "name", Status: "status" }}
             columns={["Name", "Status", "Agent", "GPUs", "Owner", "Last seen", ""]}
           >
@@ -181,7 +179,7 @@ function SelfTestRun({ status }: { status: AdminSelfTestStatus | null }) {
       >
         {run.checks.map((check) => (
           <Row key={check.name}>
-            <Cell className="tabular">{check.name}</Cell>
+            <Cell className="tabular">{word(check.name)}</Cell>
             <Cell>{check.passed ? "passed" : "failed"}</Cell>
             <Cell>{check.detail}</Cell>
             <Cell className="tabular">{check.tookMs} ms</Cell>
@@ -411,7 +409,7 @@ function HostRecord({ id }: { id: string }) {
                 >
                   {found.selfTest.checks.map((check) => (
                     <Row key={check.name}>
-                      <Cell className="tabular">{check.name}</Cell>
+                      <Cell className="tabular">{word(check.name)}</Cell>
                       <Cell>{check.passed ? "passed" : "failed"}</Cell>
                       <Cell>{check.detail}</Cell>
                       <Cell className="tabular">{check.tookMs} ms</Cell>

@@ -4,6 +4,7 @@ import jsxA11y from "eslint-plugin-jsx-a11y";
 import reactHooks from "eslint-plugin-react-hooks";
 import globals from "globals";
 import tseslint from "typescript-eslint";
+import adminOneLook from "./eslint-rules/admin-one-look.js";
 import designTokens from "./eslint-rules/design-tokens.js";
 
 const SIGN_IN_SDKS = ["firebase", "firebase/*", "@firebase/*", "oidc-client-ts"];
@@ -38,12 +39,13 @@ export default defineConfig(
     plugins: {
       "react-hooks": reactHooks,
       "jsx-a11y": jsxA11y,
-      idleo: { rules: { "design-tokens": designTokens } },
+      idleo: { rules: { "design-tokens": designTokens, "admin-one-look": adminOneLook } },
     },
     rules: {
       ...reactHooks.configs.recommended.rules,
       ...jsxA11y.flatConfigs.strict.rules,
       "idleo/design-tokens": "error",
+      "idleo/admin-one-look": "error",
       // ADR 0018: the provider SDKs are used only inside src/auth/.
       "no-restricted-imports": [
         "error",

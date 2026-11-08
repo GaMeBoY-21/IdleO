@@ -56,7 +56,6 @@ export function Review() {
       </div>
       <ListBar
         list="review-minutes"
-        columns={COLUMNS}
         filters={{ state: "state" }}
         extra={state === "all" ? {} : { state }}
         tags={false}
@@ -76,6 +75,7 @@ export function Review() {
         {(rows) => (
           <Table
             caption="Minutes in review"
+            list="review-minutes"
             sorts={{ Minute: "minuteAt", Why: "reason", Queued: "queuedAt" }}
             columns={COLUMNS}
           >

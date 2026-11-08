@@ -1,6 +1,8 @@
 import type { UseInfiniteQueryResult, UseQueryResult } from "@tanstack/react-query";
-import { Children, createContext, useContext, useId, type ReactNode } from "react";
+import { Check, Copy } from "lucide-react";
+import { useId, useState, type ReactNode } from "react";
 import { Link } from "wouter";
+import { Banner } from "@/components/ui/Banner";
 import { Button } from "@/components/ui/Button";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { EmptyState, ErrorState, StaleNotice, staleSince } from "@/components/ui/States";
@@ -8,7 +10,11 @@ import { cn } from "@/lib/cn";
 import { formatDateTime } from "@/lib/time";
 import { useTitle } from "@/lib/title";
 import { recordHref } from "./links";
-import { useTableView } from "./listView";
+import { refusal } from "./ActionSheet";
+import { word } from "./words";
+
+export { Cell, Row, Table } from "./Table";
+export { ErrorState };
 
 /**
  * The console's building blocks (ADR 0027, ADR 0043): the same tokens as the app, but dense (smaller type, tighter
@@ -158,88 +164,13 @@ export function PagedView<P, T>({
   );
 }
 
+/** What went wrong, in the console's one way of saying it; nothing while there's no problem. */
+export function Problem({ error }: { error: unknown }) {
+  return error === null || error === undefined ? null : <Banner tone="danger">{refusal(error)}</Banner>;
+}
+
 export function Empty({ title, children }: { title: string; children: ReactNode }) {
   return <EmptyState title={title}>{children}</EmptyState>;
-}
-
-/**
- * A dense table: a caption for screen readers, column headers, and a divider between rows. It scrolls sideways on a
- * phone, and holds its screen-reader-only words, which are positioned, inside it, so they never widen the page.
- */
-const HiddenCells = createContext<ReadonlySet<number>>(new Set());
-
-export function Table({
-  caption,
-  columns,
-  sorts,
-  children,
-}: {
-  caption: string;
-  columns: string[];
-  /** A column's order on the server, by its heading: its header then sorts, and the address keeps it. */
-  sorts?: Record<string, string>;
-  children: ReactNode;
-}) {
-  const view = useTableView();
-  const hidden = new Set(columns.flatMap((column, index) => (view.hidden.has(column) ? [index] : [])));
-  return (
-    <div
-      className="relative overflow-x-auto rounded-panel border border-edge bg-panel px-3 py-1.5"
-      // a wide table scrolls; the keyboard must reach it
-      // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
-      tabIndex={0}
-      role="region"
-      aria-label={caption}
-    >
-      <table className="w-full min-w-max border-collapse text-small">
-        <caption className="sr-only">{caption}</caption>
-        <thead>
-          <tr className="border-b border-line text-left text-caption tracking-wider text-text-3 uppercase">
-            {columns.map((column, index) => {
-              if (hidden.has(index)) {
-                return null;
-              }
-              const key = sorts?.[column];
-              const now = key && view.sort?.startsWith(`${key}:`) ? view.sort.slice(key.length + 1) : null;
-              return (
-                <th
-                  key={`${column}-${index}`}
-                  scope="col"
-                  aria-sort={now === "asc" ? "ascending" : now === "desc" ? "descending" : undefined}
-                  className="px-2 py-2.5 font-semibold"
-                >
-                  {key ? (
-                    <button type="button" onClick={() => view.sortBy(key)} className="uppercase underline">
-                      {column}
-                      {now === "asc" ? " ↑" : now === "desc" ? " ↓" : ""}
-                    </button>
-                  ) : (
-                    column
-                  )}
-                </th>
-              );
-            })}
-          </tr>
-        </thead>
-        <HiddenCells.Provider value={hidden}>
-          <tbody>{children}</tbody>
-        </HiddenCells.Provider>
-      </table>
-    </div>
-  );
-}
-
-export function Row({ children, className }: { children: ReactNode; className?: string }) {
-  const hidden = useContext(HiddenCells);
-  return (
-    <tr className={cn("border-b border-line align-top last:border-b-0", className)}>
-      {hidden.size === 0 ? children : Children.toArray(children).filter((_, index) => !hidden.has(index))}
-    </tr>
-  );
-}
-
-export function Cell({ children, className }: { children: ReactNode; className?: string }) {
-  return <td className={cn("px-2 py-2", className)}>{children}</td>;
 }
 
 /** A row's link to its record: a 44 px target, like every control (web/DESIGN.md "Shapes and space"). */
@@ -280,7 +211,28 @@ export function Fields({ items }: { items: [string, ReactNode][] }) {
   );
 }
 
-/** An id, shortened to its last 8 characters for reading, whole in its title and for screen readers. */
+/** Copies an id with one click, and says it has. */
+function CopyId({ value }: { value: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      type="button"
+      aria-label={copied ? "Copied" : `Copy the id …${value.slice(-8)}`}
+      title="Copy the whole id"
+      onClick={() => {
+        void navigator.clipboard.writeText(value).then(() => {
+          setCopied(true);
+          setTimeout(() => setCopied(false), 1_500);
+        });
+      }}
+      className="ml-1 inline-flex min-h-6 min-w-6 items-center justify-center rounded-control align-middle text-text-3 hover:text-text"
+    >
+      {copied ? <Check aria-hidden="true" size={14} /> : <Copy aria-hidden="true" size={14} />}
+    </button>
+  );
+}
+
+/** An id, shortened to its last 8 characters for reading, whole in its title and for screen readers, copied in one click. */
 export function Id({ value, page, label }: { value: string; page?: string; label?: string }) {
   const shown = (
     <span className="tabular" title={value}>
@@ -288,12 +240,17 @@ export function Id({ value, page, label }: { value: string; page?: string; label
       {!label && <span className="sr-only">{value}</span>}
     </span>
   );
-  return page ? (
-    <Link href={recordHref(page, value)} className="inline-flex min-h-6 min-w-6 items-center underline">
-      {shown}
-    </Link>
-  ) : (
-    shown
+  return (
+    <span className="inline-flex items-center whitespace-nowrap">
+      {page ? (
+        <Link href={recordHref(page, value)} className="inline-flex min-h-6 min-w-6 items-center underline">
+          {shown}
+        </Link>
+      ) : (
+        shown
+      )}
+      <CopyId value={value} />
+    </span>
   );
 }
 
@@ -426,10 +383,10 @@ export function Timeline({
             {formatDateTime(event.at)}
           </time>
           <span className="font-medium">
-            {event.from ? `${event.from} → ` : ""}
-            {event.to}
+            {event.from ? `${word(event.from)} → ` : ""}
+            {word(event.to)}
           </span>
-          <span className="text-text-2">{event.reason}</span>
+          <span className="text-text-2">{word(event.reason)}</span>
         </li>
       ))}
     </ol>

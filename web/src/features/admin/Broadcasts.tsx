@@ -76,7 +76,7 @@ function BroadcastList() {
         }
       >
         {(rows) => (
-          <Table caption="Broadcasts" columns={["Subject", "To", "When", "State", ""]}>
+          <Table caption="Broadcasts" list="broadcasts" columns={["Subject", "To", "When", "State", ""]}>
             {rows.map((item) => (
               <Row key={item.id}>
                 <Cell>

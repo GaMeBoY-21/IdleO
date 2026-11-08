@@ -6,7 +6,19 @@ import { ADMIN, adminApi, adminData, type AuditStanding } from "./api";
 import { ActionButton } from "./permissions";
 import { ListBar } from "./Lists";
 import { ListScope, useListView } from "./listView";
-import { AdminPage, Cell, Empty, Filters, PagedView, Row, Section, SmallField, Table, QueryView } from "./ui";
+import {
+  AdminPage,
+  Cell,
+  Empty,
+  Filters,
+  PagedView,
+  Row,
+  Section,
+  SmallField,
+  Table,
+  QueryView,
+  Problem,
+} from "./ui";
 import { Reveal } from "./Reveal";
 
 const ACCESS_COLUMNS = ["When", "Admin", "Whose", "Field", "Why"];
@@ -73,7 +85,6 @@ export function Audit() {
       <Section title="Entries">
         <ListBar
           list="audit"
-          columns={columns}
           tags={false}
           extra={Object.fromEntries(
             Object.entries({
@@ -98,7 +109,12 @@ export function Audit() {
           }
         >
           {(rows) => (
-            <Table caption="Audit log" sorts={{ When: "createdAt", Action: "action" }} columns={columns}>
+            <Table
+              caption="Audit log"
+              list="audit"
+              sorts={{ When: "createdAt", Action: "action" }}
+              columns={columns}
+            >
               {rows.map((entry) => (
                 <Row key={entry.id}>
                   <Cell>
@@ -149,11 +165,15 @@ function Standing() {
     queryFn: () => adminData(adminApi.GET("/admin/v1/audit/standing")),
   });
   const [checking, setChecking] = useState(false);
+  const [problem, setProblem] = useState<unknown>(null);
   const check = async () => {
     setChecking(true);
+    setProblem(null);
     try {
       await adminData(adminApi.POST("/admin/v1/audit/verify"));
       await client.invalidateQueries({ queryKey: [ADMIN, "audit-standing"] });
+    } catch (failed) {
+      setProblem(failed);
     } finally {
       setChecking(false);
     }
@@ -167,6 +187,7 @@ function Standing() {
         </ActionButton>
       }
     >
+      <Problem error={problem} />
       <QueryView query={standing} what="how the audit log stands">
         {(found: AuditStanding) => (
           <div className="flex flex-col gap-2 text-small">
@@ -224,12 +245,7 @@ function AccessLog() {
       <Filters onSubmit={() => setAsked(subject.trim())}>
         <SmallField label="Person's id" value={subject} onChange={setSubject} width="w-72" />
       </Filters>
-      <ListBar
-        list="access-log"
-        columns={ACCESS_COLUMNS}
-        tags={false}
-        extra={asked ? { subject: asked } : {}}
-      />
+      <ListBar list="access-log" tags={false} extra={asked ? { subject: asked } : {}} />
       <PagedView
         query={entries}
         what="the access log"
@@ -241,7 +257,12 @@ function AccessLog() {
         }
       >
         {(rows) => (
-          <Table caption="Access log" sorts={{ When: "at", Field: "field" }} columns={ACCESS_COLUMNS}>
+          <Table
+            caption="Access log"
+            list="access-log"
+            sorts={{ When: "at", Field: "field" }}
+            columns={ACCESS_COLUMNS}
+          >
             {rows.map((entry) => (
               <Row key={entry.id}>
                 <Cell>

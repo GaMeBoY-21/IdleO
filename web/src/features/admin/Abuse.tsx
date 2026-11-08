@@ -92,11 +92,7 @@ function AbuseQueue() {
   return (
     <AdminPage title="Abuse">
       <div className="flex flex-wrap gap-3">
-        <ListBar
-          list="abuse"
-          columns={["Review", "State", "What was seen", "Renter", "Host", "Since", ""]}
-          extra={state === "all" ? {} : { state }}
-        />
+        <ListBar list="abuse" extra={state === "all" ? {} : { state }} />
         <SmallSelect
           label="Show"
           value={state}
@@ -123,6 +119,7 @@ function AbuseQueue() {
         {(rows) => (
           <Table
             caption="Abuse reviews"
+            list="abuse"
             sorts={{ Since: "createdAt", State: "state" }}
             columns={["Review", "State", "What was seen", "Renter", "Host", "Since", ""]}
           >
@@ -264,7 +261,7 @@ function WaitingBuilds() {
   const [removing, setRemoving] = useState<BlocklistAddition | null>(null);
   return (
     <Section title="Blocklist additions">
-      <ListBar list="blocklist-additions" columns={BUILD_COLUMNS} tags={false} />
+      <ListBar list="blocklist-additions" tags={false} />
       <QueryView
         query={additions}
         what="the blocklist additions"
@@ -278,6 +275,7 @@ function WaitingBuilds() {
         {(data) => (
           <Table
             caption="Blocklist additions"
+            list="blocklist-additions"
             sorts={{ Added: "createdAt", Name: "name" }}
             columns={BUILD_COLUMNS}
           >

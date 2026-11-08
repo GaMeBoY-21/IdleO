@@ -1,5 +1,5 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { Dialog } from "radix-ui";
+import { Sheet } from "./Sheet";
 import {
   createContext,
   useCallback,
@@ -129,12 +129,9 @@ export function PaletteProvider({
   return (
     <PageActions.Provider value={register}>
       <PaletteOpener.Provider value={() => setOpen(true)}>{children}</PaletteOpener.Provider>
-      <Dialog.Root open={open} onOpenChange={setOpen}>
-        <Dialog.Portal>
-          <Dialog.Overlay className="appear fixed inset-0 z-30 bg-primary opacity-40" />
-          {open && <PaletteBox screens={screens} pageActions={pageActions} close={() => setOpen(false)} />}
-        </Dialog.Portal>
-      </Dialog.Root>
+      <Sheet open={open} onOpenChange={setOpen} title="Search the console" titleHidden fullOnPhone>
+        {open && <PaletteBox screens={screens} pageActions={pageActions} close={() => setOpen(false)} />}
+      </Sheet>
     </PageActions.Provider>
   );
 }
@@ -253,12 +250,7 @@ function PaletteBox({
   const unanswered = searching ? (found.data?.unanswered ?? []) : [];
 
   return (
-    <Dialog.Content
-      data-tile=""
-      aria-describedby={undefined}
-      className="appear fixed inset-0 z-40 mx-auto flex max-w-narrow flex-col gap-3 bg-panel p-4 md:inset-x-4 md:top-1/6 md:bottom-auto md:max-h-2/3 md:rounded-panel md:border md:border-line"
-    >
-      <Dialog.Title className="sr-only">Search the console</Dialog.Title>
+    <>
       <input
         role="combobox"
         aria-expanded="true"
@@ -340,6 +332,6 @@ function PaletteBox({
           ))
         )}
       </div>
-    </Dialog.Content>
+    </>
   );
 }

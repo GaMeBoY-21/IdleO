@@ -2,13 +2,12 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
 import { data } from "@/api/client";
 import { ApiError } from "@/api/errors";
-import { Banner } from "@/components/ui/Banner";
 import { Button } from "@/components/ui/Button";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { ErrorState } from "@/components/ui/States";
 import { NotFound } from "@/pages/NotFound";
 import { useTitle } from "@/lib/title";
-import { refusal } from "./ActionSheet";
+import { ErrorState } from "./ui";
+import { Problem } from "./ui";
 import { ADMIN, adminApi, adminSession, whenNotFound } from "./api";
 import { CodeField } from "./CodeField";
 import { PermissionsProvider } from "./permissions";
@@ -197,7 +196,7 @@ function Enrol() {
           onChange={setCode}
           error={touched && !isTotp(code) ? "Type the 6 digits your app shows." : null}
         />
-        {error !== null && <Banner tone="danger">{refusal(error)}</Banner>}
+        <Problem error={error} />
         <Button type="submit" large block busy={busy} disabled={secret.data === undefined}>
           Confirm
         </Button>
@@ -257,7 +256,7 @@ function Check({ passkeys }: { passkeys: number }) {
   if (usePasskey) {
     return (
       <GateFrame title="Admin sign-in">
-        {error !== null && <Banner tone="danger">{refusal(error)}</Banner>}
+        <Problem error={error} />
         <Button large block busy={busy} onClick={() => void signInWithPasskey()}>
           Use my passkey
         </Button>
@@ -289,7 +288,7 @@ function Check({ passkeys }: { passkeys: number }) {
               : null
           }
         />
-        {error !== null && <Banner tone="danger">{refusal(error)}</Banner>}
+        <Problem error={error} />
         <Button type="submit" large block busy={busy}>
           Continue
         </Button>

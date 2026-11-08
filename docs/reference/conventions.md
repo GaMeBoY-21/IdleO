@@ -149,6 +149,12 @@ Gated actions go through `Approvals.submit`, and each kind is a `GatedAction` be
 
 In the console, an action's button is `ActionButton` with its permission, a section that needs another one reads it through `useCan`, and an action goes through `ActionSheet` with its `record`, and `typed` when it can't be undone. `adminFetch` in `api.ts` adds the key and the version, and answers a step-up in place. A file an admin receives is an approved export or `shownOnce`.
 
+## The console's finish (ADR 0057)
+
+A list's `Table` takes the server's name as `list`, and gets everything by itself: columns that resize, reorder and pin, a density, a sticky header, sorting by up to three columns (Shift-click, `AdminListing`'s `sort=a:asc,b:desc`), j/k/x/X/Enter, windowing from 100 rows and, when the list allows them, bulk actions. A `Row`'s React `key` is its record's id: that is what a bulk action acts on. An `AdminListing` declares `.bulk(...)` or `.noBulk(why)` and won't build without one; `BulkFromAnyListTests` names exactly what each list allows, money is never bulk, and enforcement goes no further than a warning.
+
+A screen's own keys are `useScreenKeys`; `?` lists them, with the screen's runbook from `runbooks.ts` (a test checks every screen has one and the file exists). A dialog is `Sheet` or `ActionSheet`, a problem is `Problem`, a code on a screen goes through `word` (`words.ts`): `idleo/admin-one-look` fails lint on a screen's own dialog or error state, `finish.test.tsx` fails on a code the database allows that has no words, and every console browser test fails on a code it sees on the page (`codesShown`). `scripts/e2e/console-budgets.sh` measures every screen on the seeded data, weekly.
+
 ## Work queues (ADR 0053)
 
 The console's one inbox is the `queues` module. Work that waits for an admin is a `WorkQueue` bean in the module that owns it, reading its own tables; a kind that answers people implements `reply` and `status`. `QueueSync` is the one writer of timers and priority, and `QueueTimers` the one place they're worked out, with nothing read or written, so a controlled clock can test each case. A target is a row of `queues.sla_targets`. A bulk action's kinds are `BulkActions.KINDS`, and `plan` is what both the preview and the run do: money and enforcement beyond a warning are never added there. The ladder is `Enforcements` in `trust`: a limit is read through the kernel's `AccountLimits` by the module it's about, and anything told to the person is announced in the step's transaction (`AdminNoticed`).

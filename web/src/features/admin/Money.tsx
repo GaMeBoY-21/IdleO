@@ -50,7 +50,7 @@ function Reconciliation() {
         </ActionButton>
       }
     >
-      <ListBar list="wallet-reconciliation" columns={RUN_COLUMNS} tags={false} />
+      <ListBar list="wallet-reconciliation" tags={false} />
       <QueryView
         query={runs}
         what="the reconciliation runs"
@@ -64,6 +64,7 @@ function Reconciliation() {
         {(list) => (
           <Table
             caption="Reconciliation runs"
+            list="wallet-reconciliation"
             sorts={{ Finished: "finishedAt", Mismatches: "mismatches" }}
             columns={RUN_COLUMNS}
           >
