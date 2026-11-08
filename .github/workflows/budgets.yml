@@ -3,6 +3,8 @@ name: budgets
 # The console's budgets (ADR 0052), on the seeded data: 100k users, 2k hosts, 1M sessions, 300k payments. The search box
 # under 150 ms, a busy person's timeline under 300 ms, and a list's page under 200 ms, each at p95 on the server. Seeding
 # makes it too slow for every change, so it's weekly and by hand, and it isn't a required check. It prints every figure.
+# The second job is the same data in a real browser (ADR 0057): each screen painted within 1 s, a sort or filter within
+# 200 ms.
 on:
   schedule:
     - cron: "23 4 * * 2"
@@ -37,6 +39,45 @@ jobs:
         uses: ./.github/actions/report-suite
         with:
           suite: budgets
+          status: ${{ job.status }}
+          endpoint: ${{ secrets.GRAFANA_CLOUD_OTLP_ENDPOINT }}
+          authorization: ${{ secrets.GRAFANA_CLOUD_OTLP_AUTHORIZATION }}
+
+  screens:
+    name: console screens
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: "25"
+          cache: maven
+          cache-dependency-path: control-plane/pom.xml
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+        with:
+          package_json_file: web/package.json
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: web/.node-version
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+      - name: Install Playwright's browser and its system libraries
+        run: scripts/e2e/install-browser.sh
+      - uses: ./.github/actions/wal-g
+      - name: Every screen on the seeded data
+        run: scripts/e2e/console-budgets.sh
+      - if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: console-budgets
+          path: private/console-budgets/report.json
+          if-no-files-found: ignore
+      - if: always()
+        uses: ./.github/actions/report-suite
+        with:
+          suite: console-screens
           status: ${{ job.status }}
           endpoint: ${{ secrets.GRAFANA_CLOUD_OTLP_ENDPOINT }}
           authorization: ${{ secrets.GRAFANA_CLOUD_OTLP_AUTHORIZATION }}
