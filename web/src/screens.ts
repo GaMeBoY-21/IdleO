@@ -42,6 +42,7 @@ export const SCREENS: Record<string, string | null> = {
   "/admin/appeals/": "src/features/admin/AdminConsole.tsx",
   "/admin/users/": "src/features/admin/AdminConsole.tsx",
   "/admin/hosts/": "src/features/admin/AdminConsole.tsx",
+  "/admin/fleet/": "src/features/admin/AdminConsole.tsx",
   "/admin/sessions/": "src/features/admin/AdminConsole.tsx",
   "/admin/review/": "src/features/admin/AdminConsole.tsx",
   "/admin/disputes/": "src/features/admin/AdminConsole.tsx",

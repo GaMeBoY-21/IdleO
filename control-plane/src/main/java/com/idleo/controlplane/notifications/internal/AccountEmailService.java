@@ -23,6 +23,16 @@ class AccountEmailService implements AccountEmails {
     }
 
     @Override
+    public void announce(UUID userId, String dedupeKey, String title, String body, String link, boolean email) {
+        var message = new Message(title, body, link);
+        if (email) {
+            notifier.tell(userId, NotificationKind.ACCOUNT_AND_DATA, dedupeKey, message);
+        } else {
+            notifier.tellInApp(userId, NotificationKind.ACCOUNT_AND_DATA, dedupeKey, message);
+        }
+    }
+
+    @Override
     public void sendOnce(String to, UUID messageId, String title, String body, String link) {
         sender.send(content.direct(to, new Message(title, body, link), messageId));
     }

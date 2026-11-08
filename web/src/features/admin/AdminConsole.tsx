@@ -8,6 +8,7 @@ import { Approvals } from "./Approvals";
 import { Audit } from "./Audit";
 import { Dashboard } from "./Dashboard";
 import { Flags } from "./Flags";
+import { Fleet } from "./Fleet";
 import { Abuse } from "./Abuse";
 import { Chargebacks } from "./Chargebacks";
 import { Disputes } from "./Disputes";
@@ -48,6 +49,7 @@ export const ADMIN_SCREENS = [
   { href: "/admin/inbox/", label: "Inbox", needs: "queues.read" },
   { href: "/admin/users/", label: "Users", needs: "users.read" },
   { href: "/admin/hosts/", label: "Hosts", needs: "hosts.read" },
+  { href: "/admin/fleet/", label: "Fleet", needs: "fleet.read" },
   { href: "/admin/sessions/", label: "Sessions", needs: "sessions.read" },
   { href: "/admin/review/", label: "Review queue", needs: "review.read" },
   { href: "/admin/disputes/", label: "Reports", needs: "disputes.read" },
@@ -92,6 +94,7 @@ export function AdminConsole() {
             <Route path="/admin/">{guarded("/admin/", <Dashboard />)}</Route>
             <Route path="/admin/users/">{guarded("/admin/users/", <Users />)}</Route>
             <Route path="/admin/hosts/">{guarded("/admin/hosts/", <Hosts />)}</Route>
+            <Route path="/admin/fleet/">{guarded("/admin/fleet/", <Fleet />)}</Route>
             <Route path="/admin/sessions/">{guarded("/admin/sessions/", <Sessions />)}</Route>
             <Route path="/admin/review/">{guarded("/admin/review/", <Review />)}</Route>
             <Route path="/admin/disputes/">{guarded("/admin/disputes/", <Disputes />)}</Route>
@@ -131,7 +134,14 @@ export function AdminConsole() {
 const GROUPS: { label: string; hrefs: readonly string[] }[] = [
   {
     label: "Overview",
-    hrefs: ["/admin/", "/admin/inbox/", "/admin/users/", "/admin/hosts/", "/admin/sessions/"],
+    hrefs: [
+      "/admin/",
+      "/admin/inbox/",
+      "/admin/users/",
+      "/admin/hosts/",
+      "/admin/fleet/",
+      "/admin/sessions/",
+    ],
   },
   {
     label: "Safety",

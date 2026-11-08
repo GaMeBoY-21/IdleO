@@ -19,6 +19,10 @@ class SupportAdminRecords implements AdminRecords {
 
     @Override
     public Map<String, Function<Map<String, String>, OptionalLong>> versions() {
-        return Map.of("ticket", AdminRecords.byId(jdbc, "id", "select version from support.tickets where id = :id"));
+        return Map.of(
+                "ticket",
+                AdminRecords.byId(jdbc, "id", "select version from support.tickets where id = :id"),
+                "broadcast",
+                AdminRecords.byId(jdbc, "id", "select version from support.broadcasts where id = :id"));
     }
 }

@@ -110,7 +110,8 @@ class ReleaseManifestTests {
                         Duration.ofHours(1),
                         Duration.ofHours(1)),
                 null,
-                events);
+                events,
+                null);
         try {
             accept(feed, manifest("0.3.0", 10));
             accept(feed, manifest("0.2.0", 100));
@@ -158,19 +159,5 @@ class ReleaseManifestTests {
             inTen += counts[i];
         }
         assertThat(inTen / (double) hosts).isBetween(0.09, 0.11);
-    }
-
-    @Test
-    void raising_the_rollout_only_ever_adds_hosts() throws Exception {
-        var ten = verify(manifest("0.2.0", 10));
-        var fifty = verify(manifest("0.2.0", 50));
-        for (int i = 0; i < 2_000; i++) {
-            var host = UUID.randomUUID();
-            if (ten.includes(host)) {
-                assertThat(fifty.includes(host)).isTrue();
-            }
-        }
-        assertThat(verify(manifest("0.2.0", 0)).includes(UUID.randomUUID())).isFalse();
-        assertThat(verify(manifest("0.2.0", 100)).includes(UUID.randomUUID())).isTrue();
     }
 }

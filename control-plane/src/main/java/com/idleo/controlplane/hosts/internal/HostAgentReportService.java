@@ -145,9 +145,11 @@ class HostAgentReportService implements HostAgentReports {
     public void recordHello(UUID hostId, AgentHello hello) {
         var now = Timestamp.from(Instant.now(clock));
         jdbc.sql("""
-                        update hosts.hosts set os = :os, agent_version = :agentVersion, last_seen_at = :now
+                        update hosts.hosts set os = :os, agent_version = :agentVersion, last_seen_at = :now,
+                            blocklist_version = nullif(:blocklist, '')
                         where id = :hostId
                         """)
+                .param("blocklist", hello.blocklistVersion())
                 .param("os", hello.os())
                 .param("agentVersion", hello.agentVersion())
                 .param("now", now)

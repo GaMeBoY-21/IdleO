@@ -2471,6 +2471,29 @@ PY
   curl -sf -X PUT "$api/v1/wallet/billing-details" -H "Authorization: Bearer $buyer_token" -H 'Content-Type: application/json' \
     -d '{"stateCode":"29"}' >/dev/null || fail "a write after maintenance still failed"
   note "maintenance: on, a write got 503 with Retry-After while Razorpay's webhook for a payment made then credited the top-up; off again, writes work: PASS"
+
+  # 10. A staged rollout (ADR 0056). The signed test release (older than every agent here, so none takes it) is cached
+  # by the feed and starts at 5% of hosts; widened to 25% by an approved request, then paused at once. Each step is
+  # audited.
+  publish_test_release
+  deadline=$((SECONDS + 30))
+  until [[ "$(sql "select percent || ':' || paused from hosts.agent_rollouts where release = '$release_version'")" == "5:f" ]]; do
+    ((SECONDS < deadline)) || fail "the release $release_version didn't start its rollout at 5%"
+    sleep 1
+  done
+  version="$(sql "select version from hosts.agent_rollouts where release = '$release_version'")"
+  admin_post --if-match "$version" "/admin/v1/rollouts/$release_version/widen" \
+    '{"percent":25,"reason":"End-to-end: widen the rollout"}' >/dev/null || fail "widening the rollout failed"
+  [[ "$(sql "select percent || ':' || paused from hosts.agent_rollouts where release = '$release_version'")" == "25:f" ]] ||
+    fail "the rollout didn't widen to 25% once approved"
+  version="$(sql "select version from hosts.agent_rollouts where release = '$release_version'")"
+  admin_post --if-match "$version" "/admin/v1/rollouts/$release_version/pause" '{"reason":"End-to-end: pause the rollout"}' \
+    >/dev/null || fail "pausing the rollout failed"
+  [[ "$(sql "select percent || ':' || paused from hosts.agent_rollouts where release = '$release_version'")" == "25:t" ]] ||
+    fail "the rollout didn't pause"
+  [[ "$(sql "select string_agg(action, ',' order by seq) from identity.audit_log where target_type = 'rollout' and target_id = '$release_version'")" == \
+    "rollout.start,rollout.widen,rollout.pause" ]] || fail "the rollout's steps weren't each audited"
+  note "rollout: the signed release $release_version started at 5% of hosts, widened to 25% with the approver's approval, then paused at once, each step audited: PASS"
 }
 scenario="payouts"
 : >"$out/summary-payouts.txt"

@@ -89,6 +89,10 @@ const routes = (overrides: Record<string, Answer> = {}): Record<string, Answer> 
   "/admin/v1/adjustments": { json: admin.adjustments },
   "/admin/v1/periods": { json: admin.periods },
   "/admin/v1/flags": { json: admin.flags },
+  "/admin/v1/rollouts": { json: admin.rollouts },
+  "/admin/v1/fleet/summary": { json: admin.fleetSummary },
+  "/admin/v1/fleet": { json: admin.fleet },
+  "/admin/v1/broadcasts": { json: admin.broadcasts },
   "/admin/v1/money/report": { json: admin.moneyReport },
   "/admin/v1/money/liabilities": { json: admin.liabilities },
   "/admin/v1/settlements": { json: admin.settlements },
@@ -211,7 +215,7 @@ test.describe("the console", () => {
   }, info) => {
     await open(page, "/admin/");
     await expect(page.getByRole("heading", { level: 1, name: "Control room" })).toBeVisible();
-    await expect(page.getByRole("navigation", { name: "Admin" }).getByRole("link")).toHaveCount(31);
+    await expect(page.getByRole("navigation", { name: "Admin" }).getByRole("link")).toHaveCount(32);
     await expect(page.getByRole("table", { name: "Money, tied to the ledger" })).toContainText("₹3,100");
     const now = page.getByRole("list", { name: "The marketplace now" }).getByRole("listitem");
     await expect(now.filter({ hasText: "Sessions running" })).toContainText(
@@ -1109,6 +1113,83 @@ test.describe("the console", () => {
     await again.getByRole("button", { name: "Ask to run again" }).click();
     await expectAccessible(page);
     await capture(page, info, "admin-flags");
+  });
+
+  test("shows the fleet and its rollouts, pauses one at once and asks to widen another", async ({
+    page,
+  }, info) => {
+    const asked: unknown[] = [];
+    await open(page, "/admin/fleet/", {
+      "/admin/v1/rollouts/0.4.0/pause": (_call, request) => {
+        asked.push(request.postDataJSON());
+        return { json: admin.rollouts };
+      },
+      "/admin/v1/rollouts/0.3.9/widen": (_call, request) => {
+        asked.push(request.postDataJSON());
+        return { json: admin.approvals.requests[0], status: 202 };
+      },
+    });
+    const rollouts = page.getByRole("table", { name: "Rollouts" });
+    await expect(rollouts).toContainText("paused by itself");
+    await expect(page.getByRole("table", { name: "Agent versions" })).toContainText("0.3.9");
+    await expect(page.getByRole("table", { name: "The fleet's hosts" })).toContainText("behind");
+    await rollouts
+      .getByRole("row", { name: /0\.4\.0/ })
+      .getByRole("button", { name: "Pause" })
+      .click();
+    const pause = page.getByRole("dialog", { name: "Pause 0.4.0?" });
+    await pause.getByLabel("Reason").fill("crashes on the new driver");
+    await pause.getByRole("button", { name: "Pause now" }).click();
+    await expect(pause).toHaveCount(0);
+    await rollouts
+      .getByRole("row", { name: /0\.3\.9/ })
+      .getByRole("button", { name: "Run again" })
+      .click();
+    const widen = page.getByRole("dialog", { name: "Widen 0.3.9?" });
+    await widen.getByLabel("Share of hosts").selectOption("25");
+    await widen.getByLabel("Reason").fill("the reconnect bug is fixed");
+    await widen.getByRole("button", { name: "Ask to widen" }).click();
+    await expect.poll(() => asked.length).toBe(2);
+    expect(asked).toEqual([
+      { reason: "crashes on the new driver" },
+      { reason: "the reconnect bug is fixed", percent: 25 },
+    ]);
+    await expectAccessible(page);
+    await capture(page, info, "admin-fleet");
+  });
+
+  test("lists broadcasts and asks to send one to an agent-version range", async ({ page }, info) => {
+    let sent: unknown = null;
+    await open(page, "/admin/notices/", {
+      "/admin/v1/broadcasts": (_call, request) => {
+        if (request.method() === "POST") {
+          sent = request.postDataJSON();
+          return { json: admin.approvals.requests[0], status: 202 };
+        }
+        return { json: admin.broadcasts };
+      },
+    });
+    await expect(page.getByRole("table", { name: "Broadcasts" })).toContainText(
+      "Please update the IdleO app",
+    );
+    await page.getByRole("button", { name: "Write a broadcast" }).click();
+    const sheet = page.getByRole("dialog", { name: "Write a broadcast" });
+    await sheet.getByLabel("Subject").fill("Update your app");
+    await sheet.getByLabel("Words").fill("Version 0.4.0 fixes the reconnects.");
+    await sheet.getByLabel("To", { exact: true }).selectOption("AGENT_VERSIONS");
+    await sheet.getByLabel("From version").fill("0.3.0");
+    await sheet.getByLabel("To version").fill("0.3.9");
+    await sheet.getByLabel("Reason").fill("the old agents reconnect too often");
+    await sheet.getByRole("button", { name: "Ask to send" }).click();
+    await expect.poll(() => sent).not.toBeNull();
+    expect(sent).toMatchObject({
+      audience: "AGENT_VERSIONS",
+      minAgentVersion: "0.3.0",
+      maxAgentVersion: "0.3.9",
+      email: false,
+    });
+    await expectAccessible(page);
+    await capture(page, info, "admin-broadcasts");
   });
 
   test("reads the audit log", async ({ page }, info) => {

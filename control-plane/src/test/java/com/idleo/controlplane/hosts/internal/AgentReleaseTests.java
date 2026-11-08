@@ -11,6 +11,7 @@ import com.idleo.controlplane.TestAgent;
 import com.idleo.controlplane.TestHosts;
 import com.idleo.controlplane.TestReleaseKeys;
 import com.idleo.controlplane.TestStorageConfiguration;
+import com.idleo.controlplane.identity.AuditTrail;
 import gpu.agent.v1.AgentGateway.OpenStreamResponse;
 import gpu.agent.v1.Host.HostState;
 import gpu.agent.v1.Host.UpdateResult;
@@ -65,6 +66,9 @@ class AgentReleaseTests {
 
     @Autowired
     AgentReleaseFeed feed;
+
+    @Autowired
+    AgentRollouts rollouts;
 
     @Autowired
     TestStorageConfiguration.StorageContainer storage;
@@ -197,7 +201,9 @@ class AgentReleaseTests {
         assertThat(host.stream().receives(OpenStreamResponse::hasUpdateAgent, Duration.ofSeconds(2)))
                 .isFalse();
 
-        // The same version re-signed at 100%: offered at once to the connected agent, with the manifest as signed.
+        // The same version re-signed at 100%, and its staged rollout widened to every host (ADR 0056; it started at
+        // 5%): offered at once to the connected agent, with the manifest as signed.
+        rollouts.widen(VERSION, 100, "the tests widen it to every host", AuditTrail.Actor.system("tests"));
         publish(VERSION, 100, true);
         var update =
                 host.stream().await(OpenStreamResponse::hasUpdateAgent, WAIT).getUpdateAgent();

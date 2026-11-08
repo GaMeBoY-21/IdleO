@@ -14,6 +14,11 @@ class HostsListings {
     }
 
     @Bean
+    AdminListing fleetListing() {
+        return AdminFleetController.LIST;
+    }
+
+    @Bean
     AdminListing installsListing() {
         return HostInstalls.LIST;
     }

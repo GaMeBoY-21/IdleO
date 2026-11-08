@@ -89,6 +89,38 @@ class HostService implements HostOwners, HostGpus {
                 .toList();
     }
 
+    @Override
+    public List<UUID> ownersRunning(
+            @org.jspecify.annotations.Nullable String minAgentVersion,
+            @org.jspecify.annotations.Nullable String maxAgentVersion) {
+        var min = minAgentVersion == null
+                ? null
+                : com.idleo.controlplane.SemanticVersion.parse(minAgentVersion).orElse(null);
+        var max = maxAgentVersion == null
+                ? null
+                : com.idleo.controlplane.SemanticVersion.parse(maxAgentVersion).orElse(null);
+        var owners = new java.util.LinkedHashSet<UUID>();
+        jdbc.sql("select owner_user_id, agent_version from hosts.hosts where status <> 'removed' order by created_at")
+                .query(rs -> {
+                    var owner = rs.getObject("owner_user_id", UUID.class);
+                    if (min == null && max == null) {
+                        owners.add(owner);
+                        return;
+                    }
+                    var version = rs.getString("agent_version");
+                    var parsed = version == null
+                            ? null
+                            : com.idleo.controlplane.SemanticVersion.parse(version)
+                                    .orElse(null);
+                    if (parsed != null
+                            && (min == null || parsed.compareTo(min) >= 0)
+                            && (max == null || parsed.compareTo(max) <= 0)) {
+                        owners.add(owner);
+                    }
+                });
+        return List.copyOf(owners);
+    }
+
     /** The owner's hosts, not the ones they removed. */
     List<Host> list(UUID ownerUserId) {
         return hosts.findAllByOwnerUserIdAndRemovedAtIsNullOrderByCreatedAt(ownerUserId);

@@ -39,6 +39,10 @@ export const EVERY_PERMISSION = [
   "export.create",
   "flags.change",
   "flags.read",
+  "fleet.read",
+  "rollouts.pause",
+  "rollouts.widen",
+  "broadcasts.send",
   "hosts.activate",
   "hosts.certificates.revoke",
   "hosts.read",
@@ -1766,4 +1770,114 @@ export const flags = {
       version: 1,
     },
   ],
+};
+
+/** The staged rollouts (ADR 0056): the current release at 25% and doing as well as the rest; an older one paused by itself. */
+export const rollouts = {
+  items: [
+    {
+      id: "0.4.0",
+      percent: 25,
+      signedPercent: 100,
+      paused: false,
+      reason: "the first hosts have run a day without trouble",
+      changedBy: "01980000-0000-7000-8000-00000000a001",
+      changedAt: "2026-11-08T08:00:00Z",
+      hosts: 3,
+      sessions: 41,
+      failureRate: 0.02,
+      reconnectsPerHostDay: 0.4,
+      restHosts: 9,
+      restFailureRate: 0.03,
+      restReconnectsPerHostDay: 0.5,
+      version: 3,
+    },
+    {
+      id: "0.3.9",
+      percent: 5,
+      signedPercent: null,
+      paused: true,
+      reason: "paused by itself: its hosts reconnected 6.0 times a day each against 0.5 on the rest",
+      changedBy: null,
+      changedAt: "2026-11-01T12:00:00Z",
+      hosts: 1,
+      sessions: 2,
+      failureRate: 0.5,
+      reconnectsPerHostDay: 6,
+      restHosts: 11,
+      restFailureRate: 0.03,
+      restReconnectsPerHostDay: 0.5,
+      version: 2,
+    },
+  ],
+};
+
+/** The fleet at a glance and its hosts (ADR 0056). */
+export const fleetSummary = {
+  hosts: 12,
+  latestRelease: "0.4.0",
+  stragglers: 9,
+  offlineDay: 2,
+  selfTestPassRate: 0.92,
+  agentVersions: [
+    { value: "0.3.9", hosts: 8 },
+    { value: "0.4.0", hosts: 3 },
+    { value: "0.3.2", hosts: 1 },
+  ],
+  distroVersions: [{ value: "0.1.4", hosts: 12 }],
+  gpuModels: [
+    { value: "NVIDIA GeForce RTX 4080 Laptop GPU", hosts: 7 },
+    { value: "NVIDIA GeForce RTX 3060", hosts: 5 },
+  ],
+  driverVersions: [{ value: "566.14", hosts: 12 }],
+  blocklistVersions: [
+    { value: "2026-11-01T00:00:00Z", hosts: 11 },
+    { value: "none", hosts: 1 },
+  ],
+};
+
+export const fleet = {
+  hosts: [
+    {
+      id: HOST_ID,
+      ownerId: "01980000-0000-7000-8000-00000000c001",
+      name: "ASUS ROG Strix",
+      status: "active",
+      agentVersion: "0.3.9",
+      distroVersion: "0.1.4",
+      gpuModel: "NVIDIA GeForce RTX 4080 Laptop GPU",
+      driverVersion: "566.14",
+      selfTestPassRate: 1,
+      blocklistVersion: "2026-11-01T00:00:00Z",
+      lastSeenAt: "2026-11-08T09:59:00Z",
+      reconnectsPerDay: 0.29,
+      straggler: true,
+      version: 4,
+    },
+  ],
+  nextCursor: null,
+};
+
+export const broadcasts = {
+  items: [
+    {
+      id: "01a1c000-0000-7000-8000-00000000d001",
+      subject: "Please update the IdleO app",
+      body: "A newer version is ready.",
+      audience: "agent_versions",
+      tag: null,
+      minAgentVersion: "0.3.0",
+      maxAgentVersion: "0.3.9",
+      email: true,
+      sendAt: "2026-11-08T12:00:00Z",
+      state: "scheduled",
+      reached: null,
+      createdBy: "01980000-0000-7000-8000-00000000a001",
+      reason: "the old agents miss the blocklist fix",
+      createdAt: "2026-11-08T09:00:00Z",
+      sentAt: null,
+      version: 1,
+    },
+  ],
+  nextCursor: null,
 };

@@ -80,8 +80,12 @@ public interface HostAgentReports {
         FAILED_DOWNLOAD
     }
 
-    /** A validated Hello. */
-    record AgentHello(String os, String agentVersion, List<ReportedGpu> gpus) {
+    /**
+     * A validated Hello.
+     *
+     * @param blocklistVersion the signed abuse blocklist the agent holds; empty when it holds none (ADR 0041)
+     */
+    record AgentHello(String os, String agentVersion, List<ReportedGpu> gpus, String blocklistVersion) {
 
         public AgentHello {
             gpus = List.copyOf(gpus);
