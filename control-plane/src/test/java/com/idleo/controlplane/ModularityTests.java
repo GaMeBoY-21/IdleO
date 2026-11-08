@@ -29,7 +29,8 @@ class ModularityTests {
                         "support",
                         "images",
                         "console",
-                        "queues");
+                        "queues",
+                        "flags");
     }
 
     @Test

@@ -133,7 +133,7 @@ const { pages, renderPage, notFoundPage } = (await import(
   new URL("../dist-site-ssr/render.js", import.meta.url).href
 )) as {
   pages: (context: SiteContext) => PageDef[];
-  renderPage: (page: PageDef, links: EntryLinks) => string;
+  renderPage: (page: PageDef, links: EntryLinks, apiUrl: string | null) => string;
   notFoundPage: () => PageDef;
 };
 
@@ -155,12 +155,15 @@ cpSync(here("public"), dist, { recursive: true });
 const all = pages(context);
 for (const page of all) {
   mkdirSync(`${dist}${page.path}`, { recursive: true });
-  writeFileSync(`${dist}${page.path}index.html`, document(page, renderPage(page, context.links)));
+  writeFileSync(
+    `${dist}${page.path}index.html`,
+    document(page, renderPage(page, context.links, context.apiUrl)),
+  );
 }
 // A path the website doesn't have (served with a 404).
 writeFileSync(
   `${dist}404.html`,
-  document(notFoundPage(), renderPage(notFoundPage(), context.links)).replace(
+  document(notFoundPage(), renderPage(notFoundPage(), context.links, context.apiUrl)).replace(
     "</title>",
     '</title>\n    <meta name="robots" content="noindex" />',
   ),

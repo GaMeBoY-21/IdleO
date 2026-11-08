@@ -1,7 +1,10 @@
 package com.idleo.controlplane.billing.internal;
 
 import com.idleo.controlplane.ApiProblem;
+import com.idleo.controlplane.Flag;
+import com.idleo.controlplane.Flags;
 import com.idleo.controlplane.IdempotentRequests;
+import com.idleo.controlplane.OpenDuringMaintenance;
 import com.idleo.controlplane.Paise;
 import com.idleo.controlplane.Problem;
 import com.idleo.controlplane.identity.CurrentUser;
@@ -42,7 +45,10 @@ class TopUpController {
     private final IdempotentRequests idempotent;
     private final RazorpayProperties razorpay;
 
-    TopUpController(TopUps topUps, IdempotentRequests idempotent, RazorpayProperties razorpay) {
+    private final Flags flags;
+
+    TopUpController(TopUps topUps, IdempotentRequests idempotent, RazorpayProperties razorpay, Flags flags) {
+        this.flags = flags;
         this.topUps = topUps;
         this.idempotent = idempotent;
         this.razorpay = razorpay;
@@ -106,6 +112,7 @@ class TopUpController {
             @RequestHeader(name = IdempotentRequests.HEADER, required = false) @Nullable String key,
             @Valid @RequestBody TopUpRequest request) {
         return idempotent.execute("billing.idempotency_keys", user.id(), key, request, () -> {
+            flags.require(Flag.TOPUPS);
             var topUp = topUps.order(user.id(), Paise.of(request.amountPaise()));
             return ResponseEntity.created(URI.create("/v1/wallet/topups/" + topUp.id()))
                     .body(view(topUp));
@@ -116,6 +123,7 @@ class TopUpController {
      * Checkout's handler hands over the payment. The answer is the top-up as it stands after the check: {@code paid}
      * once credited, or still {@code pending} while Razorpay hasn't captured it (keep polling).
      */
+    @OpenDuringMaintenance
     @PostMapping("/{id}/confirm")
     TopUpResponse confirm(
             @AuthenticationPrincipal CurrentUser user,

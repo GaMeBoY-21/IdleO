@@ -1,6 +1,8 @@
 package com.idleo.controlplane.scheduling.internal;
 
 import com.google.protobuf.Duration;
+import com.idleo.controlplane.Flag;
+import com.idleo.controlplane.Flags;
 import com.idleo.controlplane.IdGenerator;
 import com.idleo.controlplane.Paise;
 import com.idleo.controlplane.agentgateway.AgentCommands;
@@ -63,6 +65,8 @@ class SessionMatcher {
     /** The tries used so far, by session, while presence is unknown. */
     private final ConcurrentHashMap<UUID, Integer> presenceRetries = new ConcurrentHashMap<>();
 
+    private final Flags flags;
+
     SessionMatcher(
             SessionBookings sessions,
             SchedulableHosts hosts,
@@ -75,7 +79,9 @@ class SessionMatcher {
             PlatformTransactionManager transactionManager,
             IdGenerator ids,
             Clock clock,
-            TaskScheduler scheduler) {
+            TaskScheduler scheduler,
+            Flags flags) {
+        this.flags = flags;
         this.sessions = sessions;
         this.hosts = hosts;
         this.reservations = reservations;
@@ -117,6 +123,13 @@ class SessionMatcher {
         var request = sessions.bookingRequest(sessionId).orElse(null);
         if (request == null || !request.state().equals("REQUESTED")) {
             presenceRetries.remove(sessionId);
+            return;
+        }
+        if (flags.paused(Flag.SESSIONS_START)) {
+            // Starting sessions is paused (ADR 0056): the booking waits, REQUESTED and held, and the re-match loop
+            // (BookingJobs) tries it again once starts run again. A running session is never touched.
+            presenceRetries.remove(sessionId);
+            metrics.outcome("starts_paused");
             return;
         }
         if (offers.count(sessionId, request.attempt()) >= properties.maxOffers()) {

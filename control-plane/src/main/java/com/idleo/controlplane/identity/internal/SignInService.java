@@ -1,5 +1,7 @@
 package com.idleo.controlplane.identity.internal;
 
+import com.idleo.controlplane.Flag;
+import com.idleo.controlplane.Flags;
 import com.idleo.controlplane.IdGenerator;
 import com.idleo.controlplane.identity.SecurityLog;
 import java.time.Clock;
@@ -44,6 +46,8 @@ class SignInService {
     private final IdentityProperties properties;
     private final SecurityLog security;
 
+    private final Flags flags;
+
     SignInService(
             JdbcClient jdbc,
             UserRepository users,
@@ -51,7 +55,9 @@ class SignInService {
             IdGenerator ids,
             Clock clock,
             IdentityProperties properties,
-            SecurityLog security) {
+            SecurityLog security,
+            Flags flags) {
+        this.flags = flags;
         this.properties = properties;
         this.security = security;
         this.jdbc = jdbc;
@@ -71,6 +77,11 @@ class SignInService {
         }
         if (!claims.emailVerified()) {
             return new SignInOutcome.EmailNotVerified();
+        }
+        var paused = flags.pause(Flag.SIGNUPS);
+        if (paused.isPresent()) {
+            // Sign-ups are paused (ADR 0056): no new account; everyone who has one signs in as usual.
+            return new SignInOutcome.SignupsPaused(paused.get().message());
         }
         var created = create(claims);
         if (created.isPresent()) {

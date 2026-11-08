@@ -45,7 +45,18 @@ const APPEARANCE = [
  * then. On a phone the pages sit on a row of their own under the wordmark and the two buttons, so nothing is hidden
  * behind a menu that would need script.
  */
-export function Shell({ path, links, children }: { path: string; links: EntryLinks; children: ReactNode }) {
+export function Shell({
+  path,
+  links,
+  apiUrl = null,
+  children,
+}: {
+  path: string;
+  links: EntryLinks;
+  /** The control plane's address, for the footer's status line (ADR 0056); none, and the line stays empty. */
+  apiUrl?: string | null;
+  children: ReactNode;
+}) {
   const current = (href: string) =>
     path === href || (href !== LANDING && path.startsWith(href)) ? "page" : undefined;
   return (
@@ -126,6 +137,12 @@ export function Shell({ path, links, children }: { path: string; links: EntryLin
             </div>
           </div>
         </div>
+        <p
+          data-status=""
+          data-api={apiUrl ?? ""}
+          className="min-h-6 text-small text-text-2"
+          aria-live="polite"
+        />
         <p className="text-small text-text-3">
           © {brand.name}. We provide the GPU; you bring your own model, data and code.
         </p>

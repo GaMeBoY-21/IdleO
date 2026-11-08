@@ -117,9 +117,9 @@ export function pages(context: SiteContext): PageDef[] {
 }
 
 /** One page's body as HTML inside the shared frame. */
-export function renderPage(page: PageDef, links: EntryLinks): string {
+export function renderPage(page: PageDef, links: EntryLinks, apiUrl: string | null = null): string {
   return renderToStaticMarkup(
-    <Shell path={page.path} links={links}>
+    <Shell path={page.path} links={links} apiUrl={apiUrl}>
       {page.body}
     </Shell>,
   );

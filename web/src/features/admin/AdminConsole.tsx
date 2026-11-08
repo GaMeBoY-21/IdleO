@@ -7,6 +7,7 @@ import { ADMIN, adminApi, adminData, adminSession } from "./api";
 import { Approvals } from "./Approvals";
 import { Audit } from "./Audit";
 import { Dashboard } from "./Dashboard";
+import { Flags } from "./Flags";
 import { Abuse } from "./Abuse";
 import { Chargebacks } from "./Chargebacks";
 import { Disputes } from "./Disputes";
@@ -68,6 +69,7 @@ export const ADMIN_SCREENS = [
   { href: "/admin/verification/", label: "Verification", needs: "verifications.read" },
   { href: "/admin/clawbacks/", label: "Clawbacks", needs: "clawbacks.read" },
   { href: "/admin/tax/", label: "Tax", needs: "tax.export" },
+  { href: "/admin/flags/", label: "Flags", needs: "flags.read" },
   { href: "/admin/invites/", label: "Invites", needs: "invites.read" },
   { href: "/admin/notices/", label: "Notices", needs: "notices.publish" },
   { href: "/admin/approvals/", label: "Approvals", needs: "approvals.read" },
@@ -114,6 +116,7 @@ export function AdminConsole() {
             <Route path="/admin/invites/">{guarded("/admin/invites/", <Invites />)}</Route>
             <Route path="/admin/inbox/">{guarded("/admin/inbox/", <Inbox />)}</Route>
             <Route path="/admin/appeals/">{guarded("/admin/appeals/", <Appeals />)}</Route>
+            <Route path="/admin/flags/">{guarded("/admin/flags/", <Flags />)}</Route>
             <Route path="/admin/approvals/">{guarded("/admin/approvals/", <Approvals />)}</Route>
             <Route path="/admin/audit/">{guarded("/admin/audit/", <Audit />)}</Route>
             <Route path="/admin/security/" component={Security} />
@@ -162,7 +165,14 @@ const GROUPS: { label: string; hrefs: readonly string[] }[] = [
   },
   {
     label: "The service",
-    hrefs: ["/admin/invites/", "/admin/notices/", "/admin/approvals/", "/admin/audit/", "/admin/security/"],
+    hrefs: [
+      "/admin/flags/",
+      "/admin/invites/",
+      "/admin/notices/",
+      "/admin/approvals/",
+      "/admin/audit/",
+      "/admin/security/",
+    ],
   },
 ];
 

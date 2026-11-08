@@ -514,6 +514,11 @@ class EnforcementTests {
             public List<Mentionable> mentionable() {
                 return List.of(new Mentionable(enforcer.id(), "the only admin"));
             }
+
+            @Override
+            public List<UUID> owners() {
+                return List.of(enforcer.id());
+            }
         };
         var solo = new Appeals(client, ids, clock, audit, alone, events, enforcements, uploads, transactionManager);
         var actor = new AuditTrail.Actor(

@@ -84,6 +84,11 @@ class AdminPermissions implements AdminAccess {
                 .list();
     }
 
+    @Override
+    public List<UUID> owners() {
+        return holdersOfRole("owner");
+    }
+
     /** Every admin who holds this role and can use the console now. */
     List<UUID> holdersOfRole(String role) {
         return jdbc.sql("""

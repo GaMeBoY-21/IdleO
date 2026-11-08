@@ -11,6 +11,7 @@ import { useAfterPaint } from "@/lib/after-first-screen";
 import { api, data } from "./client";
 import { ApiError } from "./errors";
 import { sendToInviteStep } from "./invite-required";
+import { isPauseRefusal, STATUS_KEY } from "./status";
 import { KEPT_ME_KEY, keptMe, type KeptMe } from "./kept-me";
 import type { components } from "./schema.gen";
 
@@ -39,6 +40,10 @@ export function createQueryClient(): QueryClient {
   const onError = (error: unknown) => {
     if (sendToInviteStep(error)) {
       client.setQueryData<Me>(keys.me, (me) => (me ? { ...me, status: "waiting" } : me));
+    }
+    // A part of IdleO is paused, or it's in maintenance (ADR 0056): the frame's banner says so now.
+    if (isPauseRefusal(error)) {
+      void client.invalidateQueries({ queryKey: STATUS_KEY });
     }
   };
   const client: QueryClient = new QueryClient({

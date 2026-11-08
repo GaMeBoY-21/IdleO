@@ -2,6 +2,7 @@ package com.idleo.controlplane.notifications.internal;
 
 import com.idleo.controlplane.ApiProblem;
 import com.idleo.controlplane.LogText;
+import com.idleo.controlplane.OpenDuringMaintenance;
 import com.idleo.controlplane.Problem;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.swagger.v3.oas.annotations.Hidden;
@@ -41,6 +42,7 @@ class EmailEventsController {
         this.registry = registry;
     }
 
+    @OpenDuringMaintenance
     @PostMapping("/v1/email-events/resend")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     void resend(HttpServletRequest request) throws IOException {

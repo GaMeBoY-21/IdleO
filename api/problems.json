@@ -94,6 +94,8 @@
   { "slug": "step-up-required", "status": 403, "title": "Confirm it's you" },
   { "slug": "passkey-not-accepted", "status": 400, "title": "Passkey not accepted" },
   { "slug": "action-refused", "status": 409, "title": "Action refused" },
+  { "slug": "paused", "status": 503, "title": "Paused" },
+  { "slug": "maintenance", "status": 503, "title": "Down for maintenance" },
   { "slug": "storage-unavailable", "status": 503, "title": "Storage unavailable" },
   { "slug": "internal-error", "status": 500, "title": "Internal error" }
 ]

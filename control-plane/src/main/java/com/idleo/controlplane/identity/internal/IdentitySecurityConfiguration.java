@@ -65,7 +65,10 @@ class IdentitySecurityConfiguration {
                 paths.matcher(HttpMethod.POST, "/v1/deletion-requests/{id}/cancel"),
                 // The Contact page, signed in or not (ADR 0037): limited per address, and refused when it's a machine.
                 paths.matcher(HttpMethod.POST, "/v1/support/tickets"),
-                paths.matcher(HttpMethod.GET, "/v1/public/contact"));
+                paths.matcher(HttpMethod.GET, "/v1/public/contact"),
+                // What's paused and whether IdleO is in maintenance, for the app's banner and the website's status
+                // line (ADR 0056).
+                paths.matcher(HttpMethod.GET, "/v1/public/status"));
     }
 
     /**

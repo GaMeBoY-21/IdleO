@@ -1,0 +1,128 @@
+# 0056. The control room
+
+- **Status:** Accepted
+- **Date:** 2026-11-08
+
+## Context
+
+The console (ADR 0027, 0051 to 0055) lets an admin find anything, work queues and run the money. It can't yet stop the
+bleeding in an incident: there is no switch to stop new bookings, payouts or top-ups without a release, and no way to make
+the app read-only for maintenance while the money keeps flowing. A switch that only hides a button stops nothing: the
+API, the CLI and the SDK go on.
+
+## Decision
+
+### The flags
+
+One `flags` module, and one list: the kernel's `Flag`. Each flag says:
+
+- who owns it;
+- what pausing it does;
+- its safe value if the flags can't be read;
+- whether a change emails the Owners.
+
+| Flag | Pausing it | Safe value | Emails the Owners |
+|---|---|---|---|
+| `bookings.new` | Refuses new bookings; booked sessions still start | running | yes |
+| `sessions.start` | Refuses new bookings, and holds waiting ones: no offer goes out, and none gives up while it lasts | running | yes |
+| `payouts.send` | Payouts are made but wait, created, until it runs again; RazorpayX's webhooks still land | **paused** | yes |
+| `topups` | Refuses a new top-up; a payment already made is still credited | running | yes |
+| `signups` | Refuses someone signing in for the first time | running | no |
+| `hosts.link` | Refuses the app's link requests and their approval, adding a host and new enrolment codes | running | no |
+| `images.custom` | Refuses renters' own images, submitted or booked | **paused** | no |
+| `maintenance` | Makes the app read-only (below) | running | yes |
+
+The safe value is paused only where a wrong "running" could cost money or let something risky through unseen: payouts
+can wait without harm, and an unchecked image shouldn't run because the database blinked. Everything else stays
+running, so a flag that can't be read never closes the business.
+
+**Every flag is enforced on the server**, where the thing it stops happens:
+
+- the booking transaction;
+- the matcher and its re-match loop;
+- `PayoutService.send`;
+- the top-up order;
+- the sign-in that would create an account;
+- the link endpoints;
+- `ImageService`.
+
+A refusal is the catalog's `paused` problem: "Bookings are paused: we expect to be back by 8 Nov, 4:00 pm India
+time.", with `flag` and `Retry-After`. The app shows it as a banner. **No flag ever stops a running session.**
+`FlagEnforcementCoverageTests` fails on a flag without a test marked `@TestFlags.Enforces` with it.
+
+### Reading them
+
+The database (`flags.flags`) is the truth. Each instance keeps a copy, and reading never waits on the database:
+
+- a change commits with its audit row and the Owners' notice;
+- then a hint on the Valkey channel `flags:changed` makes every instance read again at once (measured: 42 ms to the other
+  instance);
+- every instance also reads every 30 s whatever Valkey says, so a lost hint costs at most that.
+
+A failed read keeps the last good copy for two minutes, measured on the monotonic clock, never the business clock.
+After that, or before any read has worked, each flag is its safe value. A pause with an end that runs again by itself
+is over at its time in every instance's copy, and a 15-second sweep (safe on both instances) writes it back with a system
+audit row.
+
+### Changing them
+
+Permissions are `flags.read` and `flags.change`, which is sensitive and so needs a factor in the last five minutes.
+
+- **Pausing** is immediate, with a reason, and optionally until a time. It is never gated: stopping is never gated
+  (ADR 0051).
+- **Running again** goes through `Approvals` as `flag.resume`, so another admin with `flags.change` approves it. With no
+  one else, it runs **at once**, self-approved, and the Owners are told: the new `Cooling.NONE`.
+
+**Kill switches skip the cooling-off.** Money and access wait out a solo delay because a rushed one can't be taken back.
+A kill switch is the other way round:
+
+- the harm of waiting is the outage itself, which an hour's cooling-off would make an hour longer;
+- running a switch again only puts back what was there before the incident;
+- if it was wrong, pausing again is immediate.
+
+So the safety it keeps is a second pair of eyes when there is one, the reason, the audit row and the Owners' email,
+never a delay.
+
+### Maintenance mode
+
+Maintenance mode is the `maintenance` flag. While it's on, every `/v1` write is 503 `maintenance` with Retry-After,
+taken from the expected end. Reads go on. It's decided after routing, by the handler reached (`MaintenanceMode`), never
+by the path's spelling. These keep working, each a handler marked `@OpenDuringMaintenance` (`MaintenanceModeTests`
+lists exactly these):
+
+- Razorpay's and RazorpayX's webhooks, and Resend's email events: money and mail must never be lost;
+- signing in: first sign-in is a read, and the command line's device sign-in is marked open;
+- a renter stopping or cancelling their session: it only ever costs them less;
+- cancelling a scheduled deletion: the deletion would otherwise go ahead while they can't stop it;
+- confirming a top-up already paid for: the money is already ours.
+
+Some things aren't `/v1` writes at all, so maintenance never touches them:
+
+- the admin console (`/admin/v1`);
+- the scanner's internal calls;
+- the agents' streams, running sessions and metering (gRPC).
+
+`GET /v1/public/status` (no sign-in, cached 10 s) says what's paused and when it's expected back. It gives the flag's
+own words, never an admin's reason. The app's frame shows it as a banner after the first screen, and at once when a
+request meets a pause. The website's footer shows it in a status line.
+
+## Alternatives considered
+
+- **Flags in Valkey only**: fast, but Valkey holds only what may expire (ADR 0011) and is never in readiness. A restart
+  would silently run everything again.
+- **A third-party flag service**: another outside dependency for eight switches. It would also put a kill switch behind
+  someone else's outage.
+- **A cooling-off for running a switch again, as for money**: rejected above; it lengthens outages.
+- **Maintenance by scaling the API to zero**: it would drop the webhooks and the agents' streams, which is exactly what
+  must keep working.
+- **Holding a path list for maintenance**: a list of path spellings drifts, and an encoded path slips past it. The
+  annotation on the handler is the one place.
+
+## Consequences
+
+- A new flag is a value of `Flag`, a migration adding its row, its enforcement, and a test marked with it.
+- A new `/v1` write is refused in maintenance unless it's marked open, and the test listing the open ones changes with
+  it.
+- The flags' copy is per instance by design. Anything that must agree across instances reads the database.
+- Open question: whether Finance alone should be able to pause `payouts.send`. Today any holder of `flags.change` may
+  pause any flag.

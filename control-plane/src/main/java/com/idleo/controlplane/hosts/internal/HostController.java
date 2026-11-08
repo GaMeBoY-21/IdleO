@@ -1,5 +1,7 @@
 package com.idleo.controlplane.hosts.internal;
 
+import com.idleo.controlplane.Flag;
+import com.idleo.controlplane.Flags;
 import com.idleo.controlplane.IdempotentRequests;
 import com.idleo.controlplane.hosts.HostListings;
 import com.idleo.controlplane.identity.BrowserSignInOnly;
@@ -45,7 +47,15 @@ class HostController {
     private final HostViews views;
     private final IdempotentRequests idempotency;
 
-    HostController(HostService hosts, HostListingService listings, HostViews views, IdempotentRequests idempotency) {
+    private final Flags flags;
+
+    HostController(
+            HostService hosts,
+            HostListingService listings,
+            HostViews views,
+            IdempotentRequests idempotency,
+            Flags flags) {
+        this.flags = flags;
         this.hosts = hosts;
         this.listings = listings;
         this.views = views;
@@ -101,6 +111,7 @@ class HostController {
             @RequestHeader(name = IdempotentRequests.HEADER, required = false) @Nullable String idempotencyKey,
             @Valid @RequestBody CreateHostRequest request) {
         return idempotency.execute(IDEMPOTENCY_TABLE, user.id(), idempotencyKey, request, () -> {
+            flags.require(Flag.HOSTS_LINK);
             var host = hosts.create(user.id(), request.name().strip());
             return ResponseEntity.created(URI.create("/v1/hosts/" + host.id())).body(views.view(host));
         });
@@ -127,6 +138,7 @@ class HostController {
     ResponseEntity<EnrolmentCodeResponse> issueEnrolmentCode(
             @AuthenticationPrincipal CurrentUser user, @PathVariable UUID id) {
         views.owned(user.id(), id);
+        flags.require(Flag.HOSTS_LINK);
         var issued = hosts.issueCode(user.id(), id).orElseThrow(HostViews::notFound);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .cacheControl(CacheControl.noStore())

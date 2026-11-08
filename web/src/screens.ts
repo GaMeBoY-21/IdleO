@@ -63,6 +63,7 @@ export const SCREENS: Record<string, string | null> = {
   "/admin/verification/": "src/features/admin/AdminConsole.tsx",
   "/admin/clawbacks/": "src/features/admin/AdminConsole.tsx",
   "/admin/tax/": "src/features/admin/AdminConsole.tsx",
+  "/admin/flags/": "src/features/admin/AdminConsole.tsx",
   "/admin/invites/": "src/features/admin/AdminConsole.tsx",
   "/admin/audit/": "src/features/admin/AdminConsole.tsx",
   "/cli-login/": "src/features/cli-login/CliLogin.tsx",

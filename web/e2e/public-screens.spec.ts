@@ -67,7 +67,7 @@ for (const path of PAGES) {
 }
 
 test.describe("what loads", () => {
-  test("a page with nothing live loads only its small vitals and Appearance scripts, nothing of the app, and calls no API while open", async ({
+  test("a page with nothing live loads only its small vitals and Appearance scripts, nothing of the app, and calls only the status line's while open", async ({
     page,
   }) => {
     const requests: string[] = [];
@@ -80,7 +80,8 @@ test.describe("what loads", () => {
       scripts.every((path) => /^\/site-assets\/(vitals|theme|report|early-errors|privacy)[-.]/.test(path)),
     ).toBe(true);
     expect(requests.filter((path) => path.startsWith("/assets/"))).toEqual([]);
-    expect(requests.filter((path) => path.startsWith("/v1/"))).toEqual([]);
+    // The footer's status line (ADR 0056), once the page has loaded: nothing about the visitor.
+    expect(requests.filter((path) => path.startsWith("/v1/"))).toEqual(["/v1/public/status"]);
   });
 
   test("a visit's vitals go to the control plane once the page is hidden (ADR 0036)", async ({ page }) => {
@@ -119,10 +120,11 @@ test.describe("what loads", () => {
       document.dispatchEvent(new Event("visibilitychange"));
     });
     expect(requests.filter((path) => /\/site-assets\/report[-.]/.test(path))).toEqual([]);
-    expect(requests.filter((path) => path.startsWith("/v1/"))).toEqual([]);
+    // Only what every visitor reads, the status line, never a measurement.
+    expect(requests.filter((path) => path.startsWith("/v1/"))).toEqual(["/v1/public/status"]);
   });
 
-  test("pricing loads its own two small scripts and one call, nothing of the app", async ({ page }) => {
+  test("pricing loads its own two small scripts and its call, nothing of the app", async ({ page }) => {
     await fakeApi(page, { "/v1/public/availability": { json: availability() } });
     const requests: string[] = [];
     page.on("request", (request) => requests.push(new URL(request.url()).pathname));
@@ -132,7 +134,11 @@ test.describe("what loads", () => {
       requests.filter((path) => path.endsWith(".js")).every((path) => path.startsWith("/site-assets/")),
     ).toBe(true);
     expect(requests.filter((path) => path.startsWith("/assets/"))).toEqual([]);
-    expect(requests.filter((path) => path.startsWith("/v1/"))).toEqual(["/v1/public/availability"]);
+    await expect.poll(() => requests.filter((path) => path === "/v1/public/status").length).toBe(1);
+    expect(requests.filter((path) => path.startsWith("/v1/")).sort()).toEqual([
+      "/v1/public/availability",
+      "/v1/public/status",
+    ]);
   });
 
   test("an old link to a schema in the API reference lands on the schemas' page", async ({ page }) => {

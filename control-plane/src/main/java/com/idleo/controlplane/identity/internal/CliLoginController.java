@@ -1,6 +1,7 @@
 package com.idleo.controlplane.identity.internal;
 
 import com.idleo.controlplane.ApiProblem;
+import com.idleo.controlplane.OpenDuringMaintenance;
 import com.idleo.controlplane.Problem;
 import com.idleo.controlplane.identity.BrowserSignInOnly;
 import com.idleo.controlplane.identity.CurrentUser;
@@ -74,6 +75,7 @@ class CliLoginController {
 
     record PollCliLoginRequest(@NotBlank @Size(max = 128) String pollToken) {}
 
+    @OpenDuringMaintenance
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     StartedCliLogin start(@Valid @RequestBody StartCliLoginRequest request) {
@@ -103,6 +105,7 @@ class CliLoginController {
     }
 
     @BrowserSignInOnly
+    @OpenDuringMaintenance
     @PostMapping("/{id}/approve")
     PendingCliLogin approve(@AuthenticationPrincipal CurrentUser user, @PathVariable UUID id) {
         return switch (logins.approve(id, user.id())) {
@@ -116,6 +119,7 @@ class CliLoginController {
      * The CLI's poll. Until the login is approved, 400 {@code authorization-pending}; once it is, the new full key,
      * this once; after that, or once the login expires, 400 {@code cli-login-expired}.
      */
+    @OpenDuringMaintenance
     @PostMapping("/{id}/token")
     @ApiResponse(
             responseCode = "200",

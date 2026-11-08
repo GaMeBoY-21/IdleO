@@ -550,6 +550,21 @@ public enum Problem {
             "An admin action was refused and nothing changed. The detail says why: a host without a valid "
                     + "certificate, say, or a reversal the wallet's available credit can't cover."),
 
+    // Switches (ADR 0056).
+    PAUSED(
+            "paused",
+            HttpStatus.SERVICE_UNAVAILABLE,
+            "Paused",
+            "We've paused this part of IdleO for a while, such as new bookings or top-ups. `flag` names what's paused and"
+                    + " the detail says when we expect it back; Retry-After says when to try again. Running sessions"
+                    + " carry on."),
+    MAINTENANCE(
+            "maintenance",
+            HttpStatus.SERVICE_UNAVAILABLE,
+            "Down for maintenance",
+            "IdleO is read-only while we do maintenance: you can look at everything, but changes wait. The detail says"
+                    + " when we expect to finish; Retry-After says when to try again. Running sessions carry on."),
+
     // Server.
     STORAGE_UNAVAILABLE(
             "storage-unavailable",

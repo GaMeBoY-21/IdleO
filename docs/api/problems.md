@@ -101,5 +101,7 @@ Every error from the API is an RFC 9457 problem detail (`application/problem+jso
 | `/problems/step-up-required` | 403 | Confirm it's you | This action needs a passkey or a code given in the last five minutes. Give one, then send the same request again with the same Idempotency-Key. |
 | `/problems/passkey-not-accepted` | 400 | Passkey not accepted | The passkey didn't check out, or its challenge is used or too old. Try again; a wrong one counts as a wrong code. |
 | `/problems/action-refused` | 409 | Action refused | An admin action was refused and nothing changed. The detail says why: a host without a valid certificate, say, or a reversal the wallet's available credit can't cover. |
+| `/problems/paused` | 503 | Paused | We've paused this part of IdleO for a while, such as new bookings or top-ups. `flag` names what's paused and the detail says when we expect it back; Retry-After says when to try again. Running sessions carry on. |
+| `/problems/maintenance` | 503 | Down for maintenance | IdleO is read-only while we do maintenance: you can look at everything, but changes wait. The detail says when we expect to finish; Retry-After says when to try again. Running sessions carry on. |
 | `/problems/storage-unavailable` | 503 | Storage unavailable | Our file storage can't be reached just now, so uploads, outputs and logs can't be read or written. Sessions keep running. Retry-After says when to try again. |
 | `/problems/internal-error` | 500 | Internal error | Something failed on our side. Nothing about it is in the response; it's logged for us. |

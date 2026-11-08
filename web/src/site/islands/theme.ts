@@ -1,4 +1,6 @@
 import { applyThemeChoice, readThemeChoice, type ThemeChoice } from "@/design/theme";
+// The footer's status line rides in this script, which every page loads already (ADR 0056).
+import "./status";
 
 /**
  * The footer's Appearance switch (web/DESIGN.md "Colour"): Match my device, Light or Dark, kept in the cookie the app reads

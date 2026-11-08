@@ -7,3 +7,5 @@ Beside them, what running the service needs: deployment.md (production's secrets
 Operator commands name who runs them with `OPERATOR=<handle>`: a short handle (letters, digits, `.`, `_` or `-`, such as `nikki`), never an email or a full name, since the audit log keeps people by id only (ADR 0037). Restores re-apply every erasure (backups.md); a personal data breach is breach.md.
 
 The inbox (ADR 0053): breaching-chargeback.md, handling-an-appeal.md, writing-a-macro.md, and payer-upi-pepper.md for the same-payer signal.
+
+The control room (ADR 0056): stop-the-bleeding.md (which kill switch for which incident) and maintenance-mode.md.

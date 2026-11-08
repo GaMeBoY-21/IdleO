@@ -1,5 +1,7 @@
 package com.idleo.controlplane.scheduling.internal;
 
+import com.idleo.controlplane.Flag;
+import com.idleo.controlplane.Flags;
 import com.idleo.controlplane.agentgateway.AgentCommands;
 import com.idleo.controlplane.sessions.SessionBookings;
 import com.idleo.controlplane.sessions.SessionCancelled;
@@ -33,6 +35,8 @@ class BookingJobs {
     private final TransactionTemplate transactions;
     private final Clock clock;
 
+    private final Flags flags;
+
     BookingJobs(
             SessionMatcher matcher,
             OfferOutcomes outcomes,
@@ -40,7 +44,9 @@ class BookingJobs {
             SessionBookings sessions,
             SchedulingProperties properties,
             PlatformTransactionManager transactionManager,
-            Clock clock) {
+            Clock clock,
+            Flags flags) {
+        this.flags = flags;
         this.matcher = matcher;
         this.outcomes = outcomes;
         this.commands = commands;
@@ -76,11 +82,21 @@ class BookingJobs {
      */
     @Scheduled(fixedDelayString = "${scheduling.rematch-retry-every}")
     void retryRematches() {
+        if (flags.paused(Flag.SESSIONS_START)) {
+            // Starting sessions is paused (ADR 0056): what waits keeps waiting, held, and none gives up for it.
+            return;
+        }
         try {
             var giveUpBefore = Instant.now(clock).minus(properties.rematchWait());
             for (var waiting : sessions.awaitingRematch()) {
                 if (waiting.since().isBefore(giveUpBefore)) {
-                    matcher.endWithoutHost(waiting.sessionId(), "no_host_for_rematch");
+                    // One last try before giving up: a pause of starts may have outlasted the wait.
+                    matcher.match(waiting.sessionId());
+                    if (sessions.bookingRequest(waiting.sessionId())
+                            .filter(request -> request.state().equals("REQUESTED"))
+                            .isPresent()) {
+                        matcher.endWithoutHost(waiting.sessionId(), "no_host_for_rematch");
+                    }
                 } else {
                     matcher.match(waiting.sessionId());
                 }

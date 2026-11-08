@@ -180,20 +180,30 @@ class ApprovalEngine implements Approvals {
                     Map.of("kind", kind, "solo", solo)));
             if (solo) {
                 insider.soloApproval();
-                tellTheOwners(id, kind, admin.id(), Objects.requireNonNull(runAfter));
+                tellTheOwners(id, kind, admin.id(), Objects.requireNonNull(runAfter), action.cooling() != Cooling.NONE);
             }
         });
+        if (solo && action.cooling() == Cooling.NONE) {
+            // Running a kill switch again (ADR 0056): with no one else to approve it, waiting would only make the
+            // outage longer, so it runs now, self-approved, and the Owners have been told.
+            advanceSolo(id);
+        }
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(find(id).orElseThrow());
     }
 
-    private void tellTheOwners(UUID id, String kind, UUID requester, Instant runAfter) {
+    private void tellTheOwners(UUID id, String kind, UUID requester, Instant runAfter, boolean waits) {
         for (var owner : permissions.holdersOfRole("owner")) {
             events.publishEvent(new AdminNoticed(
                     owner,
                     "approval-solo:" + id + ":" + owner,
-                    "An admin action will run after a delay",
-                    "A " + kind + " asked for by admin " + requester + " has no one else to approve it, so it runs at "
-                            + runAfter + " unless it's cancelled. Sign in to the console to read it or cancel it.",
+                    waits ? "An admin action will run after a delay" : "An admin action ran with no one to approve it",
+                    waits
+                            ? "A " + kind + " asked for by admin " + requester
+                                    + " has no one else to approve it, so it runs at " + runAfter
+                                    + " unless it's cancelled. Sign in to the console to read it or cancel it."
+                            : "A " + kind + " asked for by admin " + requester
+                                    + " had no one else to approve it and doesn't wait, so it ran at once. Sign in to"
+                                    + " the console to read it.",
                     "/admin/approvals/"));
         }
     }
@@ -207,7 +217,11 @@ class ApprovalEngine implements Approvals {
     }
 
     private java.time.Duration cooling(GatedAction action) {
-        return action.cooling() == Cooling.MONEY ? properties.coolingMoney() : properties.coolingAccess();
+        return switch (action.cooling()) {
+            case MONEY -> properties.coolingMoney();
+            case ACCESS -> properties.coolingAccess();
+            case NONE -> java.time.Duration.ZERO;
+        };
     }
 
     /** Whether this approver may decide this kind: they hold its permission. */
@@ -485,13 +499,16 @@ class ApprovalEngine implements Approvals {
             if (row.runAfter() == null || row.runAfter().isAfter(now())) {
                 return null;
             }
-            mark(id, "running", null, "self-approved after delay", null);
+            var decision = action(row.kind()).cooling() == Cooling.NONE
+                    ? "self-approved: no one else can approve it, and it doesn't wait"
+                    : "self-approved after delay";
+            mark(id, "running", null, decision, null);
             audit.record(new AuditTrail.Entry(
                     AuditTrail.Actor.system("approval engine"),
                     "approval.self_approve",
                     "approval",
                     id.toString(),
-                    "self-approved after delay",
+                    decision,
                     Map.of("state", "pending"),
                     Map.of("state", "running", "kind", row.kind())));
             return row;

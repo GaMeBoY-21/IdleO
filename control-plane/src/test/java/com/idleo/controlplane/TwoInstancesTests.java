@@ -291,6 +291,48 @@ class TwoInstancesTests {
     }
 
     @Test
+    void aFlagChangedOnOneInstanceReachesTheOtherWithinTwoSeconds() throws Exception {
+        var jdbc = a.bean(JdbcTemplate.class);
+        var admin = TestAdmins.signIn(a.mvc(), jdbc, a.bean(MutableClock.class));
+        var onB = b.bean(Flags.class);
+        try {
+            var started = System.nanoTime();
+            var paused = a.mvc()
+                    .perform(admin.as(post("/admin/v1/flags/bookings.new/pause"))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"reason\":\"a bad matcher release\"}"))
+                    .andReturn()
+                    .getResponse();
+            assertThat(paused.getStatus()).as(paused.getContentAsString()).isEqualTo(200);
+            org.awaitility.Awaitility.await()
+                    .atMost(Duration.ofSeconds(2))
+                    .pollInterval(Duration.ofMillis(10))
+                    .until(() -> onB.paused(Flag.BOOKINGS_NEW));
+            var pauseMs = Duration.ofNanos(System.nanoTime() - started).toMillis();
+
+            // The only admin here: running it again doesn't wait for anyone (ADR 0056), so this is the whole path.
+            started = System.nanoTime();
+            var asked = a.mvc()
+                    .perform(admin.as(post("/admin/v1/flags/bookings.new/resume"))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"reason\":\"the release is rolled back\"}"))
+                    .andReturn()
+                    .getResponse()
+                    .getContentAsString();
+            assertThat(JSON.readTree(asked).get("state").asString()).isEqualTo("done");
+            org.awaitility.Awaitility.await()
+                    .atMost(Duration.ofSeconds(2))
+                    .pollInterval(Duration.ofMillis(10))
+                    .until(() -> !onB.paused(Flag.BOOKINGS_NEW));
+            var resumeMs = Duration.ofNanos(System.nanoTime() - started).toMillis();
+            System.out.println(
+                    "flag propagation to the other instance: pause " + pauseMs + " ms, resume " + resumeMs + " ms");
+        } finally {
+            TestFlags.runAll(b.context());
+        }
+    }
+
+    @Test
     void aRequestLimitHoldsAcrossBothInstances() throws Exception {
         // Fixed one-minute windows: start early enough in one that all the reads fall in it.
         var second = Instant.now().getEpochSecond() % 60;

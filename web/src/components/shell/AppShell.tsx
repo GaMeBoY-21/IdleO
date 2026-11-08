@@ -11,6 +11,7 @@ import { afterPaint } from "@/lib/after-first-screen";
 import { cn } from "@/lib/cn";
 import { NotificationBanners } from "./NotificationBanners";
 import { NotificationBell } from "./NotificationBell";
+import { StatusBanners } from "./StatusBanners";
 import { isCurrent, isFlow, phoneDestinations } from "./nav";
 import { Sidebar, SIDEBAR_PUSH } from "./Sidebar";
 import { UserMenuButton } from "./UserMenuButton";
@@ -42,6 +43,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           <NotificationBell />
         </div>
       </header>
+      <StatusBanners />
       <NotificationBanners />
       <main id="main" className={cn("flex w-full flex-1 flex-col", !flow && "pb-clear-nav md:pb-0")}>
         {children}

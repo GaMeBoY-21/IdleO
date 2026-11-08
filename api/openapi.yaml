@@ -1741,6 +1741,93 @@ paths:
         idToken: []
       tags:
       - adminListExport
+  /admin/v1/flags:
+    get:
+      operationId: adminFlagsList
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminFlags"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminFlags
+  /admin/v1/flags/{id}/pause:
+    post:
+      operationId: adminFlagsPause
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FlagPauseRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminFlag"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminFlags
+  /admin/v1/flags/{id}/resume:
+    post:
+      operationId: adminFlagsResume
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminReason"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminApproval"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminFlags
   /admin/v1/hosts:
     get:
       operationId: adminHostsSearch
@@ -8398,6 +8485,24 @@ paths:
           description: "An error, as an RFC 9457 problem detail"
       tags:
       - support
+  /v1/public/status:
+    get:
+      operationId: publicStatusStatus
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicStatus"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - publicStatus
   /v1/session-quotes:
     post:
       operationId: quoteCreate
@@ -11051,6 +11156,63 @@ components:
       - account
       - side
       - sign
+    AdminFlag:
+      type: object
+      properties:
+        changedAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        changedBy:
+          type:
+          - string
+          - "null"
+          format: uuid
+        description:
+          type: string
+        emailsOwners:
+          type: boolean
+        id:
+          type: string
+        owner:
+          type: string
+        paused:
+          type: boolean
+        pausedIfUnknown:
+          type: boolean
+        reason:
+          type:
+          - string
+          - "null"
+        resumeAutomatically:
+          type: boolean
+        until:
+          type:
+          - string
+          - "null"
+          format: date-time
+        version:
+          type: integer
+          format: int64
+      required:
+      - description
+      - emailsOwners
+      - id
+      - owner
+      - paused
+      - pausedIfUnknown
+      - resumeAutomatically
+      - version
+    AdminFlags:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminFlag"
+      required:
+      - items
     AdminHost:
       type: object
       properties:
@@ -15983,6 +16145,24 @@ components:
       - at
       - detail
       - step
+    FlagPauseRequest:
+      type: object
+      properties:
+        reason:
+          type: string
+          maxLength: 500
+          minLength: 5
+        resumeAutomatically:
+          type:
+          - boolean
+          - "null"
+        until:
+          type:
+          - string
+          - "null"
+          format: date-time
+      required:
+      - reason
     Forfeit:
       type: object
       properties:
@@ -17552,6 +17732,21 @@ components:
           - string
           - "null"
           format: date-time
+    Paused:
+      type: object
+      properties:
+        flag:
+          type: string
+        message:
+          type: string
+        until:
+          type:
+          - string
+          - "null"
+          format: date-time
+      required:
+      - flag
+      - message
     PayoutDetails:
       type: object
       properties:
@@ -17989,6 +18184,8 @@ components:
           - /problems/step-up-required
           - /problems/passkey-not-accepted
           - /problems/action-refused
+          - /problems/paused
+          - /problems/maintenance
           - /problems/storage-unavailable
           - /problems/internal-error
       required:
@@ -18047,6 +18244,18 @@ components:
       - grievanceOfficer
       - responseDays
       - topics
+    PublicStatus:
+      type: object
+      properties:
+        maintenance:
+          type: boolean
+        paused:
+          type: array
+          items:
+            $ref: "#/components/schemas/Paused"
+      required:
+      - maintenance
+      - paused
     QuoteResponse:
       type: object
       properties:
