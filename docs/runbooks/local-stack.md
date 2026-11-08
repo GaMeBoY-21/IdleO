@@ -121,3 +121,7 @@ PostgreSQL and Valkey get random ports. If a port is busy, the script stops befo
 ## Nothing here can reach production
 
 The development sign-in server is a local issuer, and only the `local` and `test` profiles trust it. Fake GPUs and Macs are accepted only with `agentgateway.allow-development-hosts`. The `prod` profile refuses to start with either (ADR 0013).
+
+## WAL-G for the database's image
+
+`ops/postgres/` copies WAL-G from its own `wal-g/` folder (gitignored). `ops/postgres/fetch-wal-g.sh` puts it there: from `~/.cache/idleo/wal-g` when it's kept, otherwise from GitHub with retries, always checked against the hash pinned in `wal-g.sha256`. `./start.sh` and the stack scripts run it first. Running compose or `./mvnw spring-boot:run` on the local profile by hand on a fresh checkout needs it run once. In CI, `.github/actions/wal-g` restores the cache. To change the version, update both the script's `version` and `wal-g.sha256`.

@@ -64,3 +64,6 @@ phase0/qlora-test/work/
 # ./start.sh writes its logs here (the checks' go to private/logs/)
 /logs/
 dist/
+
+# WAL-G, fetched into the database image's build context (ops/postgres/fetch-wal-g.sh)
+ops/postgres/wal-g/
