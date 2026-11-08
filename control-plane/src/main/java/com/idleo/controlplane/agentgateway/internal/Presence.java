@@ -85,13 +85,16 @@ class Presence implements HostPresence, AgentPresence {
 
     private final JsonMapper json;
     private final Clock clock;
+    private final PresenceHistory history;
 
     Presence(
             StringRedisTemplate redis,
             AgentGatewayProperties properties,
             AgentGatewayMetrics metrics,
             JsonMapper json,
-            Clock clock) {
+            Clock clock,
+            PresenceHistory history) {
+        this.history = history;
         this.redis = redis;
         this.properties = properties;
         this.metrics = metrics;
@@ -284,6 +287,7 @@ class Presence implements HostPresence, AgentPresence {
             args.add(value);
         });
         redis.execute(REGISTER, List.of(key(snapshot.hostId())), args.toArray());
+        history.opened(snapshot.hostId(), snapshot.connectedAt());
     }
 
     /** False if another connection now owns the host's presence. */
@@ -300,7 +304,10 @@ class Presence implements HostPresence, AgentPresence {
     }
 
     void remove(UUID hostId, UUID connectionId) {
-        redis.execute(REMOVE, List.of(key(hostId)), connectionId.toString());
+        Long removed = redis.execute(REMOVE, List.of(key(hostId)), connectionId.toString());
+        if (removed != null && removed == 1L) {
+            history.offline(hostId, Instant.now(clock));
+        }
     }
 
     static String key(UUID hostId) {

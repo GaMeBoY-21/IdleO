@@ -217,6 +217,20 @@ public final class People {
                         + " values (?, '0.1.0', 'installed', '', ?)",
                 host,
                 ts(now));
+        // When the machine was online (ADR 0056): one stream that opened and closed.
+        jdbc.update(
+                "insert into agentgateway.presence_changes (id, host_id, state, at) values (?, ?, 'online', ?),"
+                        + " (?, ?, 'offline', ?)",
+                UUID.randomUUID(),
+                host,
+                ts(now),
+                UUID.randomUUID(),
+                host,
+                ts(now));
+        jdbc.update(
+                "insert into agentgateway.presence_states (host_id, state, since) values (?, 'offline', ?)",
+                host,
+                ts(now));
         jdbc.update(
                 "insert into hosts.enrolment_codes (host_id, code_hash, expires_at, created_at) values (?, ?, ?, ?)",
                 host,

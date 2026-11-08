@@ -129,7 +129,6 @@ export type AdminAccount = Schemas["AdminAccount"];
 export type AdminRole = Schemas["AdminRole"];
 export type AdminPasskey = Schemas["AdminPasskey"];
 export type AdminSessionRecord = Schemas["AdminSessionRecord"];
-export type AdminDashboard = Schemas["AdminDashboard"];
 export type AdminInstalls = Schemas["InstallsSummary"];
 export type AdminUser = Schemas["AdminUser"];
 export type AdminHost = Schemas["AdminHost"];

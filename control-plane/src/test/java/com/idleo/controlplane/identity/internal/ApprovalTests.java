@@ -279,7 +279,7 @@ class ApprovalTests {
                         support.id()))
                 .isEqualTo(1);
         // Their session is gone: the same 404 as anyone without one.
-        assertThat(mvc.perform(support.as(get("/admin/v1/dashboard")))
+        assertThat(mvc.perform(support.as(get("/admin/v1/control-room")))
                         .andReturn()
                         .getResponse()
                         .getStatus())

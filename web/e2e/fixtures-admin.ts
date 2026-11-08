@@ -32,7 +32,7 @@ export const EVERY_PERMISSION = [
   "audit.read",
   "clawbacks.read",
   "clawbacks.waive",
-  "dashboard.read",
+  "ops.dashboard.read",
   "disputes.decide",
   "disputes.read",
   "disputes.refund",
@@ -575,15 +575,78 @@ export const installs = {
   ],
 };
 
-/** The dashboard counts the records above: one host online and running one session, booked today. */
-export const dashboard = {
-  hostsOnline: [host, pendingHost].filter((each) => each.online).length,
-  sessionsRunning: sessions.sessions.filter((each) => each.state === "RUNNING").length,
-  sessionsToday: sessions.sessions.length,
-  settlementBacklog: 0,
-  reconciliationMismatches: reconciliation.runs[0]!.mismatchCount,
-  reviewQueue: reviewMinutes.minutes.filter((each) => each.resolution === null).length,
-  at: NOW.toISOString(),
+/**
+ * The control room's rollups (ADR 0056): the records above in the marketplace (one host online, running one session
+ * booked today), a little money, the funnels, and every check fine but the review queue's minutes waiting.
+ */
+export const controlRoom = {
+  money: {
+    today: { gmvPaise: 12_000, takePaise: 2_400, refundsPaise: 0, chargebacksPaise: 0 },
+    week: { gmvPaise: 84_000, takePaise: 16_800, refundsPaise: 5_000, chargebacksPaise: 0 },
+    month: { gmvPaise: 310_000, takePaise: 62_000, refundsPaise: 5_000, chargebacksPaise: 5_000 },
+  },
+  marketplace: {
+    sessionsRunning: sessions.sessions.filter((each) => each.state === "RUNNING").length,
+    bookingsWaiting: 0,
+    bookingsToday: sessions.sessions.length,
+    matchP50Seconds: 2.4,
+    matchP95Seconds: 9.8,
+    startsAttempted: 12,
+    startsSucceeded: 11,
+    failures: [{ reason: "lease_lapsed", count: 1 }],
+    busyGpuHours: [{ model: "NVIDIA GeForce RTX 4080 Laptop GPU", value: 6 }],
+    demand: [
+      { model: "NVIDIA GeForce RTX 4080 Laptop GPU", hour: 20, value: 1.5 },
+      { model: "NVIDIA GeForce RTX 4080 Laptop GPU", hour: 21, value: 2 },
+    ],
+  },
+  supply: {
+    online: [
+      {
+        model: "NVIDIA GeForce RTX 4080 Laptop GPU",
+        value: [host, pendingHost].filter((each) => each.online).length,
+      },
+    ],
+    onlineGpuHours: [{ model: "NVIDIA GeForce RTX 4080 Laptop GPU", value: 24 }],
+    supply: [
+      { model: "NVIDIA GeForce RTX 4080 Laptop GPU", hour: 20, value: 1 },
+      { model: "NVIDIA GeForce RTX 4080 Laptop GPU", hour: 21, value: 1 },
+    ],
+  },
+  utilisation: [{ model: "NVIDIA GeForce RTX 4080 Laptop GPU", value: 0.25 }],
+  funnels: [
+    { funnel: "hosts", order: 1, step: "linked a machine", people: 4 },
+    { funnel: "hosts", order: 2, step: "self-test passed", people: 3 },
+    { funnel: "hosts", order: 3, step: "first session", people: 2 },
+    { funnel: "hosts", order: 4, step: "first payout", people: 1 },
+    { funnel: "renters", order: 1, step: "signed up", people: 120 },
+    { funnel: "renters", order: 2, step: "first top-up", people: 40 },
+    { funnel: "renters", order: 3, step: "first session", people: 30 },
+    { funnel: "renters", order: 4, step: "second session", people: 18 },
+  ],
+  health: [
+    { name: "database", ok: true, detail: "answered in 2 ms" },
+    { name: "valkey", ok: true, detail: "answered PONG" },
+    { name: "backup age", ok: true, detail: "the newest full backup is 5 hours old" },
+    { name: "agent streams", ok: true, detail: "1 agent connected" },
+    { name: "scanner", ok: true, detail: "no check waiting" },
+    { name: "settlement reconciliation", ok: true, detail: "every settlement agrees with the ledger" },
+    { name: "wallet reconciliation", ok: true, detail: "the latest run found nothing wrong" },
+    { name: "settlement backlog", ok: true, detail: "every session settled on time" },
+    {
+      name: "review queue",
+      ok: true,
+      detail: `${reviewMinutes.minutes.filter((each) => each.resolution === null).length} minutes waiting for a decision`,
+    },
+    { name: "inbox targets", ok: false, detail: "1 item past its target" },
+  ],
+  computedAt: {
+    money: NOW.toISOString(),
+    marketplace: NOW.toISOString(),
+    supply: NOW.toISOString(),
+    funnels: NOW.toISOString(),
+    health: NOW.toISOString(),
+  },
 };
 
 /**

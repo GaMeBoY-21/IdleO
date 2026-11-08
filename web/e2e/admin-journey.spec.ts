@@ -121,18 +121,19 @@ test("an admin enrols a second factor, then activates a host, grants credit and 
 
   let adminSecret = "";
 
-  await test.step("enrol TOTP and reach the dashboard", async () => {
+  await test.step("enrol TOTP and reach the control room", async () => {
     await signIn(page, adminUser!, "/admin/");
     await expect(page.getByRole("img", { name: "QR code of your authenticator secret" })).toBeVisible();
     adminSecret = await enrol(page);
-    await expect(page.getByRole("heading", { level: 1, name: "Dashboard" })).toBeVisible();
-    const hostsOnline = page
-      .getByRole("list", { name: "Figures" })
+    await expect(page.getByRole("heading", { level: 1, name: "Control room" })).toBeVisible();
+    // The rollup runs within a minute of the stack starting, long before this; its agents are connected.
+    const streams = page
+      .getByRole("list", { name: "The control plane's checks" })
       .getByRole("listitem")
-      .filter({ hasText: "Hosts online" });
-    const online = Number((await hostsOnline.textContent())!.match(/\d+/)![0]);
-    expect(online).toBeGreaterThan(0);
-    report.dashboard = { hostsOnline: online };
+      .filter({ hasText: "agent streams" });
+    await expect(streams).toContainText(/[1-9]\d* agents? connected/, { timeout: 70_000 });
+    const online = Number((await streams.textContent())!.match(/(\d+) agents? connected/)![1]);
+    report.dashboard = { agentsConnected: online };
   });
 
   await test.step("activate a pending host", async () => {
@@ -164,7 +165,7 @@ test("an admin enrols a second factor, then activates a host, grants credit and 
   await test.step("the second admin signs in", async () => {
     await signIn(approverPage, secondAdmin!, "/admin/");
     await enrol(approverPage);
-    await expect(approverPage.getByRole("heading", { level: 1, name: "Dashboard" })).toBeVisible();
+    await expect(approverPage.getByRole("heading", { level: 1, name: "Control room" })).toBeVisible();
   });
 
   await test.step("grant credit, a second admin approves it, and see it in the audit log", async () => {

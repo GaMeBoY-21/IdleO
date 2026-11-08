@@ -18,6 +18,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * The console's budgets on the seeded data (ADR 0052): 100k users, 2k hosts, 1M sessions and 300k payments. The search box
@@ -46,6 +47,9 @@ class ConsoleBudgetTests {
 
     @Autowired
     List<ConsoleSeed> seeds;
+
+    @Autowired
+    ControlRoomRollups rollups;
 
     private TestAdmins.TestAdmin owner;
 
@@ -145,5 +149,41 @@ class ConsoleBudgetTests {
                 .max(Long::compare)
                 .orElseThrow();
         assertThat(worst).as("worst list p95").isLessThan(200);
+    }
+
+    /**
+     * The control room (ADR 0056): the rollup job, every part at once, under 2 s; the page's read under 100 ms at p95, so
+     * its first paint stays within a second; and the funnels the same as the seeded tables say.
+     */
+    @Test
+    void theControlRoomsRollupTakesUnderTwoSecondsAndItsPageReadsQuickly() throws Exception {
+        rollups.rollUp(true);
+        var took = new ArrayList<Long>();
+        for (int run = 0; run < 3; run++) {
+            took.add(rollups.rollUp(true));
+        }
+        java.util.Collections.sort(took);
+        System.out.printf("budget: the control room's rollup took %d ms (median of 3)%n", took.get(1));
+        assertThat(took.get(1)).isLessThan(2_000);
+        assertThat(p95("the control room's page", owner.as(get("/admin/v1/control-room"))))
+                .isLessThan(100);
+        var steps = new java.util.HashMap<String, Long>();
+        JsonMapper.builder()
+                .build()
+                .readTree(mvc.perform(owner.as(get("/admin/v1/control-room")))
+                        .andReturn()
+                        .getResponse()
+                        .getContentAsString())
+                .get("funnels")
+                .forEach(step -> steps.put(
+                        step.get("funnel").asString() + "/" + step.get("order").asInt(),
+                        step.get("people").asLong()));
+        assertThat(steps.get("renters/1"))
+                .isEqualTo(jdbc.queryForObject(
+                        "select count(*) from identity.users where status <> 'erased'", Long.class));
+        assertThat(steps.get("renters/3"))
+                .isEqualTo(jdbc.queryForObject(
+                        "select count(distinct renter_id) from sessions.sessions where started_at is not null",
+                        Long.class));
     }
 }

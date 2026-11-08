@@ -12,7 +12,13 @@ public enum AdminPermission {
     /** What every admin may do with their own access: sign in, see where they stand. Held by all, in no role. */
     SELF("self", false),
 
+    /**
+     * The first dashboard's (ADR 0027), which the control room replaced: no endpoint asks for it. It stays while the release
+     * before serves, whose roles still name it, and goes with a later release's migration.
+     */
     DASHBOARD_READ("dashboard.read", false),
+    /** The live dashboard (ADR 0056): the marketplace, supply, funnels and health; money's figures also need money.read. */
+    OPS_DASHBOARD_READ("ops.dashboard.read", false),
 
     USERS_READ("users.read", false),
     USERS_PII_REVEAL("users.pii.reveal", true),

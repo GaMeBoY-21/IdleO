@@ -43,7 +43,7 @@ An admin without the permission gets **403 `admin-permission-required`**, naming
 | `audit.read` |  | `GET /admin/v1/audit`, `GET /admin/v1/audit/standing`, `GET /admin/v1/personal-data/access-log`, `POST /admin/v1/audit/verify` | Owner, Auditor |
 | `clawbacks.read` |  | `GET /admin/v1/clawbacks` | Owner, Finance, Auditor |
 | `clawbacks.waive` | yes | `POST /admin/v1/clawbacks/{id}/waive` | Owner, Finance |
-| `dashboard.read` |  | `GET /admin/v1/dashboard` | Owner, Operations, Support, Trust & Safety, Finance, Auditor |
+| `dashboard.read` |  | `GET /admin/v1/dashboard` (replaced by `ops.dashboard.read` and the control room, ADR 0056) | Owner, Operations, Support, Trust & Safety, Finance, Auditor |
 | `disputes.decide` |  | `POST /admin/v1/disputes/{id}/no-refund` | Owner, Support, Trust & Safety |
 | `disputes.read` |  | `GET /admin/v1/disputes`, `GET /admin/v1/disputes/host-flags`, `GET /admin/v1/disputes/{id}` | Owner, Support, Trust & Safety, Finance, Auditor |
 | `disputes.refund` | yes | `POST /admin/v1/disputes/{id}/refund` | Owner, Finance |
