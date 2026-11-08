@@ -65,9 +65,7 @@ export function Dashboard() {
           });
         } catch {
           // Closed, or the network blinked: polling covers it until the stream is back.
-          if (!stop.signal.aborted) {
-            setStreamDown(true);
-          }
+          setStreamDown(true);
         }
         await new Promise((resolve) => setTimeout(resolve, 1_000));
       }
@@ -250,7 +248,12 @@ function Panels({ figures }: { figures: ControlRoom }) {
                 needs: "",
                 render: () => <Cohorts rows={figures.cohorts} />,
               },
-              { id: "all-time", label: "All time", needs: "", render: () => <AllTime steps={figures.funnels} /> },
+              {
+                id: "all-time",
+                label: "All time",
+                needs: "",
+                render: () => <AllTime steps={figures.funnels} />,
+              },
             ]}
           />
         </Panel>
@@ -336,7 +339,11 @@ function within(count: number, signedUp: number, whole: boolean): string {
  */
 function Cohorts({ rows }: { rows: CohortStep[] }) {
   if (rows.length === 0) {
-    return <Empty title="No sign-ups in the last 12 weeks">Each week's cohort shows here once someone joins.</Empty>;
+    return (
+      <Empty title="No sign-ups in the last 12 weeks">
+        Each week's cohort shows here once someone joins.
+      </Empty>
+    );
   }
   return (
     <div className="flex flex-col gap-4">
@@ -413,19 +420,18 @@ function Demand({ cells }: { cells: DemandCell[] }) {
   const now = useNow("half-minute");
   const since = new Date(now - 7 * 24 * 3_600_000).toISOString();
   if (cells.length === 0) {
-    return <Empty title="No bookings in the last 7 days">What was asked for shows here by GPU class and hour.</Empty>;
+    return (
+      <Empty title="No bookings in the last 7 days">
+        What was asked for shows here by GPU class and hour.
+      </Empty>
+    );
   }
   const worstFirst = [...cells].sort(
     (one, other) => other.gap - one.gap || other.asked - one.asked || one.hour - other.hour,
   );
   return (
     <div className="flex flex-col gap-4">
-      <SmallSelect
-        label="Show"
-        value={shown}
-        onChange={setMeasure}
-        options={Object.entries(DEMAND_WORDS)}
-      />
+      <SmallSelect label="Show" value={shown} onChange={setMeasure} options={Object.entries(DEMAND_WORDS)} />
       <Heatmap
         caption={`${DEMAND_WORDS[shown]}: bookings by GPU class and hour of day, India, last 7 days`}
         cells={cells.map((cell) => ({ model: cell.gpu, hour: cell.hour, value: cell[shown] }))}

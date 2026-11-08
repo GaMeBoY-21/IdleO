@@ -125,8 +125,8 @@ function SessionSearch({ user, host }: { user: string; host: string }) {
       />
       {asked.demandClass && (
         <p role="status" className="flex flex-wrap items-center gap-3 text-small">
-          Bookings for a {Math.round(Number(asked.demandClass) / 1_000)} GB GPU asked at {asked.demandHour}:00 in
-          India, over the last 7 days.
+          Bookings for a {Math.round(Number(asked.demandClass) / 1_000)} GB GPU asked at {asked.demandHour}:00
+          in India, over the last 7 days.
           <Link
             href="/admin/sessions/"
             className="inline-flex min-h-touch items-center underline underline-offset-4 md:min-h-9"

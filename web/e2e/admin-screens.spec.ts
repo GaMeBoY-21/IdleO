@@ -239,7 +239,10 @@ test.describe("the console", () => {
     const demand = page.getByRole("table", { name: "Every hour with a booking, the most missed first" });
     await expect(demand.getByRole("row").nth(1)).toContainText("12 GB");
     const missed = demand.getByRole("link", { name: /Missed: no host, 12 GB at 14:00/ });
-    await expect(missed).toHaveAttribute("href", /demandClass=12000&demandHour=14&since=.*&state=NO_HOST_FREE/);
+    await expect(missed).toHaveAttribute(
+      "href",
+      /demandClass=12000&demandHour=14&since=.*&state=NO_HOST_FREE/,
+    );
     const map = page.getByRole("table", { name: /^Missed: no host: bookings by GPU class/ });
     await expect(map.getByRole("link", { name: /at 14:00, 12 GB/ })).toBeVisible();
     await page.getByLabel("Show", { exact: true }).selectOption("served");
