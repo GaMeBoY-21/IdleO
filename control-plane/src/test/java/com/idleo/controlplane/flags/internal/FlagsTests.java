@@ -54,6 +54,15 @@ class FlagsTests {
     @Autowired
     ApplicationContext context;
 
+    /**
+     * The shared database holds every earlier test's Owners, and a flag that emails the Owners tells each of them: only
+     * this test's own admins are left, as approvals' tests do.
+     */
+    @org.junit.jupiter.api.BeforeEach
+    void noOtherAdmins() {
+        jdbc.update("update identity.admins set locked_at = now() where locked_at is null");
+    }
+
     @AfterEach
     void runEverythingAgain() {
         clock.reset();
@@ -135,6 +144,8 @@ class FlagsTests {
     void runningAgainWaitsForAnotherAdminsApproval() throws Exception {
         var admin = TestAdmins.signIn(mvc, jdbc, clock);
         send(admin.as(post("/admin/v1/flags/topups/pause")), "{\"reason\":\"fraud wave on top-ups\"}");
+        // Someone else who could approve it.
+        TestAdmins.signIn(mvc, jdbc, clock);
         var asked = send(admin.as(post("/admin/v1/flags/topups/resume")), "{\"reason\":\"the wave has passed\"}");
         assertThat(asked.getStatus()).as(asked.getContentAsString()).isEqualTo(202);
         var request = JSON.readTree(asked.getContentAsString());
