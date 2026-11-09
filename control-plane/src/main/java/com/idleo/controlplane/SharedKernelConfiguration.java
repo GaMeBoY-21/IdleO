@@ -1,6 +1,8 @@
 package com.idleo.controlplane;
 
+import java.nio.file.Path;
 import java.time.Clock;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -11,7 +13,12 @@ import org.springframework.context.annotation.Configuration;
 class SharedKernelConfiguration {
 
     @Bean
-    Clock clock() {
-        return Clock.systemUTC();
+    Clock clock(@Value("${e2e.clock-file:}") String clockFile) {
+        return clockFile.isBlank() ? Clock.systemUTC() : new OffsetFileClock(Path.of(clockFile));
+    }
+
+    @Bean
+    IdTokenClock idTokenClock(Clock clock, @Value("${e2e.clock-file:}") String clockFile) {
+        return new IdTokenClock(clockFile.isBlank() ? clock : Clock.systemUTC());
     }
 }

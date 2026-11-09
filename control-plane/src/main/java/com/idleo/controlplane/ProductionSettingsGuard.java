@@ -58,6 +58,7 @@ import org.springframework.util.unit.DataSize;
  *       real web app would work (ADR 0051);
  *   <li>a cooling-off delay shorter, or a refund limit higher, than the approval engine's own (ADR 0051);
  *   <li>{@code console.seed.allowed}, which lets {@code seed-console} make up 100,000 people (ADR 0052);
+ *   <li>{@code e2e.clock-file}, which lets a file move the whole control plane's time (ADR 0057);
  *   <li>no off-site store for the audit log ({@code identity.audit.offsite.*}), or one that is plain HTTP or on this
  *       machine (ADR 0051);
  *   <li>Razorpay's test keys, an API other than Razorpay's (the fake), live keys without a webhook secret or without
@@ -316,6 +317,9 @@ class ProductionSettingsGuard implements BeanFactoryPostProcessor {
         }
         if (binder.bind("console.seed.allowed", Boolean.class).orElse(false)) {
             problems.add("console.seed.allowed is true: made-up data is for a local stack only");
+        }
+        if (!binder.bind("e2e.clock-file", String.class).orElse("").isBlank()) {
+            problems.add("e2e.clock-file is set: only the end-to-end suite may move time");
         }
         var auditEndpoint =
                 binder.bind("identity.audit.offsite.endpoint", String.class).orElse("");
