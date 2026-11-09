@@ -8,6 +8,8 @@ import com.idleo.controlplane.hosts.HostListings;
 import com.idleo.controlplane.identity.BrowserSignInOnly;
 import com.idleo.controlplane.identity.CurrentUser;
 import com.idleo.controlplane.identity.RequiresAcceptedTerms;
+import com.idleo.controlplane.identity.RequiresUnlocked;
+import com.idleo.controlplane.identity.Side;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -131,6 +133,7 @@ class HostLinkController {
     }
 
     @RequiresAcceptedTerms
+    @RequiresUnlocked(Side.HOSTING)
     @BrowserSignInOnly
     @PostMapping("/{id}/approve")
     LinkResponse approve(

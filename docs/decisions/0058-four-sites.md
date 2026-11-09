@@ -42,6 +42,16 @@ The renter app answers every old hosting address with a permanent redirect to th
 - The CLI's sign-in, invoices and a renter's notices stay on the renter app. The alerts' runbook links are the repository's, not a site's.
 - Real visits' vitals name their site (`app`, `host` or `site`).
 
+### Accounts and joining
+
+One account works on every site. While access is by invitation (ADR 0024), an invite code says what it unlocks: renting, hosting or both (`identity.invite_codes.unlocks`; `create-invites --unlocks`). What an account has unlocked is `identity.user_sides`, one row a side, and `unlocked` on `GET /v1/me`. An active account with no rows has both, as every account had before codes had kinds and as the release before still activates people, so nothing is backfilled. A second code unlocks the other side; one that would unlock nothing new isn't used up.
+
+The server holds each side to it: `@RequiresUnlocked(Side.RENTING)` on booking, buying credit and checking an image, `@RequiresUnlocked(Side.HOSTING)` on approving a link, adding a laptop, pricing it and its enrolment code, refused with 403 `side-not-unlocked` (the CLI's and the SDK's not-signed-in exit). A test fails on any call that needs the Terms and says no side, but the upload, which an appeal on either side uses. On a site whose side the account hasn't unlocked, the frame shows one page saying so ("Hosting isn't open for your account yet") with the code box (`features/invite/CodeForm.tsx`, shared with the invite step) and a link to the other site.
+
+Each site has a first run, shown as a checklist on its home until every step is done, each step read from what the account already has (`components/ui/Checklist.tsx`): the renter's Terms, credit (the free credit counts) and a first test job (the CUDA test); the host's Terms, the Windows app, linking the laptop, its self-test, payout details (PAN and UPI) and its price. Hosting has no terms of its own: the Terms and the privacy notice are what a host accepts, for both sides. When a laptop is available is set in the tray (pausing, auto-pause), not on the site.
+
+Open question: the admin console's invites screen makes codes of each kind with the console's move to its own site; until then an operator makes them with `create-invites --unlocks`.
+
 ### One API
 
 CORS allows exactly the sites' origins per environment (`web.allowed-origins`); storage's CORS allows the renter app and the host site, since an appeal's evidence is uploaded from either.

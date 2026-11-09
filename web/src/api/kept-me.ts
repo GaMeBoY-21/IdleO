@@ -12,6 +12,8 @@ export type KeptMe = {
   status: string;
   accepted: boolean;
   unreadNotifications: number;
+  /** The sides the account has unlocked (ADR 0058); missing from what an older visit kept. */
+  unlocked?: string[];
 };
 
 export const KEPT_ME_KEY = ["kept-me"] as const;
@@ -22,4 +24,5 @@ export const keptMe = (me: components["schemas"]["MeResponse"]): KeptMe => ({
   status: me.status,
   accepted: me.notices.accepted,
   unreadNotifications: me.unreadNotifications,
+  unlocked: me.unlocked,
 });

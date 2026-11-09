@@ -224,6 +224,7 @@ Everything the SDK raises on purpose is an `idleo.errors.IdleoError`, and each c
 | `EmailNotVerified` | `email-not-verified` | 403 | 1 |
 | `InviteRequired` | `invite-required` | 403 | 5 |
 | `InviteInvalid` | `invite-invalid` | 400 | 1 |
+| `SideNotUnlocked` | `side-not-unlocked` | 403 | 5 |
 | `TermsNotAccepted` | `terms-not-accepted` | 403 | 5 |
 | `NoticesChanged` | `notices-changed` | 409 | 1 |
 | `AgeNotConfirmed` | `age-not-confirmed` | 422 | 1 |

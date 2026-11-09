@@ -62,6 +62,14 @@ class InviteInvalid(IdleoError):
     title = "Invite code not accepted"
 
 
+class SideNotUnlocked(IdleoError):
+    """Not open for this account yet (HTTP 403)."""
+
+    slug = "side-not-unlocked"
+    status = 403
+    title = "Not open for this account yet"
+
+
 class TermsNotAccepted(IdleoError):
     """Accept the Terms first (HTTP 403)."""
 
@@ -806,6 +814,7 @@ __all__ = [
     "EmailNotVerified",
     "InviteRequired",
     "InviteInvalid",
+    "SideNotUnlocked",
     "TermsNotAccepted",
     "NoticesChanged",
     "AgeNotConfirmed",
@@ -908,6 +917,7 @@ PROBLEMS: dict[str, type[IdleoError]] = {
     "email-not-verified": EmailNotVerified,
     "invite-required": InviteRequired,
     "invite-invalid": InviteInvalid,
+    "side-not-unlocked": SideNotUnlocked,
     "terms-not-accepted": TermsNotAccepted,
     "notices-changed": NoticesChanged,
     "age-not-confirmed": AgeNotConfirmed,

@@ -678,6 +678,11 @@ class Lowers(BaseModel):
     kind: str
 
 
+class UnlockedEnum(Enum):
+    renting = "renting"
+    hosting = "hosting"
+
+
 class MyEnforcement(BaseModel):
     model_config = ConfigDict(
         populate_by_name=True,
@@ -946,6 +951,7 @@ class Type(Enum):
     field_problems_email_not_verified = "/problems/email-not-verified"
     field_problems_invite_required = "/problems/invite-required"
     field_problems_invite_invalid = "/problems/invite-invalid"
+    field_problems_side_not_unlocked = "/problems/side-not-unlocked"
     field_problems_terms_not_accepted = "/problems/terms-not-accepted"
     field_problems_notices_changed = "/problems/notices-changed"
     field_problems_age_not_confirmed = "/problems/age-not-confirmed"
@@ -1903,6 +1909,7 @@ class MeResponse(BaseModel):
     notices: NoticeStanding
     sign_in_methods: Annotated[list[str], Field(alias="signInMethods")]
     status: str
+    unlocked: list[UnlockedEnum]
     unread_notifications: Annotated[int, Field(alias="unreadNotifications")]
 
 

@@ -8,6 +8,11 @@ import { HOST_PATHS } from "./paths";
  * account menu. A laptop's screens and adding one are flows on a phone, as the session screen is in the renter app.
  */
 export const nav: SiteNav = {
+  side: "hosting",
+  locked: {
+    title: "Hosting isn't open for your account yet",
+    body: "Your account can rent GPUs, and hosting a laptop is unlocked by its own invite code. Enter one to start earning.",
+  },
   destinations: [
     { href: HOST_PATHS.home, label: "Home" },
     { href: HOST_PATHS.earnings, label: "Earnings" },

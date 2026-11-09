@@ -82,6 +82,7 @@ def test_a_type_this_version_doesnt_know_is_still_an_idleo_error():
     [
         ("unauthenticated", 5),
         ("invite-required", 5),
+        ("side-not-unlocked", 5),
         ("browser-sign-in-required", 5),
         ("insufficient-credit", 3),
         ("no-gpu-free", 4),
@@ -119,7 +120,7 @@ def test_the_exit_table_is_the_command_lines():
     for arm in re.finditer(r"((?:\"[a-z-]+\"\s*\|?\s*)+)=> Self::(\w+)", arms):
         for slug in re.findall(r"\"([a-z-]+)\"", arm.group(1)):
             expected[slug] = code[arm.group(2)]
-    assert len(expected) == 10
+    assert len(expected) == 11
     from idleo._problem import _EXIT_BY_SLUG
 
     assert expected == _EXIT_BY_SLUG

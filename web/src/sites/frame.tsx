@@ -8,6 +8,7 @@ import { agreeStep } from "@/features/after-sign-in";
 import { SignInFrame } from "@/features/sign-in/SignInFrame";
 import { afterFirstScreen } from "@/lib/after-first-screen";
 import { NotFound } from "@/pages/NotFound";
+import { nav } from "@site/site";
 
 /**
  * What every site of the web app is made of (ADR 0058): its screens, each its own chunk; the screens every site has
@@ -149,16 +150,23 @@ export function defineSite(definition: SiteDefinition): Site {
         </RequireAuth>
       );
     }
+    // An account this site's side isn't open to (ADR 0058) meets one page that takes a code, inside the frame, whose
+    // menu leads to the other site. What a visit kept from before sides were named says nothing, and gates nothing.
+    const locked = me?.unlocked !== undefined && !me.unlocked.includes(nav.side) && me.status !== "waiting";
     return (
       <RequireAuth fallback={<ShellSkeleton />}>
         <NoticesGate />
         <AppShell>
           <Suspense fallback={<Skeleton className="h-16 w-full" />}>
-            <Switch>
-              {signedIn.map((path) => (
-                <Route key={path} path={path} component={screens[path]!.Screen} />
-              ))}
-            </Switch>
+            {locked ? (
+              <Unlock />
+            ) : (
+              <Switch>
+                {signedIn.map((path) => (
+                  <Route key={path} path={path} component={screens[path]!.Screen} />
+                ))}
+              </Switch>
+            )}
           </Suspense>
         </AppShell>
       </RequireAuth>
@@ -237,6 +245,9 @@ function NoticesGate() {
   }, [pending, path, search, navigate]);
   return null;
 }
+
+// Only an account that hasn't unlocked this site's side draws this (ADR 0058), so it's a chunk of its own.
+const Unlock = lazy(() => import("@/features/invite/Unlock").then((m) => ({ default: m.Unlock })));
 
 // Only a suspended or banned account ever draws these, so they are chunks of their own, not part of any first load.
 const HeldShell = lazy(() => import("@/features/held/HeldAccount").then((m) => ({ default: m.HeldShell })));

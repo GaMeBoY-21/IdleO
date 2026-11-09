@@ -4,6 +4,8 @@ import com.idleo.controlplane.IdempotentRequests;
 import com.idleo.controlplane.OpenDuringMaintenance;
 import com.idleo.controlplane.identity.CurrentUser;
 import com.idleo.controlplane.identity.RequiresAcceptedTerms;
+import com.idleo.controlplane.identity.RequiresUnlocked;
+import com.idleo.controlplane.identity.Side;
 import com.idleo.controlplane.sessions.CreateSessionRequest;
 import io.swagger.v3.oas.annotations.headers.Header;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -67,6 +69,7 @@ class SessionController {
             @Nullable String nextCursor) {}
 
     @RequiresAcceptedTerms
+    @RequiresUnlocked(Side.RENTING)
     @PostMapping
     @ApiResponse(
             responseCode = "201",

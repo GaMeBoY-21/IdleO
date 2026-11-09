@@ -116,6 +116,14 @@ class IdentityPersonalData implements PersonalData {
                         rows.list(jdbc, "select used_at from identity.invite_codes where used_by = :user", params)),
                 new Part(
                         "account",
+                        "sidesUnlocked",
+                        rows.list(
+                                jdbc,
+                                "select side, unlocked_at from identity.user_sides where user_id = :user"
+                                        + " order by unlocked_at",
+                                params)),
+                new Part(
+                        "account",
                         "noticesAccepted",
                         rows.list(
                                 jdbc,
@@ -178,6 +186,7 @@ class IdentityPersonalData implements PersonalData {
                         "identity.api_keys",
                         "identity.external_identities",
                         "identity.activation_attempts",
+                        "identity.user_sides",
                         "identity.idempotency_keys")) {
                     jdbc.sql("delete from " + table + " where user_id = :user")
                             .param("user", userId)

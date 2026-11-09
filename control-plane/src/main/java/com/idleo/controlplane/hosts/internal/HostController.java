@@ -7,6 +7,8 @@ import com.idleo.controlplane.hosts.HostListings;
 import com.idleo.controlplane.identity.BrowserSignInOnly;
 import com.idleo.controlplane.identity.CurrentUser;
 import com.idleo.controlplane.identity.RequiresAcceptedTerms;
+import com.idleo.controlplane.identity.RequiresUnlocked;
+import com.idleo.controlplane.identity.Side;
 import io.swagger.v3.oas.annotations.headers.Header;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -75,6 +77,7 @@ class HostController {
             Integer keepFreeGb) {}
 
     @RequiresAcceptedTerms
+    @RequiresUnlocked(Side.HOSTING)
     @BrowserSignInOnly
     @PutMapping("/{id}/listing")
     HostListings.Listing putListing(
@@ -99,6 +102,7 @@ class HostController {
     record EnrolmentCodeResponse(String code, Instant expiresAt) {}
 
     @RequiresAcceptedTerms
+    @RequiresUnlocked(Side.HOSTING)
     @BrowserSignInOnly
     @PostMapping
     @ApiResponse(
@@ -129,6 +133,7 @@ class HostController {
 
     /** The code is shown once and never stored, so the response must not be cached either. */
     @RequiresAcceptedTerms
+    @RequiresUnlocked(Side.HOSTING)
     @BrowserSignInOnly
     @PostMapping("/{id}/enrolment-code")
     @ApiResponse(
