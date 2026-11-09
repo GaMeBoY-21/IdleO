@@ -2,6 +2,8 @@ import type { components } from "@/api/schema.gen";
 import { useAvailability } from "@/api/queries";
 import { Tile } from "@/components/ui/Tile";
 import { cn } from "@/lib/cn";
+import { siteLink } from "@/lib/site-links";
+import { PRICING } from "@/site/paths";
 import { formatPaiseRange } from "@/lib/money";
 import { classMb, GPU_CLASSES_GB } from "@/features/book/vram";
 
@@ -12,6 +14,8 @@ export const AVAILABILITY_EVERY_MS = 30_000;
 
 export interface ClassRow {
   gb: number;
+  /** Hosts of the class online now, and those of them free. */
+  online: number;
   free: number;
   /** Paise a minute, the cheapest and the dearest among the GPUs of the class that are online. */
   range: { min: number; max: number } | null;
@@ -35,6 +39,7 @@ export function classRows(gpus: Gpu[]): ClassRow[] {
     return [
       {
         gb,
+        online: of.reduce((sum, gpu) => sum + gpu.hostsOnline, 0),
         free: idle.reduce((sum, gpu) => sum + gpu.hostsIdle, 0),
         range:
           idle.length === 0
@@ -49,16 +54,13 @@ export function classRows(gpus: Gpu[]): ClassRow[] {
 }
 
 /**
- * "GPUs free right now", a panel: a row for each class with how
- * many are free and their price an hour; a class with none free is dimmed. It is read again every 30 s while the tab is
- * visible, and not at all until the screen has painted. With nothing to show it isn't drawn, and nothing is invented.
+ * "GPUs online now", a panel: a row for each size (8, 12, 16, 24 GB) with how many are online and free, and their price
+ * an hour; a size with none free is dimmed. It is read again every 30 s while the tab is visible, and not at all until
+ * the screen has painted. With none online it says so, and nothing is invented.
  */
 export function FreeGpus({ enabled }: { enabled: boolean }) {
   const availability = useAvailability(enabled, AVAILABILITY_EVERY_MS);
   const rows = availability.data ? classRows(availability.data.gpus) : [];
-  if (availability.data && rows.length === 0) {
-    return null;
-  }
   return (
     <Tile size="lg" aria-labelledby="free-gpus" className="flex min-h-0 flex-1 flex-col gap-3">
       <div className="flex items-center justify-between text-caption text-text-2">
@@ -67,12 +69,22 @@ export function FreeGpus({ enabled }: { enabled: boolean }) {
           className="flex items-center gap-2 text-caption font-bold tracking-wider uppercase"
         >
           <span aria-hidden="true" className="size-2 rounded-full bg-running-dot" />
-          GPUs free right now
+          GPUs online now
         </h2>
         <span>live</span>
       </div>
       <ul className="flex flex-1 flex-col">
-        {availability.data ? (
+        {availability.data && rows.length === 0 ? (
+          <li className="flex flex-1 flex-col justify-center gap-1 text-small text-text-2">
+            <span className="text-body font-semibold text-text">No GPU is online right now</span>
+            <span>
+              Hosts&apos; laptops come and go through the day; this updates by itself.{" "}
+              <a href={siteLink(PRICING)} className="font-semibold underline">
+                Typical prices by size
+              </a>
+            </span>
+          </li>
+        ) : availability.data ? (
           rows.map((row) => (
             <li
               key={row.gb}
@@ -82,7 +94,9 @@ export function FreeGpus({ enabled }: { enabled: boolean }) {
               )}
             >
               <span className="w-16 font-bold">{row.gb} GB</span>
-              <span className="flex-1">{row.free === 0 ? "none free" : `${row.free} free`}</span>
+              <span className="flex-1">
+                {row.online} online · {row.free === 0 ? "none free" : `${row.free} free`}
+              </span>
               <span className={cn(row.free > 0 && "font-bold text-running")}>
                 {row.range ? `${formatPaiseRange(row.range.min * 60, row.range.max * 60)}/h` : "—"}
               </span>

@@ -1,6 +1,6 @@
 import type { components } from "@/api/schema.gen";
 import { TileLink } from "@/components/ui/Tile";
-import { bookHref, serviceSentence, serviceTime } from "@/lib/catalog";
+import { bookHref, serviceSentence, serviceTime, serviceTypicalCost } from "@/lib/catalog";
 import { cn } from "@/lib/cn";
 import { serviceTone } from "../ServiceTiles";
 
@@ -9,7 +9,7 @@ type Catalog = components["schemas"]["TemplateList"];
 
 /**
  * The services, as accent cards in a row (approved reference `AppHome`): the first ember, the second ion, the others
- * panels, each with its typical time as the small label, its name, and what you bring. The catalog decides what is
+ * panels, each with its typical time and typical cost as the small labels, its name, and what you bring. The catalog decides what is
  * here and in which order. Dropping a folder anywhere on Home opens the matching service with it (HomeDrop); while
  * one is over the page the row is ringed in the focus colour.
  */
@@ -17,10 +17,13 @@ export function ServicesTile({
   services,
   catalog,
   dropping,
+  prices,
 }: {
   services: Service[];
   catalog: Catalog;
   dropping: boolean;
+  /** The typical price of each GPU size (`GET /v1/public/availability`), once it has arrived. */
+  prices?: Parameters<typeof serviceTypicalCost>[2];
 }) {
   return (
     <section
@@ -40,8 +43,12 @@ export function ServicesTile({
             size="lg"
             className="min-h-service-card gap-4"
           >
-            <span className="text-caption font-bold tracking-wider uppercase">
-              {serviceTime(catalog, service.id)}
+            <span className="flex flex-col gap-0.5 text-caption font-bold tracking-wider uppercase">
+              <span>{serviceTime(catalog, service.id)}</span>
+              {/* Its line is kept from the start, so the cost arriving moves nothing. */}
+              <span className="min-h-4.5 font-semibold tracking-normal normal-case">
+                {prices ? serviceTypicalCost(catalog, service.id, prices) : null}
+              </span>
             </span>
             <span className="flex flex-col gap-1">
               <span className="font-title text-display-card break-words">{service.name}</span>

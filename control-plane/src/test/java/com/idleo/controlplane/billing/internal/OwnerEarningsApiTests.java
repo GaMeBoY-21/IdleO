@@ -120,6 +120,14 @@ class OwnerEarningsApiTests {
         assertThat(result.get("totalPaise").asLong()).isEqualTo(8 + 4 - 1 + 16);
         assertThat(result.get("weekPaise").asLong()).isEqualTo(ledgerNet(home, laptop));
         assertThat(result.get("payoutsStart").asString()).isEqualTo("weekly");
+        // The last 8 weeks, oldest first (ADR 0058): this week's is the week's figure, the seven before it nothing yet.
+        var weeks = result.get("weeks");
+        assertThat(weeks).hasSize(8);
+        assertThat(weeks.get(7).get("startsAt").asString())
+                .isEqualTo(result.get("weekStartsAt").asString());
+        assertThat(weeks.get(7).get("earnedPaise").asLong())
+                .isEqualTo(result.get("weekPaise").asLong());
+        assertThat(weeks.get(0).get("earnedPaise").asLong()).isZero();
         var machines = result.get("machines");
         assertThat(machines).hasSize(2);
         assertThat(machines.get(0).get("name").asString()).isEqualTo("Home desktop");
@@ -198,6 +206,7 @@ class OwnerEarningsApiTests {
         assertThat(result.get("machines")).isEmpty();
         assertThat(result.get("history").get("entries")).isEmpty();
         assertThat(result.get("days")).hasSize(7);
+        assertThat(result.get("weeks")).hasSize(8);
         mvc.perform(get("/v1/earnings?limit=0").header("Authorization", stranger.bearer()))
                 .andExpect(status().isBadRequest());
     }

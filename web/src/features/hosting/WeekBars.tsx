@@ -1,6 +1,5 @@
+import { Bars, BarsSkeleton } from "@/components/ui/Bars";
 import type { components } from "@/api/schema.gen";
-import { cn } from "@/lib/cn";
-import { barPercent } from "@/lib/hosting";
 import { formatPaise } from "@/lib/money";
 
 type Day = components["schemas"]["EarningsDay"];
@@ -15,59 +14,22 @@ const dayName = (date: string) => weekday.format(new Date(`${date}T00:00:00Z`));
  * day with nothing a thin line. Each day is a list item with its name and amount for a screen reader.
  */
 export function WeekBars({ days, tall = false }: { days: Day[]; tall?: boolean }) {
-  const busiest = Math.max(0, ...days.map((day) => day.earnedPaise));
   return (
-    <ul
-      aria-label="Earned each day, the last 7 days"
-      className={cn("flex items-end", tall ? "h-chart gap-3" : "h-18 gap-2")}
-    >
-      {days.map((day, index) => {
-        const percent = barPercent(day.earnedPaise, busiest);
-        const today = index === days.length - 1;
-        return (
-          <li key={day.date} className="flex h-full flex-1 flex-col items-center justify-end gap-1.5">
-            <span className="sr-only">
-              {dayName(day.date)}, {formatPaise(day.earnedPaise)}
-            </span>
-            <span
-              aria-hidden="true"
-              className={cn(
-                "w-full",
-                tall ? "rounded-icon" : "rounded-control",
-                tall
-                  ? day.earnedPaise > 0
-                    ? today
-                      ? "bg-running-dot"
-                      : "bg-on-night/20"
-                    : "bg-on-night/10"
-                  : day.earnedPaise > 0
-                    ? today
-                      ? "bg-running-dot"
-                      : "bg-running-dot/50"
-                    : "bg-on-night/20",
-              )}
-              style={{ height: percent === 0 ? undefined : `${percent}%`, minHeight: "0.25rem" }}
-            />
-            <span
-              aria-hidden="true"
-              className={cn("text-caption", today ? "font-bold text-volt" : "text-on-night-2")}
-            >
-              {tall ? dayName(day.date).slice(0, 3) : dayName(day.date).charAt(0)}
-            </span>
-          </li>
-        );
-      })}
-    </ul>
+    <Bars
+      label="Earned each day, the last 7 days"
+      tone="night"
+      tall={tall}
+      bars={days.map((day) => ({
+        key: day.date,
+        value: day.earnedPaise,
+        label: tall ? dayName(day.date).slice(0, 3) : dayName(day.date).charAt(0),
+        spoken: `${dayName(day.date)}, ${formatPaise(day.earnedPaise)}`,
+      }))}
+    />
   );
 }
 
 /** The bars' shape before the figures arrive: the same box. */
 export function WeekBarsSkeleton() {
-  return (
-    <div aria-hidden="true" className="flex h-18 items-end gap-2">
-      {Array.from({ length: 7 }, (_, key) => (
-        <span key={key} className="skeleton-dark h-full flex-1 rounded-control" />
-      ))}
-    </div>
-  );
+  return <BarsSkeleton count={7} tone="night" />;
 }
