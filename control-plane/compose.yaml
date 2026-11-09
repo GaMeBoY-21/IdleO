@@ -58,7 +58,7 @@ services:
     # reference distribution registry, plain HTTP, which only a development distribution's runner will use. The images'
     # digests are what the catalog pins; scripts/images/publish.sh --dev pushes them. ./start.sh --lan opens the port to the
     # LAN (LOCAL_REGISTRY_BIND=0.0.0.0), so a Windows laptop can pull.
-    image: registry:2@sha256:a3d8aaa63ed8681a604f1dea0aa03f100d5895b6a58ace528858a7b332415373
+    image: registry:3@sha256:38907510915c3f1604c7e83d6ab602ab3020d092f73bdaed8696773693ff768c
     volumes:
       - registry-data:/var/lib/registry
     ports:
