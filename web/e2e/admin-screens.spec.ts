@@ -220,6 +220,9 @@ test.describe("the console", () => {
     await page.keyboard.press("?");
     await expect(page.getByRole("dialog", { name: "Keys and help" })).toContainText("Claim it");
     await page.keyboard.press("Escape");
+    // The keys wait for a sheet to go, and selecting waits for what this list allows in bulk.
+    await expect(page.getByRole("dialog")).toBeHidden();
+    await expect(page.getByRole("checkbox", { name: /^Select this row/ }).first()).toBeVisible();
     await page.keyboard.press("x");
     await page.keyboard.press("j");
     await page.keyboard.press("j");

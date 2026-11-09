@@ -267,7 +267,7 @@ function Panels({ figures }: { figures: ControlRoom }) {
                   {HEALTH_LINKS[check.name] !== undefined ? (
                     <Link
                       href={HEALTH_LINKS[check.name] ?? "/admin/"}
-                      className="font-medium underline-offset-4 hover:underline"
+                      className="inline-flex min-h-6 items-center font-medium underline-offset-4 hover:underline"
                     >
                       {check.name}
                     </Link>
@@ -281,7 +281,10 @@ function Panels({ figures }: { figures: ControlRoom }) {
           </ul>
           <p className="text-caption text-text-2">
             {config.grafanaUrl ? (
-              <a href={`${config.grafanaUrl}/alerting/list`} className="underline underline-offset-4">
+              <a
+                href={`${config.grafanaUrl}/alerting/list`}
+                className="inline-flex min-h-6 items-center underline underline-offset-4"
+              >
                 Alerts in Grafana
               </a>
             ) : (
