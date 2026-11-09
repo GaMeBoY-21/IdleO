@@ -82,6 +82,7 @@ export function Inbox() {
   const [overriding, setOverriding] = useState<Item | null>(null);
   const [priority, setPriority] = useState("high");
   const [replying, setReplying] = useState<Item | null>(null);
+  const [assigning, setAssigning] = useState<Item | null>(null);
   const items = useListQuery([ADMIN, "inbox", listView, type, view], "items", (cursor?: string) =>
     adminData(
       adminApi.GET("/admin/v1/queue", {
@@ -211,6 +212,13 @@ export function Inbox() {
                         Claim<span className="sr-only"> {item.title}</span>
                       </ActionButton>
                     )}
+                    <ActionButton
+                      permission="queues.assign"
+                      variant="quiet"
+                      onClick={() => setAssigning(item)}
+                    >
+                      Assign<span className="sr-only"> {item.title}</span>
+                    </ActionButton>
                     <ActionButton permission="queues.claim" variant="quiet" onClick={() => setReplying(item)}>
                       Macro<span className="sr-only"> for {item.title}</span>
                     </ActionButton>
@@ -228,6 +236,7 @@ export function Inbox() {
           </Table>
         )}
       </QueryView>
+      {assigning && <AssignSheet item={assigning} onClose={() => setAssigning(null)} />}
       {replying && <MacroSheet item={replying} onClose={() => setReplying(null)} />}
       <ActionSheet
         open={overriding !== null}
@@ -269,6 +278,49 @@ export function Inbox() {
       {can("macros.manage") && <Macros />}
       {can("queues.read") && <Targets />}
     </AdminPage>
+  );
+}
+
+/** Giving an item to another admin, who must be able to see its kind of work. */
+function AssignSheet({ item, onClose }: { item: Item; onClose: () => void }) {
+  const client = useQueryClient();
+  const admins = useQuery({
+    queryKey: [ADMIN, "mentionable"],
+    queryFn: () => adminData(adminApi.GET("/admin/v1/notes/mentionable")),
+  });
+  const [assignee, setAssignee] = useState("");
+  const chosen = assignee || admins.data?.admins[0]?.id || "";
+  return (
+    <ActionSheet
+      open
+      onOpenChange={(open) => {
+        if (!open) {
+          onClose();
+        }
+      }}
+      title="Assign this to someone?"
+      change={item.title}
+      confirm="Assign it"
+      record={item}
+      extra={
+        <SmallSelect
+          label="Who"
+          value={chosen}
+          onChange={setAssignee}
+          options={(admins.data?.admins ?? []).map((admin): [string, string] => [admin.id, admin.name])}
+        />
+      }
+      onConfirm={async (reason) => {
+        await adminData(
+          adminApi.POST("/admin/v1/queue/{id}/assign", {
+            params: { path: { id: item.id } },
+            body: { assignee: chosen, reason },
+          }),
+        );
+        await client.invalidateQueries({ queryKey: [ADMIN] });
+        onClose();
+      }}
+    />
   );
 }
 
@@ -338,6 +390,8 @@ function Macros() {
   const [form, setForm] = useState({ type: "ticket", name: "", body: "" });
   const [problem, setProblem] = useState<unknown>(null);
   const [retiring, setRetiring] = useState<Macro | null>(null);
+  const [changing, setChanging] = useState<Macro | null>(null);
+  const [changed, setChanged] = useState({ name: "", body: "" });
   const add = async () => {
     setProblem(null);
     try {
@@ -365,6 +419,16 @@ function Macros() {
                 <Cell className="tabular">{macro.number}</Cell>
                 <Cell className="max-w-96">{macro.body ?? "—"}</Cell>
                 <Cell>
+                  <ActionButton
+                    permission="macros.manage"
+                    variant="quiet"
+                    onClick={() => {
+                      setChanged({ name: macro.name, body: macro.body ?? "" });
+                      setChanging(macro);
+                    }}
+                  >
+                    Change<span className="sr-only"> {macro.name}</span>
+                  </ActionButton>
                   <ActionButton permission="macros.manage" variant="quiet" onClick={() => setRetiring(macro)}>
                     Retire<span className="sr-only"> {macro.name}</span>
                   </ActionButton>
@@ -399,6 +463,45 @@ function Macros() {
         </Button>
       </form>
       <Problem error={problem} />
+      <ActionSheet
+        open={changing !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setChanging(null);
+          }
+        }}
+        title="Change this macro?"
+        change="It becomes a new version. What was already sent stays as it was."
+        confirm="Change it"
+        {...(changing ? { record: changing } : {})}
+        extra={
+          <>
+            <SmallField
+              label="Macro's name"
+              value={changed.name}
+              onChange={(name) => setChanged({ ...changed, name })}
+            />
+            <SmallField
+              label="What it says"
+              value={changed.body}
+              onChange={(body) => setChanged({ ...changed, body })}
+              width="w-full"
+            />
+          </>
+        }
+        onConfirm={async () => {
+          if (changing) {
+            await adminData(
+              adminApi.POST("/admin/v1/queue/macros/{id}", {
+                params: { path: { id: changing.id } },
+                body: { name: changed.name, body: changed.body },
+              }),
+            );
+            setChanging(null);
+            await client.invalidateQueries({ queryKey: [ADMIN, "macros"] });
+          }
+        }}
+      />
       <ActionSheet
         open={retiring !== null}
         onOpenChange={(open) => {

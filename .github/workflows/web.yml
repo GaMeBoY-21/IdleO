@@ -211,6 +211,15 @@ jobs:
           include-hidden-files: true
           if-no-files-found: ignore
           retention-days: 30
+      # Which admin writes this shard's tests pressed, for the coverage check below (ADR 0057).
+      - name: Keep what this shard pressed
+        if: ${{ !matrix.lighthouse && !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: admin-writes-${{ matrix.shard }}
+          path: web/admin-writes
+          if-no-files-found: ignore
+          retention-days: 7
       # The report and the failed screenshots' diffs; logs only, never keys or tokens.
       - name: Keep the browser report and logs
         if: failure()
@@ -239,6 +248,16 @@ jobs:
         run: |
           echo "the jobs ended: $RESULT"
           [[ "$RESULT" == success ]]
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: web/.node-version
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: admin-writes-*
+          path: web/admin-writes
+      # Every admin write in the permission matrix was pressed from a screen by some test (ADR 0057).
+      - name: Every admin write is pressed from the UI
+        run: node web/scripts/admin-ui-coverage.ts web/admin-writes
       # To Grafana Cloud: on main or on its schedule, a red run or a silent one is a ticket (ADR 0050).
       - name: Report
         if: always()

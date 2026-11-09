@@ -67,3 +67,7 @@ dist/
 
 # WAL-G, fetched into the database image's build context (ops/postgres/fetch-wal-g.sh)
 ops/postgres/wal-g/
+
+# What the browser tests pressed, for the admin UI coverage check
+web/admin-writes/
+web/contact-sheet/
