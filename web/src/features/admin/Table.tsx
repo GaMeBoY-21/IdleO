@@ -35,6 +35,9 @@ export const WINDOW_FROM = 100;
 /** The most rows one bulk action can take (BulkActions.MOST_ITEMS). */
 const MOST_SELECTED = 500;
 
+/** How far one scroll event moves for it to count as flicking past: more than a reader's screenful of rows at once. */
+const FLICK_PX = 400;
+
 const MIN_WIDTH = 48;
 const WIDTH_STEP = 24;
 
@@ -111,14 +114,24 @@ export function Table({
   }, [pinned, settings.widths, rows.length]);
   const shape = useMemo<Shape>(() => ({ order, pins: pinWidths, compact }), [order, pinWidths, compact]);
 
+  // While a long list flicks past faster than anyone can read, its rows are plain placeholders: building a whole screen
+  // of real rows every frame is what makes a slow machine stutter. They come back as soon as it slows.
+  const [flicking, setFlicking] = useState(false);
+  const lastOffset = useRef(0);
   // React Compiler skips this component for it, which is what it needs: the virtualizer changes on every scroll.
   // eslint-disable-next-line react-hooks/incompatible-library
   const virtual = useVirtualizer({
     count: rows.length,
     getScrollElement: () => scroller.current,
     estimateSize: () => (compact ? 36 : 56),
-    overscan: 12,
+    overscan: 6,
     enabled: windowed,
+    onChange: (instance) => {
+      const offset = instance.scrollOffset ?? 0;
+      const moved = Math.abs(offset - lastOffset.current);
+      lastOffset.current = offset;
+      setFlicking(instance.isScrolling && moved > FLICK_PX);
+    },
   });
 
   const actions = useBulkActions(list);
@@ -366,11 +379,19 @@ export function Table({
                 <tbody aria-hidden="true">
                   <tr style={{ height: firstStart }} />
                 </tbody>
-                {items.map((item) => (
-                  <tbody key={item.key} data-index={item.index} ref={virtual.measureElement}>
-                    {wrap(rows[item.index], item.index)}
-                  </tbody>
-                ))}
+                {items.map((item) =>
+                  flicking ? (
+                    <tbody key={item.key} aria-hidden="true">
+                      <tr className="border-b border-line" style={{ height: item.size }}>
+                        <td colSpan={colSpan} />
+                      </tr>
+                    </tbody>
+                  ) : (
+                    <tbody key={item.key} data-index={item.index} ref={virtual.measureElement}>
+                      {wrap(rows[item.index], item.index)}
+                    </tbody>
+                  ),
+                )}
                 <tbody aria-hidden="true">
                   <tr style={{ height: Math.max(0, virtual.getTotalSize() - lastEnd) }}>
                     <td colSpan={colSpan} />
