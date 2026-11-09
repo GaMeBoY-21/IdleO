@@ -39,22 +39,22 @@ export default defineConfig({
   projects: [
     {
       name: "screens-phone-light",
-      testMatch: /(screens|admin-console|admin-first-load|layout-shift|firebase)\.spec\.ts/,
+      testMatch: /(screens|admin-console|admin-actions|admin-first-load|layout-shift|firebase)\.spec\.ts/,
       use: { ...phone, colorScheme: "light" },
     },
     {
       name: "screens-phone-dark",
-      testMatch: /(screens|admin-console|admin-first-load|layout-shift|firebase)\.spec\.ts/,
+      testMatch: /(screens|admin-console|admin-actions|admin-first-load|layout-shift|firebase)\.spec\.ts/,
       use: { ...phone, colorScheme: "dark" },
     },
     {
       name: "screens-laptop-light",
-      testMatch: /(screens|admin-console|admin-first-load|layout-shift|firebase)\.spec\.ts/,
+      testMatch: /(screens|admin-console|admin-actions|admin-first-load|layout-shift|firebase)\.spec\.ts/,
       use: { ...laptop, colorScheme: "light" },
     },
     {
       name: "screens-laptop-dark",
-      testMatch: /(screens|admin-console|admin-first-load|layout-shift|firebase)\.spec\.ts/,
+      testMatch: /(screens|admin-console|admin-actions|admin-first-load|layout-shift|firebase)\.spec\.ts/,
       use: { ...laptop, colorScheme: "dark" },
     },
     { name: "console-budgets", testMatch: "console-budgets.spec.ts", use: { ...laptop }, timeout: 600_000 },
@@ -70,6 +70,8 @@ export default defineConfig({
       use: { ...laptop },
       timeout: 480_000,
     },
+    { name: "contact-sheet", testMatch: "contact-sheet.spec.ts", use: { ...laptop }, timeout: 60_000 },
+    { name: "admin-roles", testMatch: "admin-roles.spec.ts", use: { ...laptop }, workers: 1, timeout: 600_000 },
     {
       name: "recording",
       testMatch: /recording(-laptop)?\.spec\.ts/,

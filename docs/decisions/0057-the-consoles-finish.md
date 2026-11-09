@@ -41,6 +41,43 @@ Outside the inbox, a bulk action can only tag or warn: a tag is reversible and m
 
 The admin chunk never reaches an app screen (`admin-first-load.spec.ts`, beside `scripts/first-load.ts`). On the seeded data, each screen paints within 1 s of following its link and a sort or filter changes within 200 ms, measured in the page by frame (`scripts/e2e/console-budgets.sh`, weekly). A hard load isn't what's measured: an admin session lives only in the page's memory, so reloading asks for a code again, and a person moves between screens by link.
 
-### Coverage and the test clock
+### The test clock
 
-See below; the proof is what lets the rest of this be trusted.
+A whole stack can have its time moved, so the things that only happen with time can be seen happening: a month closes, a target runs out, a strike stops counting. The kernel's `clock` bean reads an offset from the file `e2e.clock-file` names (`OffsetFileClock`, re-read every 100 ms). It's a file and not an endpoint, so nothing on the network can move time. It's a setting and not a code path, and `ProductionSettingsGuard` refuses it.
+
+ID tokens keep the real clock (`IdTokenClock`) while it's set: the sign-in server stamps its tokens with the real time, so against a moved clock every token would look expired. Everything else moves together, TOTP included, so the suite's own code generators read the same file.
+
+**Alternative rejected:** a test-only endpoint to set the time. It would be one more thing a mistaken deployment could expose.
+
+With it, month close runs on **the month the money moved in**: the clock moves to the 2nd of next month, Finance reconciles and makes the CA pack, and the Owner closes it. Before this the suite could only close last month, which had nothing in it.
+
+### Coverage
+
+Every admin `POST`, `PUT` and `DELETE` in the permission matrix has been pressed from a screen by some browser test. `signIn` records every admin write a page sends; `scripts/admin-ui-coverage.ts` compares them with the matrix and fails, listing what's missing, in the web browser run's result. Only a page's own requests count, so `admin-call.py` from a script proves nothing here. A write no other spec reaches is a row of `admin-actions.spec.ts`: 101 of 101.
+
+The check found four writes with no button at all, and they have one now: assigning an inbox item, changing a macro, defining a tag, and erasing under a legal order.
+
+Coverage says a button sends its request. What the request then does is the control plane's tests and the journeys'.
+
+### Role journeys
+
+`admin-roles.spec.ts` is a realistic day for each role against the real stack, in one world on one clock, after the payouts scenario has moved money:
+
+- **Support:** the inbox, a macro, a reveal with a reason, and a target running out when the clock moves three days.
+- **Trust & Safety:** linked accounts, the ladder, and an appeal the admin who enforced can't decide while another can. Six months on, the strike has stopped counting.
+- **Operations:** a rollout widened with approval and paused; maintenance mode.
+- **Auditor:** reads what they may, and the audit chain holds. `admin-writes-refused.py` then sends every write in the matrix as an Auditor: each must be refused.
+- **Finance:** reconciliation, a payout batch and the CA pack, at the start of next month.
+- **Owner:** an approval, a kill switch, and closing the month.
+
+### The contact sheet
+
+`.github/workflows/contact-sheet.yml`, by hand only: every screen in its main states and both themes at 1440 px, the phone-ready ones at 390 px, on one `index.html`. It's for a person to look through, and checks nothing the browser run doesn't.
+
+## Consequences
+
+- A new `AdminListing` has to decide about bulk; a new code has to have words; a new admin write has to be pressed from a screen; a new screen has to be in `src/screens.ts`, its runbook in `runbooks.ts`. Each fails a test otherwise.
+- Local browser specs must run against `scripts/serve.ts`: `vite preview` serves no prerendered pages, which hid `/admin/approvals/` and `/admin/security/` hydrating another screen's page. That was a real fault for anyone opening those addresses directly, found by this round's tests.
+- The first paint budget is measured following a link. An admin session lives only in the page's memory, so a hard load asks for a code first, which no budget could hold.
+- Bulk from a list covers 16 of the 43 lists. The other 27 are logs, money rows, access and decisions made one at a time, and each says why.
+- A booking names memory, not a GPU model, so demand is by class (ADR 0056's addendum).

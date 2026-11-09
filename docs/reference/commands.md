@@ -99,3 +99,10 @@ Agent protocol, run from proto/:
 - buf format -d: must print nothing (buf format -w fixes it)
 - buf build
 - buf breaking --against '../.git#branch=main,subdir=proto': FILE rules
+
+## The admin console's proof (ADR 0057)
+
+- `pnpm exec playwright test admin-actions admin-screens admin-console --project=screens-laptop-light`, then `node scripts/admin-ui-coverage.ts`: which admin writes no browser test has pressed. Clear `web/admin-writes/` first. Run against `scripts/serve.ts` with a production-style build, never `vite preview`, which serves no prerendered pages.
+- `scripts/e2e/console-budgets.sh`: every console screen on the seeded data, in a real browser. Weekly in `.github/workflows/budgets.yml`.
+- `E2E_PARTS="payouts roles" scripts/e2e/agent-online.sh`: the six role journeys (`web/e2e/admin-roles.spec.ts`), which need the payouts scenario's money.
+- `gh workflow run contact-sheet.yml`: every console screen on one page, as the `contact-sheet` artifact.
