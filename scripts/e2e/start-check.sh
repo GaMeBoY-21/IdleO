@@ -32,7 +32,7 @@ until grep -q "^start: ready" "$out/start-check.log"; do
   sleep 2
 done
 ready_in=$((SECONDS - started))
-for line in "Web app" "Website" "Link demo" "Mailpit" "Grafana" "Admin console" "nikki-low@example.com" "logs/"; do
+for line in "Renter app" "Host site" "Website" "Link demo" "Mailpit" "Grafana" "Admin console" "nikki-low@example.com" "logs/"; do
   grep -q "$line" "$out/start-check.log" || fail "the ready block doesn't mention $line"
 done
 
@@ -90,7 +90,7 @@ leftovers=""
 [[ -z "$(docker ps -q --filter label=com.docker.compose.project=idleo-local)" ]] || leftovers+=" containers"
 pgrep -f "private/local/agent-[0-9].toml" >/dev/null && leftovers+=" agents"
 pgrep -f "dist-website-local" >/dev/null && leftovers+=" website"
-for port in 8080 9443 3000 3002 3300; do
+for port in 8080 9443 3000 3002 3003 3300; do
   (exec 3<>"/dev/tcp/127.0.0.1/$port") 2>/dev/null && leftovers+=" port-$port"
 done
 [[ -z "$leftovers" ]] || fail "still running after ./start.sh --stop:$leftovers"

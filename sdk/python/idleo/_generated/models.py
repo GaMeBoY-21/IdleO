@@ -491,6 +491,11 @@ class ImageWarning(BaseModel):
     message: str
 
 
+class Site(Enum):
+    app = "app"
+    host = "host"
+
+
 class InboxItem(BaseModel):
     model_config = ConfigDict(
         populate_by_name=True,
@@ -501,6 +506,7 @@ class InboxItem(BaseModel):
     kind: str
     link: str
     read: bool
+    site: Site
     title: str
 
 
