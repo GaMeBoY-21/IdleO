@@ -8,7 +8,7 @@ import {
   type Route,
   type TestInfo,
 } from "@playwright/test";
-import { copyFileSync, mkdirSync, readFileSync } from "node:fs";
+import { appendFileSync, copyFileSync, mkdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 /** Whether this Playwright project is a phone: the laptop layout starts at 1200 px (web/DESIGN.md "Laptop layout"). */
@@ -21,14 +21,16 @@ export const STORAGE = `http://localhost:${process.env.LOCAL_STORAGE_PORT ?? "91
 /** Signs in through the web app's own sign-in screen, as an invented @example.com user (the local adapter). */
 /** Types what an action that can't be undone asks for, as the sheet shows it. */
 export async function typeToConfirm(sheet: Locator): Promise<void> {
+  const field = sheet.getByLabel(/to confirm$/);
   const toType = await sheet
-    .getByText(/This can't be undone/)
+    .locator("label", { hasText: /to confirm$/ })
     .locator("span")
     .textContent();
-  await sheet.getByLabel(/to confirm$/).fill(toType!);
+  await field.fill(toType!);
 }
 
 export async function signIn(page: Page, user: string, path = "/", origin = ""): Promise<void> {
+  recordAdminWrites(page);
   // `origin`: another site's address (e2e/sites.ts), whose sign-in is its own (ADR 0058); the baseURL's by default.
   await page.goto(`${origin}/sign-in/`);
   await page.getByLabel("Email", { exact: true }).fill(`${user}@example.com`);
@@ -338,4 +340,30 @@ export async function codesShown(page: Page): Promise<string[]> {
   return [...new Set(text.match(/\b[A-Z][A-Z_]+[A-Z]\b|\b[a-z]+(?:_[a-z]+)+\b/g) ?? [])].filter(
     (code) => code.includes("_") || states.has(code),
   );
+}
+
+const WRITES_FOLDER =
+  process.env.ADMIN_WRITES_DIR ?? fileURLToPath(new URL("../admin-writes/", import.meta.url));
+const recording = new WeakSet<Page>();
+
+/**
+ * Notes every admin write a browser test makes from the screen (ADR 0057), for scripts/admin-ui-coverage.ts, which fails
+ * on any write in the permission matrix that no test has pressed. Only what the page itself sends counts.
+ */
+function recordAdminWrites(page: Page): void {
+  if (recording.has(page)) {
+    return;
+  }
+  recording.add(page);
+  page.on("request", (request) => {
+    const url = new URL(request.url());
+    const method = request.method();
+    if (url.pathname.startsWith("/admin/v1/") && ["POST", "PUT", "DELETE", "PATCH"].includes(method)) {
+      mkdirSync(WRITES_FOLDER, { recursive: true });
+      appendFileSync(
+        `${WRITES_FOLDER}/${process.pid}.jsonl`,
+        `${JSON.stringify({ method, path: url.pathname })}\n`,
+      );
+    }
+  });
 }

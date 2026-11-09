@@ -147,6 +147,7 @@ function UserRecord({ id }: { id: string }) {
     { enabled: can("money.read") },
   );
   const [action, setAction] = useState<Action | null>(null);
+  const [erasing, setErasing] = useState(false);
   // Why an account is suspended decides whether its payouts are held (ADR 0041).
   const [cause, setCause] = useState("other");
   const [rupees, setRupees] = useState("");
@@ -256,7 +257,28 @@ function UserRecord({ id }: { id: string }) {
               >
                 Their wallet in the ledger
               </Link>
+              <ActionButton permission="privacy.legal-order" variant="quiet" onClick={() => setErasing(true)}>
+                Erase under a legal order
+              </ActionButton>
             </div>
+            <ActionSheet
+              open={erasing}
+              onOpenChange={setErasing}
+              record={found}
+              typed={found.id.slice(0, 8)}
+              destructive
+              title={`Erase ${found.email ?? "this person"} under a legal order?`}
+              change="Their account is erased at the next run of the erasure job, without their asking and whatever they have open. Name the order in your reason: it stays in the audit log."
+              confirm="Erase them"
+              onConfirm={async (reason) => {
+                await adminData(
+                  adminApi.POST("/admin/v1/users/{id}/deletion/legal-order", {
+                    params: { path: { id } },
+                    body: { reason },
+                  }),
+                );
+              }}
+            />
             <ActionSheet
               open={action === "suspend" || action === "unsuspend"}
               onOpenChange={(next) => !next && setAction(null)}

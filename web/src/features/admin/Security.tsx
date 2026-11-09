@@ -12,6 +12,7 @@ import {
   type AdminAccount,
   type AdminPasskey,
   type AdminSessionRecord,
+  type Schemas,
 } from "./api";
 import { useCan } from "./permissions";
 import {
@@ -25,6 +26,7 @@ import {
   Table,
   TableSkeleton,
   Problem,
+  SmallSelect,
 } from "./ui";
 import { makePasskey, passkeysAvailable } from "./webauthn";
 import { ListBar } from "./Lists";
@@ -53,6 +55,7 @@ export function Security() {
           <Admins />
         </ListScope.Provider>
       )}
+      {can("tags.manage") && <TagVocabulary />}
     </AdminPage>
   );
 }
@@ -309,6 +312,62 @@ function Admins() {
           </>
         )}
       </QueryView>
+    </Section>
+  );
+}
+
+/** The tags admins can put on a record: the Owner's vocabulary, each with a name and a tone. */
+function TagVocabulary() {
+  const client = useQueryClient();
+  const [form, setForm] = useState<Schemas["TagDefinition"]>({ id: "", label: "", colour: "plain" });
+  const [problem, setProblem] = useState<unknown>(null);
+  const tags = useQuery({
+    queryKey: [ADMIN, "tags"],
+    queryFn: () => adminData(adminApi.GET("/admin/v1/tags")),
+  });
+  const add = async () => {
+    setProblem(null);
+    try {
+      await adminData(adminApi.POST("/admin/v1/tags", { body: form }));
+      setForm({ id: "", label: "", colour: "plain" });
+      await client.invalidateQueries({ queryKey: [ADMIN, "tags"] });
+    } catch (failed) {
+      setProblem(failed);
+    }
+  };
+  return (
+    <Section title="Tags">
+      <p className="text-small text-text-2">
+        {tags.data?.tags.map((tag) => tag.label).join(", ") || "No tags yet."}
+      </p>
+      <form
+        className="flex flex-wrap items-end gap-3"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void add();
+        }}
+      >
+        <SmallField label="Its short name" value={form.id} onChange={(id) => setForm({ ...form, id })} />
+        <SmallField
+          label="What it says"
+          value={form.label}
+          onChange={(label) => setForm({ ...form, label })}
+        />
+        <SmallSelect
+          label="Tone"
+          value={form.colour}
+          onChange={(colour) => setForm({ ...form, colour: colour as Schemas["TagDefinition"]["colour"] })}
+          options={[
+            ["plain", "Plain"],
+            ["running", "Good"],
+            ["danger", "Needs care"],
+          ]}
+        />
+        <Button type="submit" variant="ghost">
+          Add or change the tag
+        </Button>
+      </form>
+      <Problem error={problem} />
     </Section>
   );
 }
