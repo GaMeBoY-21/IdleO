@@ -73,6 +73,16 @@ describe("no raw codes in the console", () => {
   });
 });
 
+describe("every screen of the console", () => {
+  it("has its own page, or opening its address directly gets another screen's and a hydration error", () => {
+    const screens = [...read("web/src/features/admin/AdminConsole.tsx").matchAll(/\{ href: "(\/admin\/[^"]*)"/g)].map(
+      (match) => match[1]!,
+    );
+    const pages = read("web/src/screens.ts");
+    expect(screens.filter((href) => !pages.includes(`"${href}"`))).toEqual([]);
+  });
+});
+
 describe("the ? panel", () => {
   const screens = [
     ...read("web/src/features/admin/AdminConsole.tsx").matchAll(/\{ href: "(\/admin\/[^"]*)"/g),
