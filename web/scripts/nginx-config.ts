@@ -59,6 +59,11 @@ function path(value: string): string {
   return value;
 }
 
+/** A path as a literal in nginx's regular expression: every character that means something there escaped. */
+function escapeRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 /** `add_header` for every header, sent with errors and redirects too. */
 function addHeaders(headers: Headers, indent: string): string[] {
   return Object.entries(headers).map(
@@ -120,7 +125,7 @@ export function serverBlock(rules: ServeRules, root: string, port: number): stri
   // A redirect keeps the query ($is_args$args), and a prefix's rest ($1); one to a folder answers without its slash too.
   for (const { from, prefix, to } of parseRedirects(rules.redirects)) {
     const openings = prefix
-      ? [`location ~ ^${from.replace(/\./g, "\\.")}(.*)$`]
+      ? [`location ~ ^${escapeRegex(from)}(.*)$`]
       : [
           `location = ${from}`,
           ...(from.endsWith("/") && from !== "/" ? [`location = ${from.slice(0, -1)}`] : []),
