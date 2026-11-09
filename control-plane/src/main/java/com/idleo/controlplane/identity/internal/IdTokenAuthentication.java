@@ -1,5 +1,6 @@
 package com.idleo.controlplane.identity.internal;
 
+import com.idleo.controlplane.IdTokenClock;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Clock;
 import java.util.Map;
@@ -31,7 +32,9 @@ class IdTokenAuthentication {
 
     private final JwtIssuerAuthenticationManagerResolver resolver;
 
-    IdTokenAuthentication(IdentityProperties properties, SignInAuthenticationConverter converter, Clock clock) {
+    IdTokenAuthentication(
+            IdentityProperties properties, SignInAuthenticationConverter converter, IdTokenClock tokenClock) {
+        var clock = tokenClock.clock();
         Map<String, AuthenticationManager> managers = properties.issuers().stream()
                 .collect(Collectors.toUnmodifiableMap(
                         IdentityProperties.Issuer::issuerUri, issuer -> manager(issuer, converter, clock)));

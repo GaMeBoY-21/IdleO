@@ -1,0 +1,63 @@
+name: contact-sheet
+
+# The console's contact sheet (ADR 0057): every admin screen in its main states and both themes at 1440 px, and the
+# phone-ready ones at 390 px, on one page. By hand only: it checks nothing the browser run doesn't, it's for looking at.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sheet:
+    name: contact sheet
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      API_URL: http://localhost:8180
+      SIGN_IN_URL: http://localhost:8099/idleo-local
+      WEB_URL: http://localhost:3000
+      SKIP_VISUAL: "1"
+      CONTACT_SHEET_DIR: contact-sheet
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+        with:
+          package_json_file: web/package.json
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: web/.node-version
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+      - name: Install Playwright's browser and its system libraries
+        run: scripts/e2e/install-browser.sh
+      - name: The sign-in server the app signs in with; the API answers from fixtures
+        run: docker compose -f control-plane/compose.yaml up -d sign-in
+      - name: Build and serve the app
+        working-directory: web
+        env:
+          IDLEO_DEPLOYMENT: local
+          IDLEO_SITE_URL: http://localhost:3002
+          IDLEO_APP_URL: http://localhost:3000
+          VITE_API_URL: http://localhost:8180
+          VITE_STORAGE_URL: http://localhost:9100
+          VITE_AUTH: oidc-mock
+          VITE_OIDC_ISSUER: http://localhost:8099/idleo-local
+          VITE_OIDC_CLIENT_ID: idleo-local
+          VITE_CHECKOUT_URL: http://localhost:3000/checkout.js
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm build
+          IDLEO_DIST=dist PORT=3000 node scripts/serve.ts &
+          until curl -sf http://localhost:3000/sign-in/ >/dev/null; do sleep 0.5; done
+      - name: The pictures
+        working-directory: web
+        run: pnpm exec playwright test --project=contact-sheet --reporter=line
+      - name: The page
+        working-directory: web
+        run: node scripts/contact-sheet-index.ts contact-sheet
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: contact-sheet
+          path: web/contact-sheet
+          retention-days: 30
