@@ -71,7 +71,13 @@ export default defineConfig({
       timeout: 480_000,
     },
     { name: "contact-sheet", testMatch: "contact-sheet.spec.ts", use: { ...laptop }, timeout: 60_000 },
-    { name: "admin-roles", testMatch: "admin-roles.spec.ts", use: { ...laptop }, workers: 1, timeout: 600_000 },
+    {
+      name: "admin-roles",
+      testMatch: "admin-roles.spec.ts",
+      use: { ...laptop },
+      workers: 1,
+      timeout: 600_000,
+    },
     {
       name: "recording",
       testMatch: /recording(-laptop)?\.spec\.ts/,
