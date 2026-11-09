@@ -6,8 +6,8 @@ import { fakeApi, signIn, type Answer } from "./support";
 
 /**
  * A long list scrolls smoothly (ADR 0057). In the serial project, beside the Lighthouse runs, as a frame's length means
- * nothing while other browsers compete for the machine: on CI's parallel shards it measured 100 ms on a runner busy with
- * other tests, against 29 to 32 ms alone. The budget is the same either way, 50 ms.
+ * nothing while other browsers compete for the machine: on CI's parallel shards a runner busy with other tests made it
+ * twice as long. The budget is 50 ms, at reading speed with every row real, and flicked from end to end.
  */
 async function open(page: Page, path: string, overrides: Record<string, Answer> = {}) {
   await fakeApi(page, routes(overrides));
@@ -34,28 +34,41 @@ test("10,000 rows are windowed and scroll with no frame over 50 ms", async ({ pa
   const inPage = await region.locator("tr[data-row-key]").count();
   expect(inPage, "rows in the page").toBeLessThan(100);
   await expect(page.getByRole("table", { name: "Sessions" })).toHaveAttribute("aria-rowcount", "10001");
-  const frames = await region.evaluate(async (element) => {
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    const longest: number[] = [];
-    let at = performance.now();
-    const started = at;
-    const step = element.scrollHeight / 300;
-    return await new Promise<number[]>((resolve) => {
-      const tick = (now: number) => {
-        longest.push(now - at);
-        at = now;
-        element.scrollTop += step;
-        if (now - started < 4_000) {
-          requestAnimationFrame(tick);
-        } else {
-          resolve(longest);
-        }
-      };
-      requestAnimationFrame(tick);
-    });
-  });
-  const worst = Math.max(...frames.slice(1));
-  console.log(`console table: ${frames.length} frames over 10,000 rows, the worst ${worst.toFixed(1)} ms`);
-  expect(worst).toBeLessThanOrEqual(50);
+  /** The longest frame while scrolling `pixels` a frame for 4 seconds. */
+  const worstFrame = (pixels: number) =>
+    region.evaluate(async (element, step) => {
+      element.scrollTop = 0;
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      const lengths: number[] = [];
+      let at = performance.now();
+      const started = at;
+      return await new Promise<{ frames: number; worst: number }>((resolve) => {
+        const tick = (now: number) => {
+          lengths.push(now - at);
+          at = now;
+          element.scrollTop += step;
+          if (now - started < 4_000) {
+            requestAnimationFrame(tick);
+          } else {
+            // The first is only how long it waited to begin.
+            resolve({ frames: lengths.length, worst: Math.max(...lengths.slice(1)) });
+          }
+        };
+        requestAnimationFrame(tick);
+      });
+    }, pixels);
+  // As someone reads down it, with every row real; and flicked from end to end.
+  const reading = await worstFrame(60);
+  await expect(region.locator("tr[data-row-key]").first()).toBeVisible();
+  const flicked = await worstFrame(1_900);
+  for (const [how, measured] of [
+    ["reading", reading],
+    ["flicked", flicked],
+  ] as const) {
+    console.log(
+      `console table, ${how}: ${measured.frames} frames over 10,000 rows, the worst ${measured.worst.toFixed(1)} ms`,
+    );
+    expect(measured.worst, how).toBeLessThanOrEqual(50);
+  }
   await expect(region.locator("tr[data-row-key]").last()).toBeVisible();
 });
