@@ -231,7 +231,7 @@ test("an admin enrols a second factor, then activates a host, grants credit and 
     await page.getByRole("button", { name: "Force stop" }).click();
     await confirmIn(page, "Force-stop this session?", "Force stop", "end-to-end force stop");
     await expect(page.getByText("COMPLETED").first()).toBeVisible({ timeout: 120_000 });
-    await expect(page.getByRole("region", { name: "Timeline" })).toContainText("operator_stopped");
+    await expect(page.getByRole("region", { name: "Timeline" })).toContainText("Stopped by an operator");
     report.stopped = runningSession;
   });
 
