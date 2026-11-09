@@ -30,7 +30,8 @@ impl Exit {
     #[allow(clippy::match_same_arms)]
     pub fn for_problem(slug: &str) -> Self {
         match slug {
-            "unauthenticated" | "invite-required" => Self::NotSignedIn,
+            // A side of the account not unlocked yet (ADR 0058) is another invite code, entered in a browser.
+            "unauthenticated" | "invite-required" | "side-not-unlocked" => Self::NotSignedIn,
             "browser-sign-in-required" | "terms-not-accepted" => Self::NotSignedIn,
             "insufficient-credit" => Self::NotEnoughCredit,
             "no-gpu-free" => Self::NoHostFree,
@@ -112,7 +113,13 @@ mod tests {
     fn each_problem_type_has_its_code() {
         assert_eq!(Exit::for_problem("insufficient-credit"), Exit::NotEnoughCredit);
         assert_eq!(Exit::for_problem("no-gpu-free"), Exit::NoHostFree);
-        for slug in ["unauthenticated", "invite-required", "browser-sign-in-required", "terms-not-accepted"] {
+        for slug in [
+            "unauthenticated",
+            "invite-required",
+            "side-not-unlocked",
+            "browser-sign-in-required",
+            "terms-not-accepted",
+        ] {
             assert_eq!(Exit::for_problem(slug), Exit::NotSignedIn, "{slug}");
         }
         for slug in ["rate-limited", "too-many-new-sessions"] {

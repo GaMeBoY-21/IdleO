@@ -8,6 +8,11 @@ import { currentByPrefix, type SiteNav } from "../types";
  * in the account menu.
  */
 export const nav: SiteNav = {
+  side: "renting",
+  locked: {
+    title: "Renting isn't open for your account yet",
+    body: "Your account can host, and renting GPUs is unlocked by its own invite code. Enter one to book.",
+  },
   destinations: [
     { href: "/", label: "Home" },
     { href: "/book/", label: "Book a GPU" },

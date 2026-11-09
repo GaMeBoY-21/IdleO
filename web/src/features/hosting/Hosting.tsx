@@ -11,6 +11,8 @@ import { formatTime } from "@/lib/time";
 import { useWide } from "@/lib/media";
 import { useTitle } from "@/lib/title";
 import { LaptopHosting, LaptopPitch } from "./laptop/LaptopHosting";
+import { useAfterPaint } from "@/lib/after-first-screen";
+import { FirstRun } from "./FirstRun";
 import { MachineRow } from "./MachineRow";
 import { WeekBars, WeekBarsSkeleton } from "./WeekBars";
 import { HOST_PATHS } from "@/sites/host/paths";
@@ -34,6 +36,8 @@ export function Hosting() {
   const restored = earnings.isFetching && !earnings.isRefetchError && earnings.dataUpdatedAt < PAGE_OPENED_AT;
 
   const wide = useWide();
+  // The first run's answers (payout details, a laptop's self-test) aren't what the screen paints first.
+  const painted = useAfterPaint();
   if (wide && !hosts.isError) {
     return (
       <>
@@ -52,6 +56,10 @@ export function Hosting() {
             restoredAt={restored ? earnings.dataUpdatedAt : null}
           />
         )}
+        {/* Last, so a checklist that arrives with its answers moves nothing above it. */}
+        <div className="px-6 pb-8 xl:px-8 2xl:px-10">
+          <FirstRun enabled={painted} />
+        </div>
       </>
     );
   }
@@ -132,6 +140,7 @@ export function Hosting() {
           {machines && <AddLink />}
         </>
       )}
+      <FirstRun enabled={painted} />
     </Page>
   );
 }

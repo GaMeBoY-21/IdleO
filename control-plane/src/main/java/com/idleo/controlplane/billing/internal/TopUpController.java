@@ -9,6 +9,8 @@ import com.idleo.controlplane.Paise;
 import com.idleo.controlplane.Problem;
 import com.idleo.controlplane.identity.CurrentUser;
 import com.idleo.controlplane.identity.RequiresAcceptedTerms;
+import com.idleo.controlplane.identity.RequiresUnlocked;
+import com.idleo.controlplane.identity.Side;
 import io.swagger.v3.oas.annotations.headers.Header;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -100,6 +102,7 @@ class TopUpController {
 
     @PostMapping
     @RequiresAcceptedTerms
+    @RequiresUnlocked(Side.RENTING)
     @ApiResponse(
             responseCode = "201",
             description =

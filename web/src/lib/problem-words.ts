@@ -18,6 +18,8 @@ export const PROBLEM_MESSAGES: Record<ProblemSlug, string> = {
   "api-key-read-only": "This API key can only read. Use a full key, or the web app.",
   "too-many-api-keys": "You have 20 API keys. Revoke one you no longer use, then create this one.",
   "invite-required": "Enter your invite code to get started.",
+  "side-not-unlocked":
+    "This side of your account isn't open yet. Enter an invite code for it, then try again.",
   "invite-invalid":
     "That code isn't one we can accept. Check it and try again, or ask the person who invited you.",
   "fresh-sign-in-required": "For your safety, sign out and sign in again, then try this within 10 minutes.",

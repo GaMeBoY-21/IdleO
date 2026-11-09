@@ -5,6 +5,9 @@ import type { LucideIcon } from "lucide-react";
  * the other site. Each site's is src/sites/<site>/site.ts, which the build reaches as `@site/site`.
  */
 export interface SiteNav {
+  /** The side of the account this site is (ADR 0058); an account that hasn't unlocked it sees `locked`. */
+  side: "renting" | "hosting";
+  locked: { title: string; body: string };
   /** The sidebar's destinations, from 768 px. */
   destinations: ReadonlyArray<{ href: string; label: string }>;
   /** The phone's tab bar: five, then "More". */

@@ -28,7 +28,12 @@ const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
 const DAY = 24 * HOUR;
 
-export const me = (createdAt = "2026-09-01T10:00:00Z", status = "active") => ({
+export const me = (
+  createdAt = "2026-09-01T10:00:00Z",
+  status = "active",
+  // Both sides of the account (ADR 0058), unless a test gives one.
+  unlocked: ("renting" | "hosting")[] = ["renting", "hosting"],
+) => ({
   id: "01a11300-0000-7000-8000-00000000000a",
   email: "asha@example.com",
   displayName: "Asha",
@@ -38,6 +43,7 @@ export const me = (createdAt = "2026-09-01T10:00:00Z", status = "active") => ({
   unreadNotifications: 0,
   emailUndeliverable: false,
   notices: NOTICES_ACCEPTED,
+  unlocked,
 });
 
 /** The Terms and privacy notice in force (ADR 0037), as the server reports them for someone who agreed. */
@@ -51,7 +57,7 @@ export const NOTICES_ACCEPTED = {
 
 /** A first sign-in: nothing agreed yet. */
 export const meNew = () => ({
-  ...me("2026-10-07T06:30:00Z", "waiting"),
+  ...me("2026-10-07T06:30:00Z", "waiting", []),
   notices: { ...NOTICES_ACCEPTED, accepted: false, ageConfirmed: false },
 });
 
@@ -59,7 +65,7 @@ export const meNew = () => ({
 export const meSuspended = () => me("2026-09-01T10:00:00Z", "suspended");
 
 /** An account that hasn't entered an invite code yet (ADR 0024). */
-export const meWaiting = () => me("2026-10-07T06:30:00Z", "waiting");
+export const meWaiting = () => me("2026-10-07T06:30:00Z", "waiting", []);
 
 type Notification = Schemas["NotificationItem"];
 

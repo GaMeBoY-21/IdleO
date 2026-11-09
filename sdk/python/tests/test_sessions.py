@@ -194,6 +194,7 @@ def test_me_credit_and_availability_read_the_api(fake, tmp_path):
                     "termsVersion": "2026-10-draft",
                     "privacyVersion": "2026-10-draft",
                 },
+                "unlocked": ["renting", "hosting"],
             },
         ),
     )

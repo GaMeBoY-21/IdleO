@@ -10,6 +10,7 @@ import { useWide } from "@/lib/media";
 import { useTitle } from "@/lib/title";
 import { BookAgainTile, latestSetup } from "./BookAgain";
 import { CreditTile } from "./CreditTile";
+import { FirstRun } from "./FirstRun";
 import { RunningTile } from "./RunningTile";
 import { LaptopHomeSkeleton } from "./laptop/LaptopHomeSkeleton";
 import { MainServiceTile, QuestionTile, WideServiceTile } from "./ServiceTiles";
@@ -160,6 +161,7 @@ export function Home() {
           </Link>
         )}
       </div>
+      <FirstRun wallet={wallet} sessions={sessions.data?.sessions} />
       {/* A phone has no Sessions tab: the list is one row away from Home. */}
       {sessions.data && list.length > 0 && (
         <Link

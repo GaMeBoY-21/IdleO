@@ -18298,6 +18298,13 @@ components:
             type: string
         status:
           type: string
+        unlocked:
+          type: array
+          items:
+            type: string
+            enum:
+            - renting
+            - hosting
         unreadNotifications:
           type: integer
           format: int32
@@ -18308,6 +18315,7 @@ components:
       - notices
       - signInMethods
       - status
+      - unlocked
       - unreadNotifications
     MyEnforcement:
       type: object
@@ -19198,6 +19206,7 @@ components:
           - /problems/email-not-verified
           - /problems/invite-required
           - /problems/invite-invalid
+          - /problems/side-not-unlocked
           - /problems/terms-not-accepted
           - /problems/notices-changed
           - /problems/age-not-confirmed

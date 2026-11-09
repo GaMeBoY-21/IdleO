@@ -53,6 +53,13 @@ public enum Problem {
             HttpStatus.BAD_REQUEST,
             "Invite code not accepted",
             "The code isn't one that can be used: it's wrong, already used or expired. The response never says which."),
+    SIDE_NOT_UNLOCKED(
+            "side-not-unlocked",
+            HttpStatus.FORBIDDEN,
+            "Not open for this account yet",
+            "Renting and hosting are each unlocked by an invite code while access is by invitation (ADR 0058). The "
+                    + "detail says which side this needs; another code unlocks it. Reading, stopping, pausing, removing "
+                    + "and downloading are never refused for it."),
     TERMS_NOT_ACCEPTED(
             "terms-not-accepted",
             HttpStatus.FORBIDDEN,

@@ -15,8 +15,11 @@ class AccessRulesConfiguration implements WebMvcConfigurer {
     private final NoticeAcceptances notices;
     private final IdentityProperties properties;
     private final SecurityLog security;
+    private final UserSides sides;
 
-    AccessRulesConfiguration(NoticeAcceptances notices, IdentityProperties properties, SecurityLog security) {
+    AccessRulesConfiguration(
+            NoticeAcceptances notices, IdentityProperties properties, SecurityLog security, UserSides sides) {
+        this.sides = sides;
         this.notices = notices;
         this.properties = properties;
         this.security = security;
@@ -24,7 +27,7 @@ class AccessRulesConfiguration implements WebMvcConfigurer {
 
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
-        registry.addInterceptor(new AccessRules(notices, properties.webAppUrl(), security))
+        registry.addInterceptor(new AccessRules(notices, properties.webAppUrl(), security, sides))
                 .order(Ordered.HIGHEST_PRECEDENCE);
     }
 }

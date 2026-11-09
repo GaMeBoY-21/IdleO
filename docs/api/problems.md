@@ -13,6 +13,7 @@ Every error from the API is an RFC 9457 problem detail (`application/problem+jso
 | `/problems/email-not-verified` | 403 | Email not verified | The sign-in's email address isn't verified yet. |
 | `/problems/invite-required` | 403 | Invite code required | Access is by invitation. Until the account is activated with an invite code, only reading and changing the account itself and activating it are allowed. |
 | `/problems/invite-invalid` | 400 | Invite code not accepted | The code isn't one that can be used: it's wrong, already used or expired. The response never says which. |
+| `/problems/side-not-unlocked` | 403 | Not open for this account yet | Renting and hosting are each unlocked by an invite code while access is by invitation (ADR 0058). The detail says which side this needs; another code unlocks it. Reading, stopping, pausing, removing and downloading are never refused for it. |
 | `/problems/terms-not-accepted` | 403 | Accept the Terms first | Booking, uploading and adding or pricing a machine need the current Terms and privacy notice accepted, which only a person signed in in a browser can do. The detail says where. Reading, stopping, pausing, removing and downloading are never refused for it. |
 | `/problems/notices-changed` | 409 | The Terms or privacy notice changed | The versions accepted aren't the ones in force any more. Read GET /v1/me's `notices` and accept those. |
 | `/problems/age-not-confirmed` | 422 | Age not confirmed | An account is only for people of the minimum age in `notices.minimumAge`; confirm it with the first acceptance. |

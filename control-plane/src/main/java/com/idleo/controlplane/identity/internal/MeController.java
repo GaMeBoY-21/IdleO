@@ -7,8 +7,10 @@ import com.idleo.controlplane.identity.CurrentUser;
 import com.idleo.controlplane.identity.EmailDeliverability;
 import com.idleo.controlplane.identity.OpenToHeldAccounts;
 import com.idleo.controlplane.identity.OpenToWaitingUsers;
+import com.idleo.controlplane.identity.Side;
 import com.idleo.controlplane.identity.UnreadNotifications;
 import io.swagger.v3.oas.annotations.headers.Header;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -48,6 +50,7 @@ class MeController {
     private final UnreadNotifications unread;
     private final EmailDeliverability deliverability;
     private final NoticeAcceptances notices;
+    private final UserSides sides;
 
     MeController(
             UserRepository users,
@@ -55,8 +58,10 @@ class MeController {
             Clock clock,
             UnreadNotifications unread,
             EmailDeliverability deliverability,
-            NoticeAcceptances notices) {
+            NoticeAcceptances notices,
+            UserSides sides) {
         this.notices = notices;
+        this.sides = sides;
         this.users = users;
         this.invites = invites;
         this.clock = clock;
@@ -70,7 +75,10 @@ class MeController {
                 authentication,
                 unread.countFor(user.id()),
                 user.email() != null && deliverability.undeliverable(user.email()),
-                NoticeStanding.of(notices.standing(user.id())));
+                NoticeStanding.of(notices.standing(user.id())),
+                sides.of(user.id(), user.userStatus() == UserStatus.WAITING).stream()
+                        .map(Side::code)
+                        .toList());
     }
 
     /**
@@ -115,14 +123,18 @@ class MeController {
             Instant createdAt,
             int unreadNotifications,
             boolean emailUndeliverable,
-            NoticeStanding notices) {
+            NoticeStanding notices,
+
+            @ArraySchema(schema = @Schema(allowableValues = {"renting", "hosting"}))
+            List<String> unlocked) {
 
         static MeResponse of(
                 User user,
                 Authentication authentication,
                 int unreadNotifications,
                 boolean emailUndeliverable,
-                NoticeStanding notices) {
+                NoticeStanding notices,
+                List<String> unlocked) {
             return new MeResponse(
                     user.id(),
                     user.email(),
@@ -133,7 +145,8 @@ class MeController {
                     user.createdAt(),
                     unreadNotifications,
                     emailUndeliverable,
-                    notices);
+                    notices,
+                    unlocked);
         }
     }
 
@@ -196,9 +209,10 @@ class MeController {
     }
 
     /**
-     * Activates a waiting account with an invite code (ADR 0024). 200 with the active account. A wrong, used or
-     * expired code is 400 {@code invite-invalid}, and the answer never says which. An account that's already
-     * active is answered 200 without using the code.
+     * Activates a waiting account with an invite code (ADR 0024), unlocking what the code unlocks: renting, hosting or
+     * both (ADR 0058); an active account spends one to unlock the side it hasn't. 200 with the account, its {@code
+     * unlocked} sides. A wrong, used or expired code is 400 {@code invite-invalid}, and the answer never says which. A
+     * code that would unlock nothing new is answered 200 without being used.
      */
     @OpenToWaitingUsers
     @PostMapping("/activate")
@@ -218,7 +232,7 @@ class MeController {
         switch (invites.activate(currentUser.id(), request.code())) {
             case INVALID -> throw ApiProblem.of(Problem.INVITE_INVALID, INVALID);
             case TOO_MANY_ATTEMPTS -> throw ApiProblem.of(Problem.TOO_MANY_ATTEMPTS, TOO_MANY);
-            case ACTIVATED, ALREADY_ACTIVE -> {}
+            case ACTIVATED, UNLOCKED, ALREADY_ACTIVE -> {}
         }
         var user = load(currentUser);
         return ResponseEntity.ok().eTag(etag(user)).body(response(user, authentication));

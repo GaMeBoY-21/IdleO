@@ -14,10 +14,11 @@ import org.springframework.context.annotation.Profile;
  * The invite operator command (ADR 0024, docs/runbooks/invites.md):
  *
  * <pre>
- * create-invites --count &lt;n&gt; --note "&lt;text&gt;" [--expires 30d]
+ * create-invites --count &lt;n&gt; --note "&lt;text&gt;" [--expires 30d] [--unlocks renting|hosting|both]
  * </pre>
  *
- * It prints the codes once; only their hashes are stored.
+ * It prints the codes once; only their hashes are stored. A code unlocks both sides of the account unless {@code
+ * --unlocks} says one (ADR 0058).
  */
 @Configuration(proxyBeanMethods = false)
 @Profile("ops")
@@ -35,7 +36,7 @@ class InviteCommands {
 
             @Override
             public String usage() {
-                return "--count <n> --note \"<text>\" [--expires 30d]";
+                return "--count <n> --note \"<text>\" [--expires 30d] [--unlocks renting|hosting|both]";
             }
 
             @Override
@@ -46,14 +47,28 @@ class InviteCommands {
                 }
                 var note = args.text("note").strip();
                 var expiry = expiry(args);
-                var codes = invites.create((int) count, note, expiry, AuditTrail.Actor.operator(operator))
+                var unlocks = unlocks(args);
+                var codes = invites.create((int) count, note, expiry, unlocks, AuditTrail.Actor.operator(operator))
                         .codes();
                 out.println("made " + codes.size() + " invite code" + (codes.size() == 1 ? "" : "s") + " for \"" + note
-                        + "\""
+                        + "\", unlocking "
+                        + (unlocks == InviteService.Unlocks.BOTH ? "renting and hosting" : unlocks.code())
                         + expiry.map(d -> ", each valid for " + describe(d)).orElse(", with no expiry"));
                 out.println("They are shown only now; only their hashes are kept. Each works once.");
                 codes.forEach(code -> out.println("  " + code));
             }
+        };
+    }
+
+    private static InviteService.Unlocks unlocks(OperatorCommand.Arguments args) {
+        if (!args.options().containsKey("unlocks")) {
+            return InviteService.Unlocks.BOTH;
+        }
+        return switch (args.text("unlocks").strip()) {
+            case "renting" -> InviteService.Unlocks.RENTING;
+            case "hosting" -> InviteService.Unlocks.HOSTING;
+            case "both" -> InviteService.Unlocks.BOTH;
+            default -> throw new OperatorCommand.Usage("--unlocks must be renting, hosting or both");
         };
     }
 

@@ -9,6 +9,7 @@ import { useAfterPaint } from "@/lib/after-first-screen";
 import { offeredServices, serviceOf } from "@/lib/catalog";
 import { BookAgainTile, latestSetup } from "../BookAgain";
 import { RunningTile } from "../RunningTile";
+import { FirstRun } from "../FirstRun";
 import { CreditPanel } from "./CreditPanel";
 import { FreeGpus } from "./FreeGpus";
 import { HOME } from "./LaptopHomeSkeleton";
@@ -63,6 +64,7 @@ export function LaptopHome({
         ))}
         <CreditPanel wallet={wallet} enabled={painted} />
       </div>
+      <FirstRun wallet={wallet} sessions={sessions} />
       <RecentSessions sessions={sessions} catalog={catalog} />
       <div className="grid cols-cards gap-4">
         <FreeGpus enabled={painted} />
