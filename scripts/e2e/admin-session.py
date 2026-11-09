@@ -5,10 +5,13 @@ the server shows (RFC 6238: HMAC-SHA1, 30 s steps, 6 digits), as an authenticato
 
     scripts/e2e/admin-session.py API_URL BEARER_TOKEN
 """
+from __future__ import annotations
+
 import base64
 import hashlib
 import hmac
 import json
+import os
 import struct
 import sys
 import time
@@ -16,9 +19,17 @@ import urllib.error
 import urllib.request
 
 
+def stack_time() -> float:
+    """The time on the stack's clock (ADR 0057): the real one, plus what E2E_CLOCK_FILE has moved it by."""
+    try:
+        with open(os.environ.get("E2E_CLOCK_FILE", ""), encoding="utf-8") as moved:
+            return time.time() + int(moved.read().strip() or 0)
+    except OSError:
+        return time.time()
+
 def code(secret: str) -> str:
     key = base64.b32decode(secret + "=" * (-len(secret) % 8))
-    digest = hmac.new(key, struct.pack(">Q", int(time.time()) // 30), hashlib.sha1).digest()
+    digest = hmac.new(key, struct.pack(">Q", int(stack_time()) // 30), hashlib.sha1).digest()
     offset = digest[-1] & 15
     return f"{(struct.unpack('>I', digest[offset : offset + 4])[0] & 0x7FFFFFFF) % 1_000_000:06d}"
 

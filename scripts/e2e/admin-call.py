@@ -11,6 +11,8 @@ E2E_APPROVER_TOKEN, E2E_APPROVER_SESSION, E2E_APPROVER_SECRET and E2E_APPROVER_S
 authenticator's, as the server showed it. Steps names a file keeping the newest time step used, since a code works once for its
 step.
 """
+from __future__ import annotations
+
 import base64
 import hashlib
 import hmac
@@ -24,6 +26,14 @@ import urllib.request
 import uuid
 
 
+def stack_time() -> float:
+    """The time on the stack's clock (ADR 0057): the real one, plus what E2E_CLOCK_FILE has moved it by."""
+    try:
+        with open(os.environ.get("E2E_CLOCK_FILE", ""), encoding="utf-8") as moved:
+            return time.time() + int(moved.read().strip() or 0)
+    except OSError:
+        return time.time()
+
 def code(secret: str, step: int) -> str:
     key = base64.b32decode(secret + "=" * (-len(secret) % 8))
     digest = hmac.new(key, struct.pack(">Q", step), hashlib.sha1).digest()
@@ -34,10 +44,10 @@ def code(secret: str, step: int) -> str:
 def fresh_code(secret: str, used_file: str) -> str:
     """A code for a step not used yet: one ahead of now is accepted once, or else it waits for the next step."""
     used = int(open(used_file, encoding="utf-8").read()) if os.path.exists(used_file) else 0
-    step = int(time.time() // 30) + 1
+    step = int(stack_time() // 30) + 1
     while step <= used:
         time.sleep(1)
-        step = int(time.time() // 30) + 1
+        step = int(stack_time() // 30) + 1
     with open(used_file, "w", encoding="utf-8") as kept:
         kept.write(str(step))
     return code(secret, step)

@@ -437,7 +437,21 @@ export IDLEO_RELEASE_PUBLIC_KEY
 # 2. The control plane on the local profile, which starts compose.yaml (scripts/lib/stack.sh).
 log "starting the control plane (logs: private/e2e/control-plane.log)"
 # What this run sets beside the stack's common settings (scripts/lib/stack.sh).
+# The stack's clock (ADR 0057): the control plane reads how far it's been moved from this file, which only this suite
+# writes, and the production guard refuses the setting.
+clock_file="$out/clock-offset"
+rm -f "$clock_file"
+export E2E_CLOCK_FILE="$clock_file"
+# Moves the stack's clock on to $1, an ISO time with its zone, and waits until it's been read.
+clock_to() {
+  python3 -c 'import datetime, sys, time
+print(int(datetime.datetime.fromisoformat(sys.argv[1]).timestamp() - time.time()))' "$1" >"$clock_file.next"
+  mv "$clock_file.next" "$clock_file"
+  sleep 1
+}
+
 stack_control_plane_settings() {
+  export E2E_CLOCKFILE="$clock_file"
   # The renter limits (ADR 0025) are lifted for the run: its few accounts are a test harness, not renters. They
   # poll every half second, several scenarios to an account at once (far past 60 requests a minute), and book far
   # more than 2 sessions in their first hour. The control plane's own tests hold every limit (RenterLimitsTests).
@@ -484,9 +498,9 @@ token="$(stack_token "$user")"
 #     the privacy journey's (10), payments' (11), the payouts admin's and payee's (12, 13), the other admins' (14 to 18)
 #     the payouts approver's (19), and the inbox's three admins and its person (20 to 23).
 log "making invite codes for the run's accounts"
-ops create-invites --count 24 --note "'e2e run'" --expires 1d || fail "create-invites failed; see private/e2e/ops.log"
-invite_codes=($(grep -o 'IDLE-[A-Z0-9]\{4\}-[A-Z0-9]\{4\}' "$out/ops.log" | tail -n 24))
-((${#invite_codes[@]} == 24)) || fail "create-invites didn't print 24 codes; see private/e2e/ops.log"
+ops create-invites --count 36 --note "'e2e run'" --expires 1d || fail "create-invites failed; see private/e2e/ops.log"
+invite_codes=($(grep -o 'IDLE-[A-Z0-9]\{4\}-[A-Z0-9]\{4\}' "$out/ops.log" | tail -n 36))
+((${#invite_codes[@]} == 36)) || fail "create-invites didn't print 36 codes; see private/e2e/ops.log"
 export E2E_INVITE_CODE="${invite_codes[7]}"
 activate_user "$token"
 
@@ -2385,9 +2399,6 @@ PY
   note "settlement: Razorpay settled the run's $settled_items payments; fetched, every item matched the ledger, and the bank, Razorpay's fees and their GST were posted once out of clearing: PASS"
 
   this_month="$(python3 -c 'import datetime, zoneinfo; print(datetime.datetime.now(zoneinfo.ZoneInfo("Asia/Kolkata")).strftime("%Y-%m"))')"
-  last_month="$(python3 -c 'import datetime, zoneinfo
-first = datetime.datetime.now(zoneinfo.ZoneInfo("Asia/Kolkata")).date().replace(day=1)
-print((first - datetime.timedelta(days=1)).strftime("%Y-%m"))')"
   ca_pack() {
     local asked
     asked="$(admin_post /admin/v1/tax/exports "{\"export\":\"ca-pack\",\"month\":\"$1\",\"reason\":\"End-to-end CA pack\"}")" ||
@@ -2408,17 +2419,6 @@ PY
   note "CA pack: the month's pack made by approval and downloaded once, every file's SHA-256 in its manifest matching the file, the manifest's hash in the audit log: PASS"
 
   admin_post /admin/v1/reconciliation '{"reason":"End-to-end ledger checks before closing"}' >/dev/null || fail "the ledger's checks didn't run"
-  ca_pack "$last_month"
-  local closing
-  closing="$(admin_post --if-match 0 "/admin/v1/periods/$last_month/close" '{"reason":"End-to-end month close"}')" ||
-    fail "closing $last_month failed: $closing"
-  [[ "$(sql "select state from billing.periods where month = '$last_month-01'")" == closed ]] || fail "$last_month didn't close"
-  refused="$(sql "insert into billing.ledger_entries (id, txn_id, account, amount_paise, direction, ref_type, ref_id, created_at)
-      values (gen_random_uuid(), '00000000-0000-7000-8000-00000000c105', 'gateway_fees', 1, 'debit', 'e2e', gen_random_uuid(), '$last_month-15T12:00:00+05:30'),
-             (gen_random_uuid(), '00000000-0000-7000-8000-00000000c105', 'gateway_clearing', 1, 'credit', 'e2e', gen_random_uuid(), '$last_month-15T12:00:00+05:30')" 2>&1 || true)"
-  [[ "$refused" == *"the month is closed"* ]] || fail "an entry dated in the closed month $last_month wasn't refused: $refused"
-  note "month close: $last_month closed by the Owner with a second admin's approval once its checklist held (the ledger's checks, settlements, payout batches, the CA pack); an entry dated in it then refused by the database itself: PASS"
-
   # 9. The kill switches (ADR 0056). bookings.new paused by the admin: the renter's next booking is refused as paused,
   # the public status says so, and the session already running carries on, its lease renewed; run again (the approver
   # approves), the renter books. Then maintenance: a top-up started before it, paid while it's on, is credited by
@@ -2514,6 +2514,74 @@ scenario="payouts"
 : >"$out/summary-payouts.txt"
 part payouts && scenario_payouts
 while IFS= read -r line; do summary+=("$line"); done <"$out/summary-payouts.txt"
+
+# A realistic day for each role, in a browser (web/e2e/admin-roles.spec.ts, ADR 0057), last, as it moves the stack's clock
+# on by months. Each works through the screens they use; the Owner closes the month the money above moved in. Then the
+# database refuses an entry dated in it, and an Auditor is refused every write in the permission matrix.
+scenario_roles() {
+  local base="$user-role" who who_token person_token person_id macro ticket late month release session
+  invite_next=24
+  for who in owner approver operations support trust finance auditor auditor-api writer person other; do
+    who_token="$(stack_token "$base-$who")"
+    [[ -n "$who_token" ]] || fail "no token for $base-$who"
+    activate_user "$who_token"
+  done
+  ops grant-admin "$base-owner@example.com" --reason "'End-to-end role journeys'" --role owner || fail "grant-admin failed"
+  ops grant-admin "$base-writer@example.com" --reason "'End-to-end role journeys'" --role owner || fail "grant-admin failed"
+  ops grant-admin "$base-approver@example.com" --reason "'End-to-end role journeys'" --role owner || fail "grant-admin failed"
+  ops grant-admin "$base-operations@example.com" --reason "'End-to-end role journeys'" --role operations || fail "grant-admin failed"
+  ops grant-admin "$base-support@example.com" --reason "'End-to-end role journeys'" --role support || fail "grant-admin failed"
+  ops grant-admin "$base-trust@example.com" --reason "'End-to-end role journeys'" --role trust_safety || fail "grant-admin failed"
+  ops grant-admin "$base-finance@example.com" --reason "'End-to-end role journeys'" --role finance || fail "grant-admin failed"
+  ops grant-admin "$base-auditor@example.com" --reason "'End-to-end role journeys'" --role auditor || fail "grant-admin failed"
+  ops grant-admin "$base-auditor-api@example.com" --reason "'End-to-end role journeys'" --role auditor || fail "grant-admin failed"
+  person_token="$(stack_token "$base-person")"
+  person_id="$(token="$person_token" api_get /v1/me | json_get .id)"
+
+  # What the day's work is: two tickets from the person, a macro to answer with, and earnings for this week's batch.
+  ticket="$(sql "insert into support.tickets (id, user_id, topic, status, reply_to, created_at, updated_at)
+      values (gen_random_uuid(), '$person_id', 'account', 'open', '$base-person@example.com', now(), now()) returning number" | head -1)"
+  late="$(sql "insert into support.tickets (id, user_id, topic, status, reply_to, created_at, updated_at)
+      values (gen_random_uuid(), '$person_id', 'account', 'open', '$base-person@example.com', now(), now()) returning number" | head -1)"
+  macro="Answered $user"
+  local writer_token writer_secret writer_session
+  writer_token="$(stack_token "$base-writer")"
+  writer_secret="$(curl -sf -X POST "$api/admin/v1/second-factor" -H "Authorization: Bearer $writer_token" | json_get .secret)"
+  writer_session="$(python3 scripts/e2e/admin-session.py "$api" "$writer_token" "$writer_secret")" || fail "no session for the macro's writer"
+  E2E_API="$api" E2E_ADMIN_TOKEN="$writer_token" E2E_ADMIN_SESSION="$writer_session" E2E_ADMIN_SECRET="$writer_secret" \
+    E2E_ADMIN_STEPS="$out/role-writer.steps" python3 scripts/e2e/admin-call.py /admin/v1/queue/macros \
+    "{\"type\": \"ticket\", \"name\": \"$macro\", \"body\": \"Hello, this is sorted now.\", \"setStatus\": \"resolved\"}" >/dev/null ||
+    fail "writing the role journey's macro failed"
+  token="$(stack_token "$user")"
+  earn role-batch 100 >/dev/null
+  # Past the dispute window, so it's in the batch Finance prepares.
+  sleep 41
+  month="$(python3 -c 'import datetime, zoneinfo; print(datetime.datetime.now(zoneinfo.ZoneInfo("Asia/Kolkata")).strftime("%Y-%m"))')"
+  release="$(sql "select release from hosts.agent_rollouts order by created_at desc limit 1")"
+
+  E2E_ROLE_OWNER="$base-owner" E2E_ROLE_APPROVER="$base-approver" E2E_ROLE_OPERATIONS="$base-operations"     E2E_ROLE_SUPPORT="$base-support" E2E_ROLE_TRUST="$base-trust" E2E_ROLE_FINANCE="$base-finance"     E2E_ROLE_AUDITOR="$base-auditor" E2E_ROLE_PERSON="$base-person" E2E_ROLE_PERSON_ID="$person_id"     E2E_ROLE_PERSON_TOKEN="$person_token" E2E_ROLE_OTHER="$base-other" E2E_ROLE_TICKET="#$ticket"     E2E_ROLE_LATE_TICKET="#$late" E2E_ROLE_MACRO="$macro" E2E_ROLE_MONTH="$month" E2E_ROLE_RELEASE="$release" SKIP_VISUAL=1     web_test --project=admin-roles --reporter=line >>"$out/admin-roles.log" 2>&1 ||
+    fail "the role journeys failed; see private/e2e/admin-roles.log"
+  [[ "$(sql "select state from billing.periods where month = '$month-01'")" == closed ]] || fail "$month didn't close"
+  local refused
+  refused="$(sql "insert into billing.ledger_entries (id, txn_id, account, amount_paise, direction, ref_type, ref_id, created_at)
+      values (gen_random_uuid(), '00000000-0000-7000-8000-00000000c105', 'gateway_fees', 1, 'debit', 'e2e', gen_random_uuid(), '$month-15T00:00:00Z'),
+             (gen_random_uuid(), '00000000-0000-7000-8000-00000000c105', 'gateway_clearing', 1, 'credit', 'e2e', gen_random_uuid(), '$month-15T00:00:00Z')" 2>&1 || true)"
+  [[ "$refused" == *"the month is closed"* ]] || fail "an entry dated in the closed month $month wasn't refused: $refused"
+
+  # The Auditor can't write: every write in the permission matrix, as the console would send it, is refused.
+  local auditor_token auditor_secret auditor_session
+  auditor_token="$(stack_token "$base-auditor-api")"
+  auditor_secret="$(curl -sf -X POST "$api/admin/v1/second-factor" -H "Authorization: Bearer $auditor_token" | json_get .secret)"
+  auditor_session="$(python3 scripts/e2e/admin-session.py "$api" "$auditor_token" "$auditor_secret")" || fail "no session for the Auditor"
+  python3 scripts/e2e/admin-writes-refused.py "$api" "$auditor_token" "$auditor_session" control-plane/src/test/resources/admin-permission-matrix.csv ||
+    fail "the Auditor wasn't refused a write"
+
+  note "role journeys: $(grep -Eo '[0-9]+ passed' "$out/admin-roles.log" | tail -1): Support, Trust & Safety, Operations, an Auditor refused every write with the audit chain intact, Finance, and the Owner closing $month, the month the money moved in, on a moved clock: PASS"
+}
+scenario="roles"
+: >"$out/summary-roles.txt"
+part roles && scenario_roles
+while IFS= read -r line; do summary+=("$line"); done <"$out/summary-roles.txt"
 fi
 
 # 9. The nightly wallet check, now: every wallet, reservation and hold matches the ledger.
