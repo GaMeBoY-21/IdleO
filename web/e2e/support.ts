@@ -28,13 +28,14 @@ export async function typeToConfirm(sheet: Locator): Promise<void> {
   await sheet.getByLabel(/to confirm$/).fill(toType!);
 }
 
-export async function signIn(page: Page, user: string, path = "/"): Promise<void> {
-  await page.goto("/sign-in/");
+export async function signIn(page: Page, user: string, path = "/", origin = ""): Promise<void> {
+  // `origin`: another site's address (e2e/sites.ts), whose sign-in is its own (ADR 0058); the baseURL's by default.
+  await page.goto(`${origin}/sign-in/`);
   await page.getByLabel("Email", { exact: true }).fill(`${user}@example.com`);
   await page.getByRole("button", { name: "Email me a sign-in link" }).click();
   await page.waitForURL((url) => !url.pathname.startsWith("/sign-in"));
   if (path !== "/" || new URL(page.url()).pathname !== "/") {
-    await page.goto(path);
+    await page.goto(`${origin}${path}`);
   }
 }
 

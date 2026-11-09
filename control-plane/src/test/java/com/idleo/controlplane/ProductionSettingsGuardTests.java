@@ -26,7 +26,8 @@ class ProductionSettingsGuardTests {
                 .withPropertyValues(
                         "identity.web-app-url=https://app.example.invalid",
                         "notifications.web-app-url=https://app.example.invalid",
-                        "hosts.link.web-app-url=https://app.example.invalid",
+                        "notifications.host-site-url=https://host.example.invalid",
+                        "hosts.link.web-app-url=https://host.example.invalid",
                         "notifications.email.from=IdleO <notifications@example.invalid>",
                         "spring.mail.host=smtp.example.invalid",
                         "spring.mail.username=resend",
@@ -207,6 +208,7 @@ class ProductionSettingsGuardTests {
         for (var setting : new String[][] {
             {"notifications.web-app-url=http://localhost:3000", "notifications.web-app-url http://localhost:3000"},
             {"notifications.web-app-url=http://app.example.invalid", "notifications.web-app-url http://app"},
+            {"notifications.host-site-url=http://localhost:3003", "notifications.host-site-url http://localhost:3003"},
             {"notifications.email.from=IdleO <notifications@localhost>", "notifications.email.from"},
             {"spring.mail.host=localhost", "spring.mail.host is localhost, on this machine"},
             {"spring.mail.host=", "spring.mail.host is missing"},

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import type { components } from "@/api/schema.gen";
-import { fromDrop, type DroppedEntry } from "@/features/book/chosen-files";
+import { fromDrop, type DroppedEntry } from "@/features/upload/chosen-files";
 import { holdDrop, isModelFolder } from "@/features/book/dropped";
 import { bookHref } from "@/lib/catalog";
 

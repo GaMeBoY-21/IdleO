@@ -12,6 +12,7 @@ class EmailContentTests {
 
     private final EmailContent content = new EmailContent(new NotificationProperties(
             URI.create("https://app.example.invalid/"),
+            URI.create("https://host.example.invalid/"),
             new NotificationProperties.Email("IdleO <notifications@mail.example.invalid>", null)));
 
     private static final UUID NOTIFICATION = UUID.fromString("0199f0a2-7c1e-7d3a-9b2f-3c4d5e6f7a8b");
@@ -32,6 +33,14 @@ class EmailContentTests {
                 .contains("Open it: https://app.example.invalid/session/?id=1#outputs")
                 .contains("emails about \"Session finished\" are switched on")
                 .contains("Change what we email you in Account: https://app.example.invalid/account/");
+    }
+
+    /** A host's message leads to the host site (ADR 0058). */
+    @Test
+    void aHostsLinkIsOnTheHostSite() {
+        var earnings = new Message("₹187.00 is on its way to your UPI ID", "It left us.", "/earnings/").onHostSite();
+        var email = content.of("host@example.com", NotificationKind.PAYOUT, earnings, NOTIFICATION);
+        assertThat(email.text()).contains("Open it: https://host.example.invalid/earnings/");
     }
 
     @Test
@@ -87,6 +96,7 @@ class EmailContentTests {
     void theSmtpMessageKeepsTheIdAndTheHeadersWithATextPart() throws Exception {
         var properties = new NotificationProperties(
                 URI.create("https://app.example.invalid/"),
+                URI.create("https://host.example.invalid/"),
                 new NotificationProperties.Email("IdleO <notifications@mail.example.invalid>", null));
         var sender = new SmtpEmailSender(new JavaMailSenderImpl(), properties);
 

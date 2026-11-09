@@ -154,7 +154,7 @@ describe("a link that is over", () => {
     expect(screen.getByText(/We check every new laptop before it goes live/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Open your laptop" })).toHaveAttribute(
       "href",
-      "/hosting/machine/?id=01a14b00-0000-7000-8000-0000000000aa",
+      "/laptop/?id=01a14b00-0000-7000-8000-0000000000aa",
     );
   });
 

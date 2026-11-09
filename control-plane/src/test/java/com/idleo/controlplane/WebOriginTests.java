@@ -9,7 +9,10 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.web.servlet.MockMvc;
 
-/** Only the web app's own origin may call the API from a browser, with a bearer token and no cookies (ADR 0018). */
+/**
+ * Only the web app's own origins (the renter app's and the host site's, ADR 0058) may call the API from a browser, with
+ * a bearer token and no cookies (ADR 0018).
+ */
 @ControlPlaneTest
 class WebOriginTests {
 
@@ -34,6 +37,19 @@ class WebOriginTests {
                 .andExpect(header().string("Access-Control-Allow-Origin", WEB))
                 .andExpect(
                         header().string("Access-Control-Expose-Headers", org.hamcrest.Matchers.containsString("ETag")));
+    }
+
+    /** The host site (ADR 0058) is a web origin of its own, with the same access as the renter app's. */
+    @Test
+    void theHostSiteMayCallToo() throws Exception {
+        var host = "http://localhost:3003";
+        mvc.perform(options("/v1/hosts")
+                        .header("Origin", host)
+                        .header("Access-Control-Request-Method", "PUT")
+                        .header("Access-Control-Request-Headers", "authorization,content-type,idempotency-key"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Access-Control-Allow-Origin", host))
+                .andExpect(header().doesNotExist("Access-Control-Allow-Credentials"));
     }
 
     @Test

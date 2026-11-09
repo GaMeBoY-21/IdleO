@@ -7,6 +7,7 @@ import { config } from "@/config";
 import { useAfterPaint } from "@/lib/after-first-screen";
 import { releaseLine } from "@/lib/hosting";
 import { useTitle } from "@/lib/title";
+import { HOST_PATHS } from "@/sites/host/paths";
 
 const LEDE = "One download, one click to approve, and then it earns. No code to copy, no terminal.";
 
@@ -88,7 +89,7 @@ function DownloadButton() {
 export function AddMachine() {
   useTitle("Earn with this laptop");
   return (
-    <HostFlow back="/hosting/" backLabel="Hosting" title="Earn with this laptop" lede={LEDE}>
+    <HostFlow back={HOST_PATHS.home} backLabel="Hosting" title="Earn with this laptop" lede={LEDE}>
       <ol aria-label="How it works" className="flex flex-col gap-3.5">
         {STEPS.map(({ icon: Icon, title, text }, index) => (
           <li key={title}>

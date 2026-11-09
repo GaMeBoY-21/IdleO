@@ -2,6 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { availability, nobodyOnline } from "./fixtures-public";
 import * as data from "./fixtures";
 import * as support from "./fixtures-support";
+import { HOST_URL } from "./sites";
 import { capture, expectAccessible, fakeApi, recordLayoutShifts, watchConsole } from "./support";
 
 /**
@@ -319,11 +320,11 @@ test.describe("the way into the app", () => {
     await expect(page.getByRole("heading", { level: 1, name: "Sign in" })).toBeVisible();
   });
 
-  test("Start hosting goes to the app, through sign-in, and back to Hosting", async ({ page }) => {
+  test("Start hosting goes to the host site, through its sign-in", async ({ page }) => {
     await homeIsServed(page);
     await page.goto("/earn/");
     await page.getByRole("link", { name: "Start hosting" }).first().click();
-    await expect(page).toHaveURL(`${APP}/sign-in/?next=%2Fhosting%2F`);
+    await expect(page).toHaveURL(`${HOST_URL}/sign-in/`);
   });
 
   test("the app's sign-in links to the website's terms and privacy pages", async ({ page }) => {

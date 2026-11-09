@@ -104,7 +104,8 @@ scanner:
   settings: {}
 
 web:
-  # Production's app and website are on Cloudflare Pages; this serves them in the local cluster, or as a fallback.
+  # Production's app, host site and website are on Cloudflare Pages; this serves them in the local cluster, or as a
+  # fallback.
   enabled: false
   resources:
     requests: { cpu: 50m, memory: 32Mi }
@@ -183,6 +184,7 @@ gateway:
   hosts:
     api: api.idleo.in
     app: app.idleo.in
+    host: host.idleo.in
     site: idleo.in
 
 tls:

@@ -1,11 +1,15 @@
-// After `vite build` and the pre-render build (ADR 0018): computes the hash of each inline script in index.html,
-// puts the Content Security Policy into the page as a <meta> tag and the style sheet into a <style>, writes the page into a
-// folder for every screen (so any static host serves deep links) with that screen's first frame pre-rendered and its own code preloaded,
-// and writes dist/headers.json, the headers a host should send.
+// After `vite build` and the pre-render build of one site (ADR 0018, ADR 0058; scripts/build-sites.ts runs all three for
+// each site): computes the hash of each inline script in index.html, puts the Content Security Policy into the page as a
+// <meta> tag and the style sheet into a <style>, writes the page into a folder for every screen of the site (so any
+// static host serves deep links) with that screen's first frame pre-rendered and its own code preloaded, and writes the
+// rules a host follows: headers.json, path-headers.json, redirects.json and rewrites.json, and Cloudflare Pages' own.
 import { createHash } from "node:crypto";
 import { mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { SCREENS } from "../src/screens.ts";
+import { assertSiteAddresses } from "../src/build-settings.ts";
+import { MOVED_FROM_APP } from "../src/sites/host/paths.ts";
+import { distOf, siteOf } from "../src/sites/sites.ts";
+import { writePagesConfig } from "./pages-config.ts";
 import {
   checkoutSources,
   contentSecurityPolicy,
@@ -13,7 +17,13 @@ import {
   securityHeaders,
 } from "../src/security/headers.ts";
 
-const dist = fileURLToPath(new URL(`../${process.env.IDLEO_DIST ?? "dist"}/`, import.meta.url));
+const site = siteOf(process.env);
+const distName = distOf(site, process.env.IDLEO_DIST);
+const dist = fileURLToPath(new URL(`../${distName}/`, import.meta.url));
+const { SCREENS } = (await import(`../src/sites/${site}/screens.ts`)) as {
+  SCREENS: Record<string, string | null>;
+};
+const addresses = assertSiteAddresses(process.env);
 let html = readFileSync(`${dist}index.html`, "utf8");
 
 const inline = [...html.matchAll(/<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/g)].map(
@@ -84,7 +94,7 @@ function chunks(key: string, seen = new Set<string>()): Set<string> {
   return seen;
 }
 
-const { render } = (await import(new URL("../dist-ssr/prerender.js", import.meta.url).href)) as {
+const { render } = (await import(new URL(`../${distName}-ssr/prerender.js`, import.meta.url).href)) as {
   render: (path: string) => Promise<string>;
 };
 const withFrame = async (page: string, path: string) =>
@@ -104,16 +114,24 @@ for (const [path, module] of Object.entries(SCREENS)) {
 writeFileSync(`${dist}404.html`, await withFrame(html, "/not-a-screen/"));
 // Addresses with something after a screen's folder (a link's id, /link/<id>/) are answered with that screen's page, by
 // a rewrite where the host has the rule (scripts/serve.ts reads this file; docs/runbooks/deployment.md names the rule).
-writeFileSync(`${dist}rewrites.json`, `${JSON.stringify({ "/link/": "/link/index.html" }, null, 2)}\n`);
+const rewrites = SCREENS["/link/"] ? { "/link/": "/link/index.html" } : {};
+// The renter app's old hosting addresses, permanently to the host site's (ADR 0058), query and all.
+const redirects =
+  site === "app"
+    ? Object.fromEntries(Object.entries(MOVED_FROM_APP).map(([from, to]) => [from, `${addresses.host}${to}`]))
+    : {};
+writeFileSync(`${dist}rewrites.json`, `${JSON.stringify(rewrites, null, 2)}\n`);
+writeFileSync(`${dist}redirects.json`, `${JSON.stringify(redirects, null, 2)}\n`);
 writeFileSync(`${dist}headers.json`, `${JSON.stringify(securityHeaders(csp), null, 2)}\n`);
 // The headers of a page that has its own, instead of headers.json's: the Credit page (docs/runbooks/deployment.md).
 writeFileSync(
   `${dist}path-headers.json`,
-  `${JSON.stringify({ [CREDIT]: creditHeaders(process.env, creditCsp, strictCreditCsp) }, null, 2)}\n`,
+  `${JSON.stringify(SCREENS[CREDIT] ? { [CREDIT]: creditHeaders(process.env, creditCsp, strictCreditCsp) } : {}, null, 2)}\n`,
 );
+writePagesConfig(dist);
 // Source maps are never served (ADR 0036): every one leaves the build for <dist>-sourcemaps/, which the control plane
 // reads to name a JavaScript error's file and line. A build made to debug with them (IDLEO_SOURCEMAP=1) keeps them.
-const maps = fileURLToPath(new URL(`../${process.env.IDLEO_DIST ?? "dist"}-sourcemaps/`, import.meta.url));
+const maps = fileURLToPath(new URL(`../${distName}-sourcemaps/`, import.meta.url));
 let moved = 0;
 if (process.env.IDLEO_SOURCEMAP !== "1") {
   rmSync(maps, { recursive: true, force: true });
@@ -130,5 +148,5 @@ if (process.env.IDLEO_SOURCEMAP !== "1") {
   }
 }
 console.log(
-  `postbuild: ${Object.keys(SCREENS).length} screens, ${hashes.length} inline script hash(es), ${moved} source maps kept apart, CSP: ${csp}`,
+  `postbuild: the ${site} site, ${Object.keys(SCREENS).length} screens, ${hashes.length} inline script hash(es), ${moved} source maps kept apart, CSP: ${csp}`,
 );

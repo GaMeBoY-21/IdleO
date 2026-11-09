@@ -8,6 +8,7 @@ import { useNow } from "@/lib/clock";
 import { gigabytes, gpuName } from "@/lib/gpu";
 import { machineState, rupeesAnHour } from "@/lib/hosting";
 import { cn } from "@/lib/cn";
+import { laptopPath } from "@/sites/host/paths";
 
 /**
  * One machine on a laptop's Hosting tab (web/DESIGN.md "Laptop layout"), a white tile: its state, with a dot,
@@ -25,10 +26,7 @@ export function MachineTile({ host, className }: { host: Host; className?: strin
   const label = state.kind === "paused" ? state.detail : state.label;
   return (
     <Tile size="lg" className={cn("flex min-h-0 flex-col justify-between gap-4 xl:p-6", className)}>
-      <Link
-        href={`/hosting/machine/?id=${host.id}`}
-        className="flex flex-1 flex-col justify-between gap-4 hover:underline"
-      >
+      <Link href={laptopPath(host.id)} className="flex flex-1 flex-col justify-between gap-4 hover:underline">
         <span className="flex items-center justify-between gap-3 text-caption">
           <span
             className={cn(

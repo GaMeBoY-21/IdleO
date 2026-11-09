@@ -5,6 +5,7 @@ import { Tile } from "@/components/ui/Tile";
 import { RelativeTime } from "@/components/ui/Time";
 import { cn } from "@/lib/cn";
 import { formatMinutes } from "@/lib/hosting";
+import { HOST_PATHS } from "@/sites/host/paths";
 
 /** "Latest earnings", the last three entries of the ledger's `host_payable`, with "All ›" (web/DESIGN.md "Laptop layout"). */
 export function LatestEarnings({ entries, className }: { entries: EarningsEntry[]; className?: string }) {
@@ -18,7 +19,7 @@ export function LatestEarnings({ entries, className }: { entries: EarningsEntry[
         <h2 id="latest-earnings" className="text-option font-bold">
           Latest earnings
         </h2>
-        <Link href="/hosting/earnings/" className="text-caption font-bold hover:underline">
+        <Link href={HOST_PATHS.earnings} className="text-caption font-bold hover:underline">
           All ›
         </Link>
       </div>

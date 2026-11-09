@@ -5,7 +5,7 @@ import { capture, expectAccessible, fakeApi, onPhone, signIn, watchConsole, type
 /**
  * My files (ADR 0022) in every state, light and dark, phone and laptop: the renter's uploads with their size, files
  * and last use; deleting one, asked once more in its row; one a running session uses, which can't be deleted yet;
- * nothing yet; loading; and an error with a retry. Reached from the More menu on a phone and the sidebar on a laptop.
+ * nothing yet; loading; and an error with a retry. Reached from its tab on a phone and the sidebar on a laptop.
  */
 function api(overrides: Record<string, Answer> = {}): Record<string, Answer> {
   return {
@@ -27,12 +27,11 @@ test.afterEach(() => checkConsole());
 
 const list = (page: import("@playwright/test").Page) => page.getByRole("list", { name: "Your files" });
 
-test("my files, from the More menu or the sidebar", async ({ page }, info) => {
+test("my files, from its tab or the sidebar", async ({ page }, info) => {
   await fakeApi(page, api());
   await signIn(page, "asha", "/");
   if (onPhone(info)) {
-    await page.getByRole("button", { name: "More" }).click();
-    await page.getByRole("menuitem", { name: "My files" }).click();
+    await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Files" }).click();
   } else {
     // On a laptop My files is in the sidebar.
     await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "My files" }).click();

@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import * as data from "./fixtures";
 import * as images from "./fixtures-images";
+import { HOST_URL } from "./sites";
 import { capture, expectAccessible, fakeApi, signIn, watchConsole, type Answer } from "./support";
 
 /**
@@ -82,7 +83,7 @@ test.describe("My images", () => {
     ).toBeVisible();
     await expect(page.getByRole("link", { name: "Give your PAN" })).toHaveAttribute(
       "href",
-      "/hosting/payout-details/",
+      `${HOST_URL}/payout-details/`,
     );
     await expect(page.getByText("No images yet")).toBeVisible();
     await expectAccessible(page);

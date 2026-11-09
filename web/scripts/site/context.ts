@@ -10,13 +10,13 @@ import { buildDocs } from "./docs.ts";
 export const repository = (path: string): string =>
   fileURLToPath(new URL(`../../../${path}`, import.meta.url));
 
-export function siteContext(apiUrl: string | undefined, appUrl: string): SiteContext {
+export function siteContext(apiUrl: string | undefined, appUrl: string, hostUrl: string): SiteContext {
   const catalog = repository("templates/catalog.yaml");
   const development = repository("templates/development.yaml");
   const services = loadServices(catalog, development);
   return {
     apiUrl: apiUrl ? new URL(apiUrl).origin : null,
-    links: entryLinks(appUrl),
+    links: entryLinks(appUrl, hostUrl),
     services,
     examples: workedExamples(catalog, development),
     docs: buildDocs({

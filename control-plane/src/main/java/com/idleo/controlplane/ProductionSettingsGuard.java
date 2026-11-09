@@ -34,7 +34,8 @@ import org.springframework.util.unit.DataSize;
  *   <li>an {@code identity.web-app-url}, where CLI sign-ins are approved, that is plain HTTP or on this machine
  *       (ADR 0025);
  *   <li>a {@code hosts.link.web-app-url}, where a host link is approved, that is plain HTTP or on this machine (ADR 0032);
- *   <li>a {@code notifications.web-app-url}, where an email's links go, that is plain HTTP or on this machine; a
+ *   <li>a {@code notifications.web-app-url} or {@code notifications.host-site-url}, where an email's links go (the
+ *       renter app's and the host site's, ADR 0058), that is plain HTTP or on this machine; a
  *       {@code notifications.email.from} on this machine; a mail server ({@code spring.mail.host}) on this machine,
  *       such as the local mail catcher; or an email provider other than {@code smtp} (ADR 0026); a sender that isn't on
  *       the web app's domain, no SMTP credentials, or no signing secret for the provider's webhook (ADR 0036);
@@ -221,6 +222,10 @@ class ProductionSettingsGuard implements BeanFactoryPostProcessor {
         var emailLinks = binder.bind("notifications.web-app-url", String.class).orElse("");
         if (isDevelopmentIssuer(emailLinks)) {
             problems.add("notifications.web-app-url " + emailLinks + " is plain HTTP or on this machine");
+        }
+        var hostLinks = binder.bind("notifications.host-site-url", String.class).orElse("");
+        if (isDevelopmentIssuer(hostLinks)) {
+            problems.add("notifications.host-site-url " + hostLinks + " is plain HTTP or on this machine");
         }
         var from = binder.bind("notifications.email.from", String.class).orElse("");
         if (from.toLowerCase(Locale.ROOT).contains("localhost")) {

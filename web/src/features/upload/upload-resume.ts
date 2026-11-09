@@ -3,7 +3,7 @@ import { createStore, del, get, set, type UseStore } from "idb-keyval";
 /**
  * Where an unfinished upload is remembered, so choosing the same files again carries on from the last part storage
  * took instead of starting over (ADR 0022): after a reload, a dropped connection or a closed laptop. Kept in this
- * browser's IndexedDB, by the files' fingerprint (src/features/book/chosen-files.ts); forgotten once the upload is
+ * browser's IndexedDB, by the files' fingerprint (src/features/upload/chosen-files.ts); forgotten once the upload is
  * ready, cancelled or gone. Storage can be missing, full or blocked (a private window): then nothing is remembered,
  * and the upload simply starts over next time.
  */

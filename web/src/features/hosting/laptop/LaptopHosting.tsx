@@ -11,13 +11,14 @@ import { formatTime } from "@/lib/time";
 import { WeekBars } from "../WeekBars";
 import { LatestEarnings } from "./LatestEarnings";
 import { MachineTile } from "./MachineTile";
+import { HOST_PATHS } from "@/sites/host/paths";
 
 type EarningsQuery = UseInfiniteQueryResult<InfiniteData<OwnerEarnings>>;
 
 /** The apricot tile: what a machine needs, and that a one-time code links it. */
 export function AddTile({ className }: { className?: string }) {
   return (
-    <TileLink href="/hosting/add/" tone="ember" size="lg" className={cn("gap-4 xl:p-7", className)}>
+    <TileLink href={HOST_PATHS.add} tone="ember" size="lg" className={cn("gap-4 xl:p-7", className)}>
       <span aria-hidden="true" className="flex size-14 items-center justify-center rounded-icon bg-ink/10">
         <Plus className="size-6" strokeWidth={2} />
       </span>

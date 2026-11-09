@@ -1,5 +1,6 @@
 import { expect, test, type APIRequestContext } from "@playwright/test";
 import { writeFileSync } from "node:fs";
+import { HOST_URL } from "./sites";
 import { expectAccessible, signIn, watchConsole } from "./support";
 
 /**
@@ -114,7 +115,7 @@ test("a host with earnings and no UPI ID is told to add one, or give them up, be
   ).toBeVisible();
   await expect(page.getByRole("link", { name: "Payout details" })).toHaveAttribute(
     "href",
-    "/hosting/payout-details/",
+    `${HOST_URL}/payout-details/`,
   );
   await expect(page.getByRole("button", { name: "Delete my account", exact: true })).toBeDisabled();
   await expectAccessible(page);

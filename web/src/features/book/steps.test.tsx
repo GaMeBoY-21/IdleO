@@ -9,7 +9,7 @@ import { Budget } from "./Budget";
 import { defaultValues, type BookValues } from "./form";
 import { StepPreset } from "./StepPreset";
 import { advancedParams, stepsOf, type Step } from "./steps";
-import { readyUpload } from "./useUploads";
+import { readyUpload } from "@/features/upload/useUploads";
 import { summaryRows } from "./YourRequest";
 
 const fineTune = data.templateList.find((template) => template.id === "qlora-finetune")!;

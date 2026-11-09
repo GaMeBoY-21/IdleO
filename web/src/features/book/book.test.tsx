@@ -6,7 +6,7 @@ import { bookSchema, defaultValues, toRequest, valuesFrom, vramToAsk, type Uploa
 import { GpuCard } from "./GpuCard";
 import { RequestButton } from "./RequestButton";
 import type { Quote, QuoteState } from "./useQuote";
-import { readyUpload } from "./useUploads";
+import { readyUpload } from "@/features/upload/useUploads";
 
 const fineTune = data.templateList.find((template) => template.id === "qlora-finetune")!;
 const runCode = data.templateList.find((template) => template.id === "run-python")!;

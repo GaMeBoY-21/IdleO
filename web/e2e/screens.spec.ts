@@ -117,7 +117,8 @@ test.describe("home", () => {
     await expect(page.locator('a[href="/book/?service=fine-tune"]')).toContainText("Fine-tune a model");
     await expect(page.locator('a[href="/book/?service=run-code"]')).toContainText("Run your code");
     await expect(page.getByRole("main").getByRole("link", { name: /^Credit/ })).toContainText("₹462.12");
-    await expect(page.getByRole("link", { name: /^(For gamers|Earn)/ })).toHaveAttribute("href", "/hosting/");
+    // No hosting on the renter app (ADR 0058): the host site is one quiet link in the account menu.
+    await expect(page.getByRole("link", { name: /^(For gamers|Earn)/ })).toHaveCount(0);
     await expectAccessible(page);
     await capture(page, info, "home");
   });
@@ -213,21 +214,14 @@ test.describe("home", () => {
 });
 
 test.describe("the sidebar", () => {
-  test("has six destinations, the bell, and the account at the foot, a link to Account", async ({
+  test("has five destinations, the bell, and the account at the foot, a link to Account", async ({
     page,
   }, info) => {
     test.skip(onPhone(info), "the sidebar is from 768 px");
     await fakeApi(page, signedIn());
     await signIn(page, "asha");
     const tabs = page.getByRole("navigation", { name: "Main" });
-    await expect(tabs.getByRole("link")).toHaveText([
-      "Home",
-      "Book a GPU",
-      "Sessions",
-      "My files",
-      "Hosting",
-      "Credit",
-    ]);
+    await expect(tabs.getByRole("link")).toHaveText(["Home", "Book a GPU", "Sessions", "My files", "Credit"]);
     await expect(tabs.getByRole("link", { name: "Home" })).toHaveAttribute("aria-current", "page");
     // The credit is a panel on Home, not a chip in a bar.
     await expect(page.getByRole("main").getByRole("link", { name: /^Credit/ })).toContainText("₹462.12");

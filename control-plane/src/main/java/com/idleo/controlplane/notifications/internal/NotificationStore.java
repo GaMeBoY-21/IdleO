@@ -46,8 +46,8 @@ class NotificationStore {
             UUID userId, NotificationKind kind, String dedupeKey, Message message, boolean inApp, boolean emailWanted) {
         jdbc.sql("""
                         insert into notifications.notifications
-                            (id, user_id, kind, dedupe_key, title, body, link, created_at, in_app, email_wanted)
-                        values (:id, :user, :kind, :key, :title, :body, :link, :now, :inApp, :email)
+                            (id, user_id, kind, dedupe_key, title, body, link, site, created_at, in_app, email_wanted)
+                        values (:id, :user, :kind, :key, :title, :body, :link, :site, :now, :inApp, :email)
                         on conflict (user_id, dedupe_key) do nothing
                         """)
                 .param("id", ids.newId())
@@ -57,6 +57,7 @@ class NotificationStore {
                 .param("title", message.title())
                 .param("body", message.body())
                 .param("link", message.link())
+                .param("site", message.site().code())
                 .param("now", Timestamp.from(Instant.now(clock)))
                 .param("inApp", inApp)
                 .param("email", emailWanted)
@@ -156,7 +157,11 @@ class NotificationStore {
                 rs.getObject("id", UUID.class),
                 rs.getObject("user_id", UUID.class),
                 rs.getString("kind"),
-                new Message(rs.getString("title"), rs.getString("body"), rs.getString("link")),
+                new Message(
+                        rs.getString("title"),
+                        rs.getString("body"),
+                        rs.getString("link"),
+                        Message.Site.of(rs.getString("site"))),
                 rs.getTimestamp("created_at").toInstant(),
                 rs.getBoolean("in_app"),
                 rs.getBoolean("email_wanted"),

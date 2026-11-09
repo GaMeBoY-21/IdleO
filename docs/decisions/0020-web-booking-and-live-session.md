@@ -20,7 +20,7 @@ The booking contract (ADR 0019) is built. This round draws the screens a renter 
 
 **Forms are generated.** One function turns a template's `params` into a zod schema and the fields (`src/features/book/params.ts`); nothing is written per template. The server's `validation-failed` `errors[].field` lands on the matching field.
 
-**Uploads go straight to storage** (`src/features/book/upload.ts`): parts are `Blob.slice`s PUT with `XMLHttpRequest` (for progress), three at a time, retried three times, with fresh links on a 403; progress counts bytes storage has taken. The build now needs storage's origin, `VITE_STORAGE_URL`, for the Content Security Policy's `connect-src`; a staging or production build refuses one that isn't https.
+**Uploads go straight to storage** (`src/features/upload/upload.ts`): parts are `Blob.slice`s PUT with `XMLHttpRequest` (for progress), three at a time, retried three times, with fresh links on a 403; progress counts bytes storage has taken. The build now needs storage's origin, `VITE_STORAGE_URL`, for the Content Security Policy's `connect-src`; a staging or production build refuses one that isn't https.
 
 **Words for every error.** The problem catalog is also written as `api/problems.json`, and the web app's one message map is checked against it. Every code a session can end with has a sentence and a next step, checked against the control plane's and the agent's sources.
 

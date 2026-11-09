@@ -4,11 +4,11 @@ import { RadioGroup } from "@/components/ui/Inputs";
 import { Tile } from "@/components/ui/Tile";
 import type { BookValues, InputHow } from "./form";
 import { FilePicker } from "./FilePicker";
-import type { Chosen } from "./chosen-files";
+import type { Chosen } from "@/features/upload/chosen-files";
 import { MyFilesChoice } from "./MyFilesChoice";
 import { StepTitle } from "./StepTitle";
 import type { TemplateInput } from "./steps";
-import { readyUpload, type InputUpload } from "./useUploads";
+import { readyUpload, type InputUpload } from "@/features/upload/useUploads";
 
 const HOWS: { value: InputHow; label: string }[] = [
   { value: "upload", label: "Upload" },

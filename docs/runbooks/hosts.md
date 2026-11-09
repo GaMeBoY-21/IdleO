@@ -13,7 +13,7 @@ The owner installs the agent and runs `idleo-agent link`. It asks the control pl
 - A link lives 10 minutes. After that, or after "This isn't my laptop", the agent exits (3 expired, 2 denied; 4 is the network, 0 linked) and the owner runs `link` again.
 - The new host is **pending** until an operator activates it, as below, unless `hosts.auto-activate` is true (`HOSTS_AUTO_ACTIVATE`; false by default, and for the pilot). The owner's Hosting tab says it is being checked.
 - Each approval and denial is an audit row (a link that just expires leaves none). `idleo-agent enrol --code` still works and is for operators.
-- If the page opens on the wrong address, `HOSTS_LINK_WEB_APP_URL` (else `IDENTITY_WEB_APP_URL`) is the base of the link; production refuses plain HTTP and localhost. The static host must also serve `/link/<anything>/` with `/link/index.html` (`dist/rewrites.json`, docs/runbooks/deployment.md).
+- If the page opens on the wrong address, `HOSTS_LINK_WEB_APP_URL` is the base of the link: the host site's (ADR 0058; `http://localhost:3003` locally); production refuses plain HTTP and localhost. The host site must also serve `/link/<anything>/` with `/link/index.html` (`dist-host/rewrites.json`, docs/runbooks/deployment.md). A link opened on the renter app's address is sent on to the host site's.
 - Locally: `./start.sh --link-demo` starts a third fake laptop that links this way and prints the address to open.
 
 ## Before activating

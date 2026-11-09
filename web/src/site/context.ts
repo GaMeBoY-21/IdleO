@@ -45,7 +45,7 @@ export interface DocPage {
 export interface SiteContext {
   /** The product's API origin, for the pages that ask it for live prices; null if the build has none. */
   apiUrl: string | null;
-  /** Where the buttons that enter the app lead (built from `IDLEO_APP_URL`, src/site/paths.ts). */
+  /** Where the buttons that enter the app and the host site lead (`IDLEO_APP_URL`, `IDLEO_HOST_URL`, src/site/paths.ts). */
   links: EntryLinks;
   services: ServiceInfo[];
   examples: WorkedExample[];

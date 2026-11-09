@@ -1,6 +1,17 @@
 # web
 
-The renter and host web app: sign-in, Home, booking a GPU, a session live, all sessions and credit, the host side, and the admin console at `/admin/` (ADR 0027).
+The web app's sites (ADR 0058), one workspace built once per site: the renter app (app.idleo.in: sign-in, Home, booking a GPU, a session live, all sessions, files and credit, and for now the admin console at `/admin/`, ADR 0027) and the host site (host.idleo.in: a host's laptops, their prices, earnings and payouts). The public website (idleo.in) is a build of its own too ("The public site" below).
+
+## The sites
+
+`src/sites/sites.ts` lists them, and `src/sites/<site>/` is each one's: its routes (`routes.tsx`), its screen list (`screens.ts`; the renter app's is `src/screens.ts`), its bars and account sections (`site.ts`). `vite.config.ts` builds one at a time (`IDLEO_WEB_SITE=app|host`) with `@site` pointing at its folder; `pnpm build` builds each into its own folder (`dist/`, `dist-host/`). Each has its own pages, Content Security Policy, `headers.json`, redirects and budgets. `scripts/site-modules.ts` (in `pnpm size`) fails a build holding another site's code (`OWNED` says whose is whose), and `scripts/first-load.ts` a first load that does. The renter app redirects its old hosting addresses to the host site's, query and all (`src/sites/host/paths.ts`). Each build also writes Cloudflare Pages' `_headers` and `_redirects` from the same rules (`scripts/pages-config.ts`).
+
+| Host site path | Screen |
+| --- | --- |
+| `/` | Home: this week's earnings, the laptops and their states, Add a laptop |
+| `/laptop/?id=…`, `/laptop/price/?id=…`, `/sessions/?id=…` | One laptop; its price and limits; the sessions it ran |
+| `/earnings/`, `/payout-details/` | Earnings and payouts; the PAN and UPI ID payouts go to |
+| `/add/`, `/link/<id>/` | Adding a laptop; approving its link |
 
 ## The screens
 
@@ -12,7 +23,7 @@ The renter and host web app: sign-in, Home, booking a GPU, a session live, all s
 | `/session/?id=…` | One session, following its state like a ride: finding its GPU, GPU found, running (timer, cost against the cap, the GPU's use and temperature, checkpoint, logs), then done with its outputs, or why it ended |
 | `/sessions/` | All sessions, active or ended (`?show=ended`), a page at a time |
 | `/credit/` | Credit and its history |
-| `/sessions/` and the Hosting, Account and Credit tabs | On a laptop, from 1200 px, full width on a 12-column grid with the one header (web/DESIGN.md "Laptop layout") |
+| `/sessions/` and the Account and Credit tabs, and the host site's | On a laptop, from 1200 px, full width on a 12-column grid with the one header (web/DESIGN.md "Laptop layout") |
 | The website: `/`, `/pricing/`, `/gpus/`, `/earn/`, `/docs/…`, `/terms/`, `/privacy/`, `/contact/` | Not the app: the website (ADR 0029) is its own build at its own address, loading none of the app's code; see "The public site" below |
 | `/welcome/`, `/sign-in/` | A new account's first screen; sign-in |
 | `/admin/…` | The admin console (ADR 0027, docs/runbooks/admin.md): its own lazily loaded chunk, which renters never download. Setting up the authenticator and the code check, then Dashboard, Users, Hosts, Sessions, Review queue, Money, Invites and the Audit log (`/admin/users/?id=…` and the like open one record). Every action asks why in one sheet. Anyone who isn't an admin sees "We can't find that page" |
@@ -20,7 +31,7 @@ The renter and host web app: sign-in, Home, booking a GPU, a session live, all s
 How they're built, in short:
 - **A service's booking screen is generated** from its template in the catalog (`src/features/book/steps.ts`, `params.ts`), never written per service.
 - **Session state lives only in the query cache.** The session screen's event stream (`src/api/useLiveSession.ts`) and the lists' polling write it there (`writeSession`); it polls only while the stream is down.
-- **Uploads go straight to storage** in parts (`src/features/book/upload.ts`), a folder of files or one, each part's ETag remembered in IndexedDB so the same files chosen again carry on where they stopped (`upload-resume.ts`); the build needs storage's origin for its Content Security Policy (`VITE_STORAGE_URL`).
+- **Uploads go straight to storage** in parts (`src/features/upload/upload.ts`), a folder of files or one, each part's ETag remembered in IndexedDB so the same files chosen again carry on where they stopped (`upload-resume.ts`); the build needs storage's origin for its Content Security Policy (`VITE_STORAGE_URL`).
 - **Every problem type and every way a session can end has words:** `src/lib/problems.ts` (checked against `../api/problems.json`) and `src/lib/labels.ts` (checked against the control plane's and the agent's sources).
 
 - **The design language:** [DESIGN.md](DESIGN.md). Every screen is checked against it.
@@ -54,15 +65,16 @@ A production build needs Firebase's settings (`VITE_AUTH=firebase`, `VITE_FIREBA
 | Command | What it does |
 | --- | --- |
 | `pnpm dev` | The development server on :3000 |
-| `pnpm build` | Type check, build `dist/`, pre-render each screen's first frame, write the CSP into every page and `dist/headers.json` |
-| `pnpm serve` | Serve `dist/` as a host should: its headers, compression, caching (`IDLEO_DIST`, `PORT`) |
+| `pnpm build` | Type check, then for each site (`scripts/build-sites.ts`; `IDLEO_WEB_SITES` picks): build `dist/` or `dist-host/`, pre-render each screen's first frame, write the CSP into every page and the host's rules (`headers.json`, `redirects.json`, `rewrites.json`, Pages' `_headers` and `_redirects`) |
+| `pnpm serve`, `pnpm serve:host` | Serve `dist/` (:3000) or `dist-host/` (:3003) as a host should: its headers, redirects, compression, caching (`IDLEO_DIST`, `PORT`) |
+| `pnpm dev`, `pnpm dev:host` | The development server of the renter app (:3000) or the host site (:3003) |
 | `pnpm typecheck` | `tsc` in strict mode, after regenerating the API types from `../api/openapi.yaml` and the theme from the tokens |
 | `pnpm lint` | ESLint (jsx-a11y strict, the design-token rule, sign-in SDKs only in `src/auth/`) and Prettier |
 | `pnpm test` | Vitest: units and components |
 | `pnpm build:site` | The public pages alone: their style sheet and scripts (`vite.site.config.ts`), the module that draws them, then `scripts/build-site.ts` writes them, `sitemap.xml` and `robots.txt` into `dist/` (`pnpm build` runs it last) |
-| `pnpm size` | The first-load JavaScript budget, on `dist/` (or `IDLEO_DIST`), then the public pages' first-load budget |
+| `pnpm size` | Each site's first-load JavaScript budget, on `dist/` and `dist-host/` (or `IDLEO_DIST`'s), that no build holds another site's code, then the public pages' first-load budget |
 | `pnpm e2e` | Playwright: every screen and state, and the journeys; needs the stack and `pnpm serve` |
-| `pnpm lighthouse` | The performance and accessibility budgets on sign-in, Home, Book, the session screen, the Hosting tab and one machine, the 10 MiB log test, then `lhci assert` |
+| `pnpm lighthouse` | The performance and accessibility budgets on sign-in, Home, Book, the session screen, the host site's home and one laptop (on the host site's address), the 10 MiB log test, then `lhci assert` |
 | `pnpm gallery` | The review gallery (below) |
 | `pnpm screenshots [group…]` | Every screen as a picture, in both themes, into `../private/screens/<date>/<group>/`: `site` (default; at 1440 and 390 px, from `dist-website/`, so `pnpm build:site` first), `app` and `admin` (the browser tests' screens and fixtures, at 1440 and 390 px; they need the app built and served on :3000 and the local stack up), `windows-setup` (the setup window's every screen at 720 × 520, from `agent/setup/dev/preview.js`), `emails` and `pdfs` (the control plane's sample tests), `tray` (the tray's icons), and `sheet`, the contact sheet `../private/screens/<date>/index.html` with all of them on one page |
 | `pnpm brand-assets` | Draws the icons (`apple-touch-icon.png`, `icon-192.png`, `icon-512.png`, `favicon.ico`) and the share picture (`og-image.png`) into `public/` from `public/icon.svg`; the output is committed |
@@ -86,7 +98,7 @@ The owner's journeys are `e2e/hosting-journey.spec.ts` (the `hosting-journey` pr
 1. Add a machine from its name to connected, set its price, and have it activated.
 2. Pause it and resume it; one host fewer fits a quote while it's paused.
 3. Change its price; the quote's top price moves with it.
-4. Earn from a session; the Hosting tab, Earnings and Sessions it ran agree, and equal the ledger.
+4. Earn from a session; the host site's home, Earnings and Sessions it ran agree, and equal the ledger.
 5. Remove it; its agent is signed out and its earnings stay.
 
 `scripts/e2e/agent-online.sh` (and `--web`) runs them. By hand against `--keep-running`: enrol and activate an agent and grant a user credit as the script's steps 4 to 7 do (docs/runbooks/local-stack.md), then `E2E_WEB_USER=<user> pnpm exec playwright test --project=journey`, with a fresh user each run.
@@ -101,8 +113,8 @@ Measured on Lighthouse's mobile profile (a mid-range phone on 4G), and failed in
 | Interaction to next paint | at most 200 ms | `e2e/lighthouse.spec.ts` (web-vitals, CPU slowed 4×: Home's menu and moving between screens, typing in the booking form, the session screen while its log streams) |
 | Layout shift | 0 | `lighthouserc.json`, and every screen in `e2e/layout-shift.spec.ts` |
 | Total blocking time | at most 150 ms | `lighthouserc.json` |
-| First-load JavaScript, signed-in home | at most 150 KB gzipped, and none of the admin console's code | `scripts/first-load.ts`, on the production build, sign-in adapter included |
-| The main script before a screen paints | `MAIN_SCRIPT_BUDGET_KB` with Brotli: its size on Nov 3 plus 1 KB, the headroom before Session and Credit go up a round (ADR 0049) | `scripts/first-load.ts`, on the production build, naming the imports that grew it |
+| First-load JavaScript, signed-in home | at most 150 KB gzipped on each site, and none of the admin console's or another site's code | `scripts/first-load.ts` (once per site), on the production build, sign-in adapter included; `scripts/site-modules.ts` for the whole of each build |
+| The main script before a screen paints | `MAIN_SCRIPT_BUDGET_KB` with Brotli on each site: its size on Nov 3 plus 1 KB, the headroom before Session and Credit go up a round (ADR 0049) | `scripts/first-load.ts`, on the production build, naming the imports that grew it (`main-script-modules.json`, the host site's `main-script-modules.host.json`) |
 | Accessibility | Lighthouse 100, zero axe violations | `lighthouserc.json`, and every screen and state in `e2e/*screens.spec.ts` |
 | A 10 MiB log | at most 2,000 lines in the page, every interaction within the app's 200 ms on a CPU slowed 4× | `e2e/performance.spec.ts` |
 

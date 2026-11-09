@@ -9,22 +9,22 @@ import { PageHeading } from "@/components/ui/Heading";
 import { loadHeadlineFonts } from "@/design/fonts";
 import { afterPaint } from "@/lib/after-first-screen";
 import { cn } from "@/lib/cn";
+import { nav } from "@site/site";
 import { NotificationBanners } from "./NotificationBanners";
 import { NotificationBell } from "./NotificationBell";
 import { StatusBanners } from "./StatusBanners";
-import { isCurrent, isFlow, phoneDestinations } from "./nav";
 import { Sidebar, SIDEBAR_PUSH } from "./Sidebar";
 import { UserMenuButton } from "./UserMenuButton";
 
 /**
  * The frame around every signed-in screen (web/DESIGN.md "Navigation"). From 768 px: the left sidebar and the content
  * beside it. On a phone: a header with the wordmark and the bell, and a floating tab bar of the five most used
- * destinations and "More"; Book and the session screen are flows there, full screen with their own back button. The
+ * destinations and "More" (src/sites/<site>/site.ts); Book and the session screen are flows there, full screen with their own back button. The
  * frame never changes between pages, so switching pages swaps only the content.
  */
 export function AppShell({ children }: { children: ReactNode }) {
   const [pathname] = useLocation();
-  const flow = isFlow(pathname);
+  const flow = nav.isFlow(pathname);
   useEffect(() => afterPaint(loadHeadlineFonts), []);
   return (
     <div className={cn("flex min-h-dvh flex-col", SIDEBAR_PUSH)}>
@@ -56,8 +56,8 @@ export function AppShell({ children }: { children: ReactNode }) {
         )}
       >
         <ul className="grid h-full grid-cols-6">
-          {phoneDestinations.map(({ href, label, icon: Icon }) => {
-            const current = isCurrent(pathname, href);
+          {nav.phoneDestinations.map(({ href, label, icon: Icon }) => {
+            const current = nav.isCurrent(pathname, href);
             return (
               <li key={href} className="flex">
                 <AppLink

@@ -1,8 +1,7 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "wouter";
-import { useHosts } from "@/api/hosting";
-import { useMe, useSessions, useTemplateName } from "@/api/queries";
+import { useMe } from "@/api/queries";
 import { useContact, useOpenTicket, useTickets, type SupportTicket } from "@/api/support";
 import { AccountFrame } from "@/components/shell/AccountFrame";
 import { Button } from "@/components/ui/Button";
@@ -16,6 +15,7 @@ import { problemMessage } from "@/lib/problems";
 import { MAX_MESSAGE, STATUS_WORDS, ticketNumber } from "@/lib/support";
 import { formatDay } from "@/lib/time";
 import { useTitle } from "@/lib/title";
+import { useHelpSubjects } from "@site/help";
 
 const ROW = "flex min-h-18 items-center gap-3 py-3";
 
@@ -126,9 +126,7 @@ function TicketForm({ painted }: { painted: boolean }) {
   }, []);
   const me = useMe();
   const contact = useContact(painted);
-  const sessions = useSessions(painted);
-  const hosts = useHosts(painted);
-  const templateName = useTemplateName();
+  const subjects = useHelpSubjects(painted);
   const send = useOpenTicket();
   const [topic, setTopic] = useState("");
   const [about, setAbout] = useState("");
@@ -163,8 +161,8 @@ function TicketForm({ painted }: { painted: boolean }) {
     );
   };
 
-  const sessionList = sessions.data?.sessions ?? [];
-  const hostList = hosts.data?.hosts ?? [];
+  const sessionList = subjects.sessions;
+  const hostList = subjects.machines;
   return (
     <form
       noValidate
@@ -198,7 +196,7 @@ function TicketForm({ painted }: { painted: boolean }) {
           <optgroup label="Your sessions">
             {sessionList.map((session) => (
               <option key={session.id} value={`session:${session.id}`}>
-                {templateName(session.templateId)} · {formatDay(session.createdAt)}
+                {session.label}
               </option>
             ))}
           </optgroup>
@@ -207,7 +205,7 @@ function TicketForm({ painted }: { painted: boolean }) {
           <optgroup label="Your machines">
             {hostList.map((host) => (
               <option key={host.id} value={`host:${host.id}`}>
-                {host.name}
+                {host.label}
               </option>
             ))}
           </optgroup>

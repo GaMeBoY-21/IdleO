@@ -1,0 +1,33 @@
+# The web app's sites (ADR 0058): each address is on the Gateway's certificate, and with the web server on, each has its
+# own route to its own server block (web/Dockerfile: the app on 8080, the website on 8081, the host site on 8082).
+suite: the sites
+set:
+  images.tag: test
+  web.enabled: true
+templates:
+  - templates/gateway.yaml
+  - templates/web.yaml
+tests:
+  - it: puts every site's address on the certificate, production's by default
+    template: templates/gateway.yaml
+    documentSelector: { path: kind, value: Certificate }
+    asserts:
+      - equal: { path: spec.dnsNames, value: [idleo.in, app.idleo.in, host.idleo.in, api.idleo.in] }
+  - it: sends plain HTTP on to HTTPS for every site
+    template: templates/gateway.yaml
+    documentSelector: { path: metadata.name, value: idleo-https-redirect }
+    asserts:
+      - equal: { path: spec.hostnames, value: [idleo.in, app.idleo.in, host.idleo.in, api.idleo.in] }
+  - it: routes the host site to its own server block
+    template: templates/gateway.yaml
+    documentSelector: { path: metadata.name, value: idleo-host }
+    asserts:
+      - equal: { path: spec.hostnames, value: [host.idleo.in] }
+      - equal: { path: "spec.rules[0].backendRefs[0]", value: { name: idleo-web, port: 8082 } }
+  - it: lets the ingress reach all three server blocks, and nothing else
+    template: templates/web.yaml
+    documentSelector: { path: kind, value: NetworkPolicy }
+    asserts:
+      - equal:
+          path: "spec.ingress[0].ports"
+          value: [{ port: app, protocol: TCP }, { port: site, protocol: TCP }, { port: host, protocol: TCP }]

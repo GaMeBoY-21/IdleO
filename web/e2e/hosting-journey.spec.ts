@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { authorised, getSession, laptop, startAt, user } from "./journey-support";
+import { HOST_URL } from "./sites";
 import { API, expectAccessible } from "./support";
 
 /**
@@ -25,7 +26,8 @@ test.skip(
   "needs the local stack, E2E_WEB_USER and E2E_AGENT (scripts/e2e/agent-online.sh)",
 );
 test.describe.configure({ mode: "serial" });
-test.use(laptop);
+// On the host site (ADR 0058).
+test.use({ ...laptop, baseURL: HOST_URL });
 
 const run = promisify(execFile);
 const numbers: Record<string, unknown> = {};
@@ -71,7 +73,7 @@ test("offers the released Windows app on Add a machine, and its link redirects t
   const version = process.env.E2E_RELEASE_VERSION ?? "";
   const setupBytes = Number(process.env.E2E_RELEASE_SETUP_BYTES ?? "0");
   expect(version, "E2E_RELEASE_VERSION from scripts/e2e/agent-online.sh").toMatch(/^\d+\.\d+\.\d+$/);
-  await startAt(page, "/hosting/add/");
+  await startAt(page, "/add/");
   const download = page.getByRole("link", { name: "Download for Windows" });
   await expect(download).toHaveAttribute("href", `${API}/v1/agent-releases/latest/setup`);
   await expect(page.getByText(`v${version} · ${(setupBytes / 1_000_000).toFixed(1)} MB`)).toBeVisible();
@@ -181,14 +183,14 @@ test("links a laptop by approval: asked for, approved in one click, pending on H
       { stdio: "ignore", env: { ...process.env, IDLEO_LOG: "info" } },
     ),
   );
-  await page.goto("/hosting/");
+  await page.goto("/");
   const pending = page.getByRole("link", { name: /Journey laptop/ });
   await expect(pending.locator("xpath=..")).toContainText(/waiting for our checks/i, { timeout: 60_000 });
   await expectAccessible(page);
 
   // The check an operator does by hand until onboarding's benchmark exists.
   await run(process.env.E2E_ACTIVATE_HOST!, [hostId], { timeout: 300_000 });
-  await page.goto(`/hosting/machine/?id=${hostId}`);
+  await page.goto(`/laptop/?id=${hostId}`);
   await expect(page.getByTestId("machine-chip")).toHaveText("Idle", { timeout: 30_000 });
   await expect(page.getByRole("heading", { level: 1, name: "Journey laptop" })).toBeVisible();
   await expect(page.getByText(/^Online since/)).toBeVisible();
@@ -204,7 +206,7 @@ test("links a laptop by approval: asked for, approved in one click, pending on H
 
 test("pauses it and resumes it, and one host fewer fits while it's paused", async ({ page, request }) => {
   const before = await quote(request);
-  await startAt(page, `/hosting/machine/?id=${hostId}`);
+  await startAt(page, `/laptop/?id=${hostId}`);
   await page.getByRole("button", { name: "Pause hosting" }).click();
   await page.getByLabel("1 hour").check();
   await page.getByRole("button", { name: "Pause hosting" }).click();
@@ -220,7 +222,7 @@ test("pauses it and resumes it, and one host fewer fits while it's paused", asyn
 });
 
 test("changes its price, and the quote's range moves with it", async ({ page, request }) => {
-  await startAt(page, `/hosting/price/?id=${hostId}`);
+  await startAt(page, `/laptop/price/?id=${hostId}`);
   const priceText = (
     await page
       .getByRole("status")
@@ -239,7 +241,7 @@ test("changes its price, and the quote's range moves with it", async ({ page, re
   }
   await expect(page.getByText(`₹${(((price + 3) * 60 * 0.8) / 100).toFixed(2)} an hour`)).toBeVisible();
   await page.getByRole("button", { name: "Save" }).click();
-  await expect(page).toHaveURL(/\/hosting\/machine\/\?id=/);
+  await expect(page).toHaveURL(/\/laptop\/\?id=/);
   await expect(page.getByRole("link", { name: /Price and limits/ })).toContainText(
     `₹${((price + 3) * 0.6).toFixed(2)} an hour`,
   );
@@ -270,7 +272,7 @@ test("earns from a session, and the Hosting tab, earnings and sessions it ran ag
   expect(booked.status()).toBe(201);
   const { id } = (await booked.json()) as { id: string };
 
-  await startAt(page, `/hosting/machine/?id=${hostId}`);
+  await startAt(page, `/laptop/?id=${hostId}`);
   await expect(page.getByTestId("machine-chip")).toHaveText("Running a session", { timeout: 90_000 });
   expect((await getSession(request, id)).hostId).toBe(hostId);
   await expect(page.getByText(/earned so far · you keep 80%/)).toBeVisible();
@@ -285,7 +287,7 @@ test("earns from a session, and the Hosting tab, earnings and sessions it ran ag
   expect(all.weekPaise).toBe(2);
   expect(all.history.entries[0]).toMatchObject({ amountPaise: 2, minutes: 3, machineName: "Journey laptop" });
 
-  await page.goto("/hosting/");
+  await page.goto("/");
   await expect(page.getByText("₹0.02").first()).toBeVisible();
   await expect(page.getByText(/in total ·/)).toContainText("₹0.02");
   await expect(page.getByText(/Weekly UPI payouts start with the paid pilot/)).toBeVisible();
@@ -295,7 +297,7 @@ test("earns from a session, and the Hosting tab, earnings and sessions it ran ag
   await expect(page.getByRole("main")).toContainText("+₹0.02");
   await expect(page.getByRole("main")).toContainText("3 min");
   await expectAccessible(page);
-  await page.goto(`/hosting/sessions/?id=${hostId}`);
+  await page.goto(`/sessions/?id=${hostId}`);
   const row = page.getByRole("main").getByRole("listitem").first();
   await expect(row).toContainText("3 min");
   await expect(row).toContainText("+₹0.02");
@@ -312,19 +314,19 @@ test("earns from a session, and the Hosting tab, earnings and sessions it ran ag
 });
 
 test("removes it, which signs its agent out and keeps what it earned", async ({ page, request }) => {
-  await startAt(page, `/hosting/machine/?id=${hostId}`);
+  await startAt(page, `/laptop/?id=${hostId}`);
   await page.getByRole("button", { name: /Rename or remove/ }).click();
   await page.getByRole("button", { name: "Remove this machine" }).click();
   await expect(page.getByRole("dialog", { name: "Remove Journey laptop?" })).toBeVisible();
   await expectAccessible(page);
   await page.getByRole("button", { name: "Remove Journey laptop" }).click();
-  await expect(page).toHaveURL(/\/hosting\/$/);
+  await expect(page).toHaveURL(`${HOST_URL}/`);
   await expect(page.getByText("Earn from the GPU you aren't using")).toBeVisible();
   const gone = await request.get(`${API}/v1/hosts/${hostId}`, { headers: await authorised(request) });
   expect(gone.status()).toBe(410);
   expect(((await gone.json()) as { type: string }).type).toBe("/problems/host-removed");
   expect((await earnings(request)).totalPaise).toBe(2);
-  await page.goto("/hosting/earnings/");
+  await page.goto("/earnings/");
   await expect(page.getByRole("main")).toContainText("₹0.02");
   numbers.removed = { hostId, earningsKept: 2 };
   report();

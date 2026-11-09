@@ -13,6 +13,7 @@ import { useTitle } from "@/lib/title";
 import { LaptopHosting, LaptopPitch } from "./laptop/LaptopHosting";
 import { MachineRow } from "./MachineRow";
 import { WeekBars, WeekBarsSkeleton } from "./WeekBars";
+import { HOST_PATHS } from "@/sites/host/paths";
 
 /** Figures updated before this were restored from an earlier visit (src/api/persisted-cache.ts). */
 const PAGE_OPENED_AT = Date.now();
@@ -86,7 +87,7 @@ export function Hosting() {
                 </div>
                 <WeekBars days={owner.days} />
                 <Link
-                  href="/hosting/earnings/"
+                  href={HOST_PATHS.earnings}
                   className="flex min-h-touch items-center gap-2 self-start text-small font-semibold text-volt hover:underline"
                 >
                   Earnings, all machines
@@ -137,7 +138,7 @@ export function Hosting() {
 
 function AddLink() {
   return (
-    <Link href="/hosting/add/" className={buttonClasses("ghost", true, true)}>
+    <Link href={HOST_PATHS.add} className={buttonClasses("ghost", true, true)}>
       <Plus aria-hidden="true" className="size-5" strokeWidth={2} />
       Add a machine
     </Link>
@@ -155,7 +156,7 @@ function Pitch() {
         Add a gaming laptop or desktop with an NVIDIA RTX GPU. Renters&apos; jobs run in a locked box, never
         in your files, and you set the price. Pause or take it back whenever you like.
       </p>
-      <Link href="/hosting/add/" className={buttonClasses("primary", true, true)}>
+      <Link href={HOST_PATHS.add} className={buttonClasses("primary", true, true)}>
         Add a machine
       </Link>
     </Tile>

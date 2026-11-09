@@ -1,42 +1,23 @@
 /**
- * Every path the app has a screen for (src/App.tsx), and the module that draws it. scripts/postbuild.ts writes an
- * index.html into each path, so any static host serves a deep link without a rewrite rule, and preloads that
- * screen's own code in it, so a lazily loaded screen doesn't wait for the entry script to ask for it.
+ * Every path the renter app has a screen for (src/sites/app/routes.tsx, src/sites/frame.tsx), and the module that draws
+ * it (src/sites/app/screens.ts is this list, as each site has one; the console's checks read it here). scripts/postbuild.ts writes an index.html into each path, so any static host serves a deep link without a rewrite
+ * rule, and preloads that screen's own code in it, so a lazily loaded screen doesn't wait for the entry script to ask
+ * for it.
  */
+import { SHARED_SCREEN_MODULES } from "./sites/screen-modules.ts";
+
 export const SCREENS: Record<string, string | null> = {
+  ...SHARED_SCREEN_MODULES,
   "/": "src/features/home/Home.tsx",
   "/credit/": "src/features/credit/CreditHistory.tsx",
   "/session/": "src/features/session/SessionDetail.tsx",
   "/sessions/": "src/features/sessions/AllSessions.tsx",
   "/book/": "src/features/book/Book.tsx",
   "/files/": "src/features/files/MyFiles.tsx",
-  "/hosting/": "src/features/hosting/Hosting.tsx",
-  "/hosting/machine/": "src/features/hosting/Machine.tsx",
-  "/hosting/price/": "src/features/hosting/Price.tsx",
-  "/hosting/sessions/": "src/features/hosting/HostSessions.tsx",
-  "/hosting/earnings/": "src/features/hosting/Earnings.tsx",
-  "/hosting/payout-details/": "src/features/hosting/PayoutDetails.tsx",
-  "/hosting/add/": "src/features/hosting/AddMachine.tsx",
-  // A link has its id in the address, /link/<id>/; the host answers every such address with this page (scripts/serve.ts).
-  "/link/": "src/features/hosting/LinkApproval.tsx",
-  // Its form loads just after the screen paints, not before (src/features/sign-in/LazyEmailForm.tsx).
-  "/sign-in/": "src/features/sign-in/SignIn.tsx",
-  "/sign-in/finish/": "src/features/sign-in/FinishSignIn.tsx",
   "/welcome/": "src/features/home/Welcome.tsx",
-  "/agree/": "src/features/agree/Agree.tsx",
-  "/invite/": "src/features/invite/Invite.tsx",
-  "/account/": "src/features/account/Account.tsx",
   "/account/keys/": "src/features/account/ApiKeys.tsx",
   "/account/reports/": "src/features/account/Reports.tsx",
-  "/account/appeal/": "src/features/account/Appeal.tsx",
   "/account/images/": "src/features/account/MyImages.tsx",
-  "/account/data/": "src/features/account/YourData.tsx",
-  "/account/delete/": "src/features/account/DeleteAccount.tsx",
-  "/account/help/": "src/features/help/Help.tsx",
-  "/account/help/ticket/": "src/features/help/HelpTicket.tsx",
-  "/account/delete/confirm/": "src/features/deletion/ConfirmDeletion.tsx",
-  "/account/delete/cancel/": "src/features/deletion/CancelDeletion.tsx",
-  "/notifications/": "src/features/notifications/Notifications.tsx",
   "/admin/": "src/features/admin/AdminConsole.tsx",
   "/admin/inbox/": "src/features/admin/AdminConsole.tsx",
   "/admin/appeals/": "src/features/admin/AdminConsole.tsx",

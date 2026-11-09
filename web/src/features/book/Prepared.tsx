@@ -4,7 +4,7 @@ import { uploadInfo, useSession, type Template } from "@/api/queries";
 import { readDraft } from "./draft";
 import { defaultValues, valuesFrom, type BookValues } from "./form";
 import { ServiceForm, type ServiceFormProps } from "./ServiceForm";
-import { readyUpload, type InputUpload } from "./useUploads";
+import { readyUpload, type InputUpload } from "@/features/upload/useUploads";
 
 /** A draft's answers over the template's defaults, so an input or question added since still has its own. */
 function fromDraft(template: Template, kept: BookValues): BookValues {

@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
 import { render } from "@/prerender";
-import { SCREENS } from "@/screens";
+import { SCREENS } from "@site/screens";
 
 /**
  * Every screen's pre-rendered frame is whole (ADR 0018): React writes `<!--$!-->` where it couldn't finish a Suspense

@@ -1313,6 +1313,7 @@ export const inbox = (unread = 3): Schemas["InboxPage"] => {
     title,
     body,
     link,
+    site: "app",
     createdAt: new Date(NOW.getTime() - agoMs).toISOString(),
     read: false,
   });
@@ -1361,5 +1362,6 @@ export const newMessage = (): InboxItem => ({
   body: `It cost ${formatPaise(stopped.chargedPaise)}. Your outputs are ready to download.`,
   link: `/session/?id=${stopped.id}#outputs`,
   createdAt: NOW.toISOString(),
+  site: "app",
   read: false,
 });

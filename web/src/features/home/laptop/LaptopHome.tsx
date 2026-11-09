@@ -10,7 +10,6 @@ import { offeredServices, serviceOf } from "@/lib/catalog";
 import { BookAgainTile, latestSetup } from "../BookAgain";
 import { RunningTile } from "../RunningTile";
 import { CreditPanel } from "./CreditPanel";
-import { EarnPanel } from "./EarnPanel";
 import { FreeGpus } from "./FreeGpus";
 import { HOME } from "./LaptopHomeSkeleton";
 import { RecentSessions } from "./RecentSessions";
@@ -21,8 +20,8 @@ type Catalog = components["schemas"]["TemplateList"];
 
 /**
  * Home from 768 px (approved reference `AppHome`): the question and "Book a GPU" over the services as accent cards,
- * what is running beside the credit, the recent sessions as a table, and a last row for the free GPUs, what to book
- * again and hosting. The GPUs free and the credit's history are asked for once the screen has painted.
+ * what is running beside the credit, the recent sessions as a table, and a last row for the free GPUs and what to book
+ * again. The GPUs free and the credit's history are asked for once the screen has painted.
  */
 export function LaptopHome({
   catalog,
@@ -68,7 +67,6 @@ export function LaptopHome({
       <div className="grid cols-cards gap-4">
         <FreeGpus enabled={painted} />
         {again && <BookAgainTile session={again} name={againName} />}
-        <EarnPanel enabled={painted} />
       </div>
     </div>
   );

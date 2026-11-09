@@ -22,6 +22,7 @@ storage_port=19100
 mail_port=18025
 site_url="https://idleo.localhost:$https_port"
 app_url="https://app.idleo.localhost:$https_port"
+host_url="https://host.idleo.localhost:$https_port"
 api_url="https://api.idleo.localhost:$https_port"
 sign_in_url="http://signin.idleo.localhost:$sign_in_port/idleo-local"
 # Everything this cluster keeps on this machine: its kubeconfig (never ~/.kube/config), the local CA its certificates

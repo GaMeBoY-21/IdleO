@@ -67,6 +67,8 @@ prometheus_port=9190
 alertmanager_port=9193
 web_port=3000
 site_port=3002
+# The host site (ADR 0058).
+host_port=3003
 razorpay_port=8091
 razorpayx_port=8092
 compose_project=idleo-local
@@ -91,7 +93,7 @@ compose() { COMPOSE_PROJECT_NAME="$compose_project" docker compose -f "$root/con
 # Everything this script starts, by its pid file; the control plane's is a process group.
 stop_all() {
   local pid_file pid
-  for pid_file in "$state"/web.pid "$state"/site.pid "$state"/agent-*.pid "$state"/fake-razorpay.pid "$state"/fake-razorpayx.pid; do
+  for pid_file in "$state"/web.pid "$state"/host-web.pid "$state"/site.pid "$state"/agent-*.pid "$state"/fake-razorpay.pid "$state"/fake-razorpayx.pid; do
     [[ -f "$pid_file" ]] || continue
     pid="$(cat "$pid_file")"
     # The web dev server is a process group (pnpm, then Vite); the rest are single processes.
@@ -165,7 +167,7 @@ if ! rustup toolchain list | grep -q "^$rust_want"; then
   (cd "$root/agent" && rustup toolchain install) >>"$out/rust-install.log" 2>&1 ||
     fail "Rust $rust_want couldn't be installed; see logs/rust-install.log"
 fi
-for port in "$http_port" "$grpc_port" "$sign_in_port" "$storage_port" "$mail_smtp_port" "$mail_web_port" "$web_port" "$site_port" \
+for port in "$http_port" "$grpc_port" "$sign_in_port" "$storage_port" "$mail_smtp_port" "$mail_web_port" "$web_port" "$host_port" "$site_port" \
   "$grafana_port" "$prometheus_port" "$alertmanager_port" "$razorpay_port" "$razorpayx_port"; do
   if port_in_use "$port"; then
     fail "port $port is already in use. Stop what holds it (lsof -iTCP:$port -sTCP:LISTEN shows it), or ./start.sh --stop if it's an earlier start."
@@ -235,16 +237,17 @@ stack_control_plane_settings() {
   if $real_runner; then
     SESSIONS_TEMPLATES_CATALOG="file:$state/development-real.yaml"
   fi
-  # Origins that may call the API from a browser: the dev server, and the public site's pricing page.
-  export WEB_ALLOWED_ORIGINS="http://localhost:$web_port,http://localhost:$site_port"
+  # Origins that may call the API from a browser: the renter app's and the host site's dev servers, and the public site's
+  # pricing page.
+  export WEB_ALLOWED_ORIGINS="http://localhost:$web_port,http://localhost:$host_port,http://localhost:$site_port"
   if $lan; then
     # The laptop's browser opens the website and the web app at the LAN address; storage is reached there by the
     # laptop (the app's download, a session's files) and by this Mac alike, so presigned links work from both.
-    WEB_ALLOWED_ORIGINS="$WEB_ALLOWED_ORIGINS,http://$lan_ip:$web_port,http://$lan_ip:$site_port"
+    WEB_ALLOWED_ORIGINS="$WEB_ALLOWED_ORIGINS,http://$lan_ip:$web_port,http://$lan_ip:$host_port,http://$lan_ip:$site_port"
     export SESSIONS_STORAGE_ENDPOINT="http://$lan_ip:$storage_port" LOCAL_STORAGE_BIND=0.0.0.0
     # With --real-runner the laptop pulls the job image from this Mac's registry.
     export LOCAL_REGISTRY_BIND=0.0.0.0
-    export HOSTS_LINK_WEB_APP_URL="http://$lan_ip:$web_port"
+    export HOSTS_LINK_WEB_APP_URL="http://$lan_ip:$host_port"
   fi
 }
 # --real-runner: the registry and the job image come first, since the catalog names the image's digest. On a Mac the jobs run in
@@ -276,10 +279,12 @@ log "starting the control plane (logs/control-plane.log)"
 stack_start_control_plane
 echo "$control_plane_pid" >"$state/control-plane.pid"
 
-# The website and the app each know the other's address (web/src/build-settings.ts: IDLEO_SITE_URL, IDLEO_APP_URL).
+# The website, the renter app and the host site each know the others' addresses (web/src/build-settings.ts:
+# IDLEO_SITE_URL, IDLEO_APP_URL, IDLEO_HOST_URL).
 # The Credit page pays through the fake Razorpay's Checkout (ADR 0039).
 web_env=(IDLEO_DEPLOYMENT=local VITE_API_URL="$api" VITE_STORAGE_URL="http://localhost:$storage_port"
   IDLEO_SITE_URL="http://localhost:$site_port" IDLEO_APP_URL="http://localhost:$web_port"
+  IDLEO_HOST_URL="http://localhost:$host_port"
   VITE_CHECKOUT_URL="http://localhost:$razorpay_port/v1/checkout.js")
 if $lan; then
   # The laptop's browser calls the API (the website's Download button) at the LAN address; so does this Mac's.
@@ -327,6 +332,9 @@ echo $! >"$state/site.pid"
 set -m
 (cd "$root/web" && exec env "${web_env[@]}" pnpm dev ${dev_host[@]+"${dev_host[@]}"} --port "$web_port" --strictPort) >>"$out/web.log" 2>&1 &
 echo $! >"$state/web.pid"
+# The host site's (ADR 0058), the same way; the app's `pnpm dev` above makes the generated sources for both.
+(cd "$root/web" && exec env "${web_env[@]}" IDLEO_WEB_SITE=host pnpm exec vite ${dev_host[@]+"${dev_host[@]}"} --port "$host_port" --strictPort) >>"$out/host-web.log" 2>&1 &
+echo $! >"$state/host-web.pid"
 set +m
 
 wait "$agent_build_pid" || fail "the agent's build failed; see logs/agent-build.log"
@@ -413,6 +421,7 @@ sys.exit(0 if newest and now - datetime.datetime.fromisoformat(newest.replace("Z
     fail "the first full backup failed; see logs/backup.log"
 fi
 await "the web app" "http://localhost:$web_port/"
+await "the host site" "http://localhost:$host_port/"
 await "the website" "http://localhost:$site_port/"
 for i in 1 2; do
   curl -sf "$api/v1/hosts/${host_ids[$i]}" -H "Authorization: Bearer $owner_token" | grep -q '"online":true' ||
@@ -452,7 +461,7 @@ if $lan; then
   release_settings="$root/private/release-dev/setup.env"
   cat >"$release_settings" <<SETUP
 IDLEO_SETUP_API_URL=http://$lan_ip:$http_port
-IDLEO_SETUP_APP_URL=http://$lan_ip:$web_port
+IDLEO_SETUP_HOST_URL=http://$lan_ip:$host_port
 IDLEO_SETUP_SITE_URL=http://$lan_ip:$site_port
 IDLEO_SETUP_CONTROL_PLANE=$lan_ip:$grpc_port
 IDLEO_SETUP_CA_ROOT=$root/private/dev-ca/root.pem
@@ -502,8 +511,9 @@ cat <<READY
 
 Everything is up, in $((SECONDS - started)) s.
 
-  Website        http://localhost:$site_port/   (the public pages; its "Get started" and "Log in" lead to the app)
-  Web app        http://localhost:$web_port
+  Website        http://localhost:$site_port/   (the public pages; "Get started" leads to the app, "Start hosting" to the host site)
+  Renter app     http://localhost:$web_port
+  Host site      http://localhost:$host_port   (the laptops, earnings and payouts; link approvals)
   Email          http://localhost:$mail_web_port   (Mailpit: every email the stack sends, none delivered)
   Monitoring     http://localhost:$grafana_port   (Grafana: Platform health, Marketplace, Fleet, Money and Inbox; alerts arrive in Mailpit)
   Backups        archived to MinIO, encrypted; ops/backup/backup-now.sh, restore.sh (docs/runbooks/backups.md)
@@ -533,13 +543,13 @@ if $lan; then
 
     On the Windows laptop (same Wi-Fi), open http://$lan_ip:$site_port → Download for Windows.
     Approve on this Mac: its approval page opens here by itself when the laptop asks. (The laptop's browser can't
-    sign in over plain http, so approving there doesn't work; this Mac signs in at http://localhost:$web_port.)
+    sign in over plain http, so approving there doesn't work; this Mac signs in at http://localhost:$host_port.)
     If macOS asks to allow incoming connections, click Allow.
 
 READY
 fi
 cat <<READY
-  Logs           logs/  (control-plane, web, site, agent-1, agent-2, ops, link-demo)
+  Logs           logs/  (control-plane, web, host-web, site, agent-1, agent-2, ops, link-demo)
   Stop           Ctrl-C here, or ./start.sh --stop from another terminal
 
 READY
@@ -563,8 +573,8 @@ open_new_links() {
     2>/dev/null); do
     [[ "$opened_links" == *" $id "* || "$opened_links" == *" $id/ "* ]] && continue
     opened_links="$opened_links$id "
-    log "a laptop asks to be linked: approve it at http://localhost:$web_port/link/$id/"
-    if ! $no_browser && command -v open >/dev/null; then open "http://localhost:$web_port/link/$id/"; fi
+    log "a laptop asks to be linked: approve it at http://localhost:$host_port/link/$id/"
+    if ! $no_browser && command -v open >/dev/null; then open "http://localhost:$host_port/link/$id/"; fi
   done
 }
 

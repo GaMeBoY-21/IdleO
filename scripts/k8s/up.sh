@@ -207,6 +207,7 @@ cat <<TEXT
 
   Website        $site_url/
   App            $app_url/
+  Host site      $host_url/
   API            $api_url/  (readiness: $api_url/actuator/health/readiness)
   Agents         localhost:$agents_port (gRPC, mutual TLS to the control plane)
   Sign-in        $sign_in_url  (development)

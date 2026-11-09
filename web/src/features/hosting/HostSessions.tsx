@@ -10,6 +10,7 @@ import { formatMinutes, outcomeLabel } from "@/lib/hosting";
 import { useTitle } from "@/lib/title";
 import { HostFlow } from "@/components/shell/HostFlow";
 import { useHostId } from "@/lib/use-host-id";
+import { HOST_PATHS, laptopPath } from "@/sites/host/paths";
 
 const ROW = "flex min-h-18 items-center gap-3 py-4";
 
@@ -24,7 +25,7 @@ export function HostSessions() {
   const sessions = pages.data?.pages.flatMap((page) => page.sessions);
   const since = staleSince(pages);
   useTitle("Sessions it ran");
-  const back = id ? `/hosting/machine/?id=${id}` : "/hosting/";
+  const back = id ? laptopPath(id) : HOST_PATHS.home;
 
   return (
     <HostFlow

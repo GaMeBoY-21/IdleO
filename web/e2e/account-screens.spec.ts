@@ -438,11 +438,10 @@ test.describe("the account", () => {
     await expect(sections.getByRole("link")).toHaveText([
       "Profile and notifications",
       "API keys",
-      "My files",
-      "Reports",
-      "My images",
       "Your data",
       "Help",
+      "My images",
+      "Reports",
     ]);
     await expect(sections.getByRole("link", { name: "Profile and notifications" })).toHaveAttribute(
       "aria-current",
@@ -454,8 +453,8 @@ test.describe("the account", () => {
     await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
     await theme.getByRole("radio", { name: "Match my device" }).click();
     await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible();
-    await sections.getByRole("link", { name: "My files" }).click();
-    await expect(page).toHaveURL(/\/files\/$/);
+    await sections.getByRole("link", { name: "API keys" }).click();
+    await expect(page).toHaveURL(/\/account\/keys\/$/);
   });
 
   test("while the choices load", async ({ page }, info) => {

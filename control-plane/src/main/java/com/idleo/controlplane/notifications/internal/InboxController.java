@@ -2,6 +2,7 @@ package com.idleo.controlplane.notifications.internal;
 
 import com.idleo.controlplane.ApiProblem;
 import com.idleo.controlplane.identity.CurrentUser;
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
@@ -32,10 +33,18 @@ class InboxController {
     }
 
     /**
-     * One message. {@code link} is a path in the web app. {@code read} is whether the person has opened or
-     * marked it.
+     * One message. {@code link} is a path on {@code site}: {@code app}, the renter app, or {@code host}, the host site
+     * (ADR 0058), whichever site shows the message. {@code read} is whether the person has opened or marked it.
      */
-    record InboxItem(UUID id, String kind, String title, String body, String link, Instant createdAt, boolean read) {}
+    record InboxItem(
+            UUID id,
+            String kind,
+            String title,
+            String body,
+            String link,
+            @Schema(allowableValues = {"app", "host"}) String site,
+            Instant createdAt,
+            boolean read) {}
 
     /**
      * @param nextCursor pass it back as {@code cursor} for the next page; null on the last one
@@ -95,6 +104,7 @@ class InboxController {
                 stored.message().title(),
                 stored.message().body(),
                 stored.message().link(),
+                stored.message().site().code(),
                 stored.createdAt(),
                 stored.readAt() != null);
     }

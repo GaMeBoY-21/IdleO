@@ -395,8 +395,13 @@ async fn enrol_command(config: &Config, code: &str, force: bool) -> ExitCode {
 
 /// The hub for `run`, watching the signed-in owner. The GPU's use counts for auto-pause only with real GPUs on Windows.
 fn owner_host(config: &Config, runner_installed: bool, fake: bool) -> Arc<Host> {
-    let host =
-        Host::with_app_url(Arc::new(SystemOwner), config.data_dir.clone(), runner_installed, config.app_url.clone());
+    let host = Host::with_web_urls(
+        Arc::new(SystemOwner),
+        config.data_dir.clone(),
+        runner_installed,
+        config.app_url.clone(),
+        config.host_url.clone(),
+    );
     if fake || !cfg!(windows) {
         host.ignore_gpu_use();
     }

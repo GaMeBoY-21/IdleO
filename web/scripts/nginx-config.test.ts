@@ -7,7 +7,11 @@ const rules: ServeRules = {
   pathHeaders: {
     "/credit/": { "Content-Security-Policy": "default-src 'self' https://checkout.razorpay.com" },
   },
-  redirects: { "/about/": "/" },
+  redirects: {
+    "/about/": "/",
+    "/hosting/machine/": "https://host.example.invalid/laptop/",
+    "/old/*": "https://host.example.invalid/new/*",
+  },
   rewrites: { "/link/": "/link/index.html" },
 };
 
@@ -47,7 +51,13 @@ describe("serverBlock", () => {
   });
 
   it("redirects permanently, rewrites a screen's addresses to its page, and hides the rule files", () => {
-    expect(location(config, "location = /about/")).toContain("return 301 /;");
+    expect(location(config, "location = /about/")).toContain("return 301 /$is_args$args;");
+    expect(location(config, "location = /hosting/machine")).toContain(
+      "return 301 https://host.example.invalid/laptop/$is_args$args;",
+    );
+    expect(location(config, "location ~ ^/old/(.*)$")).toContain(
+      "return 301 https://host.example.invalid/new/$1$is_args$args;",
+    );
     expect(location(config, "location ^~ /link/")).toContain("try_files /link/index.html =404;");
     expect(location(config, "location = /headers.json")).toEqual(["return 404;"]);
   });

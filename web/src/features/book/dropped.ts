@@ -1,4 +1,4 @@
-import type { Chosen } from "./chosen-files";
+import type { Chosen } from "@/features/upload/chosen-files";
 
 /**
  * What was dropped on Home (web/DESIGN.md "Home"): held until the booking screen it opens takes it as its first upload

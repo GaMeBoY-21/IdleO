@@ -35,7 +35,7 @@ describe("the payouts tile", () => {
     expect(screen.getByText(BLOCKED["no-pan"]!, { exact: false })).toBeInTheDocument();
     expect(screen.getAllByRole("link", { name: "Payout details" })[0]).toHaveAttribute(
       "href",
-      "/hosting/payout-details/",
+      "/payout-details/",
     );
   });
 

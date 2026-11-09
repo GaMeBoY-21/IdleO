@@ -29,12 +29,12 @@ Pending uploads are aborted after a day and ready ones deleted 30 days after the
    - It's also the parent that every temporary agent credential derives from. Temporary credentials can never exceed their parent, which is why it covers this one bucket.
 3. **An API token to mint temporary credentials.** Under My Profile (or the account), then API Tokens, create a token with **Account → Workers R2 Storage → Edit** for this account. It calls `POST /accounts/{account_id}/r2/temp-access-credentials`: https://developers.cloudflare.com/api/resources/r2/subresources/temporary_credentials/methods/create/. Put it in the secret store.
 4. **The account id** is on the R2 overview page. The S3 endpoint is `https://<account id>.r2.cloudflarestorage.com`.
-5. **CORS, for uploads from the browser.** The web app PUTs upload parts straight to the bucket and must read each part's `ETag` to complete the upload. On the bucket, open Settings, then CORS policy, and set exactly this, with the web app's own origins (the same list as `WEB_ALLOWED_ORIGINS`; never `*`, never plain `http`):
+5. **CORS, for uploads from the browser.** The web app PUTs upload parts straight to the bucket and must read each part's `ETag` to complete the upload: a renter's inputs from the renter app, an appeal's evidence from the renter app or the host site (ADR 0058). On the bucket, open Settings, then CORS policy, and set exactly this, with those two sites' origins (`https://app.idleo.in` and `https://host.idleo.in`; never `*`, never plain `http`):
 
    ```json
    [
      {
-       "AllowedOrigins": ["https://app.example"],
+       "AllowedOrigins": ["https://app.example", "https://host.example"],
        "AllowedMethods": ["PUT", "GET", "HEAD"],
        "AllowedHeaders": ["content-type"],
        "ExposeHeaders": ["ETag"],

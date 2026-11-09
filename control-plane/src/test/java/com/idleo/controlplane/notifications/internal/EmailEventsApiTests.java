@@ -84,6 +84,7 @@ class EmailEventsApiTests {
         // docs.svix.com/receiving/verifying-payloads/how-manual: its example secret, message, time and signature.
         var properties = new NotificationProperties(
                 URI.create("https://app.example.invalid"),
+                URI.create("https://host.example.invalid"),
                 new NotificationProperties.Email("n@example.invalid", "whsec_plJ3nmyCDGBKInavdOK15jsl"));
         var at = Clock.fixed(Instant.ofEpochSecond(1731705121), ZoneOffset.UTC);
         var body = "{\"event_type\":\"ping\",\"data\":{\"success\":true}}".getBytes(StandardCharsets.UTF_8);
@@ -177,6 +178,7 @@ class EmailEventsApiTests {
         var events = new ResendEmailEvents(
                 new NotificationProperties(
                         URI.create("https://app.example.invalid"),
+                        URI.create("https://host.example.invalid"),
                         new NotificationProperties.Email("n@x.invalid", secret)),
                 Clock.systemUTC());
         var now = Instant.now().getEpochSecond();

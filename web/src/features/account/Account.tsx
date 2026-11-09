@@ -11,6 +11,7 @@ import { useAfterPaint } from "@/lib/after-first-screen";
 import { useTitle } from "@/lib/title";
 import { ChevronRight } from "lucide-react";
 import { Link } from "wouter";
+import { nav } from "@site/site";
 import { NameRow, ROW } from "./NameRow";
 import { NotificationChoices } from "./NotificationChoices";
 
@@ -63,43 +64,23 @@ export function Account() {
               {(!me.data || methods !== "") && (
                 <Fact label="Signed in with" value={me.data ? methods : undefined} />
               )}
-              <Link href="/account/keys/" className={`${ROW} hover:bg-panel-2 md:hidden`}>
-                <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                  <p className="text-option font-semibold">API keys</p>
-                  <p className="text-small text-text-2">For the command line, scripts and the SDK</p>
-                </div>
-                <ChevronRight aria-hidden="true" className="size-5 shrink-0 text-text-2" strokeWidth={1.75} />
-              </Link>
-              <Link href="/account/data/" className={`${ROW} hover:bg-panel-2 md:hidden`}>
-                <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                  <p className="text-option font-semibold">Your data</p>
-                  <p className="text-small text-text-2">What we hold, download it, or delete your account</p>
-                </div>
-                <ChevronRight aria-hidden="true" className="size-5 shrink-0 text-text-2" strokeWidth={1.75} />
-              </Link>
-              <Link href="/account/help/" className={`${ROW} hover:bg-panel-2 md:hidden`}>
-                <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                  <p className="text-option font-semibold">Help</p>
-                  <p className="text-small text-text-2">Write to us, and read our answers</p>
-                </div>
-                <ChevronRight aria-hidden="true" className="size-5 shrink-0 text-text-2" strokeWidth={1.75} />
-              </Link>
-              <Link href="/account/images/" className={`${ROW} hover:bg-panel-2 md:hidden`}>
-                <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                  <p className="text-option font-semibold">My images</p>
-                  <p className="text-small text-text-2">
-                    Your own container images, and what their checks found
-                  </p>
-                </div>
-                <ChevronRight aria-hidden="true" className="size-5 shrink-0 text-text-2" strokeWidth={1.75} />
-              </Link>
-              <Link href="/account/reports/" className={`${ROW} hover:bg-panel-2 md:hidden`}>
-                <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                  <p className="text-option font-semibold">Reports</p>
-                  <p className="text-small text-text-2">Problems you&apos;ve reported, and what we decided</p>
-                </div>
-                <ChevronRight aria-hidden="true" className="size-5 shrink-0 text-text-2" strokeWidth={1.75} />
-              </Link>
+              {nav.accountSections.flatMap(({ href, label, detail }) =>
+                detail
+                  ? [
+                      <Link key={href} href={href} className={`${ROW} hover:bg-panel-2 md:hidden`}>
+                        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                          <p className="text-option font-semibold">{label}</p>
+                          <p className="text-small text-text-2">{detail}</p>
+                        </div>
+                        <ChevronRight
+                          aria-hidden="true"
+                          className="size-5 shrink-0 text-text-2"
+                          strokeWidth={1.75}
+                        />
+                      </Link>,
+                    ]
+                  : [],
+              )}
             </div>
           ) : me.isError ? (
             <ErrorState

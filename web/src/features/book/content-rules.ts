@@ -1,5 +1,5 @@
 import type { Template } from "@/api/queries";
-import type { Chosen } from "./chosen-files";
+import type { Chosen } from "@/features/upload/chosen-files";
 
 type Input = Template["inputs"][number];
 type Rule = Input["mustContain"][number];

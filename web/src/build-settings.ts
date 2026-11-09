@@ -29,6 +29,8 @@ export interface BuildEnv {
   IDLEO_SITE_URL?: string | undefined;
   /** The app's own address, where the website's "Log in" and "Get started" lead (ADR 0029); a local build may leave it out. */
   IDLEO_APP_URL?: string | undefined;
+  /** The host site's address (ADR 0058), where "Start hosting" and the renter app's old hosting addresses lead. */
+  IDLEO_HOST_URL?: string | undefined;
   VITE_OIDC_ISSUER?: string | undefined;
   VITE_OIDC_CLIENT_ID?: string | undefined;
   VITE_FIREBASE_API_KEY?: string | undefined;
@@ -50,10 +52,17 @@ function isLocalOrPlain(url: string): boolean {
   }
 }
 
+/** The addresses every build links between (ADR 0029, ADR 0058), each with its setting and the local stack's. */
+const ADDRESSES = [
+  { setting: "IDLEO_SITE_URL", what: "the public site", short: "site", local: "http://localhost:3002" },
+  { setting: "IDLEO_APP_URL", what: "the app", short: "app", local: "http://localhost:3000" },
+  { setting: "IDLEO_HOST_URL", what: "the host site", short: "host site", local: "http://localhost:3003" },
+] as const;
+
 /**
- * The two addresses a deployed build needs (ADR 0029): the website's, `IDLEO_SITE_URL`, and the app's, `IDLEO_APP_URL`,
- * both https and not on this machine. A local build may leave both out. The app's build and the website's both check
- * them, since each links to the other.
+ * The addresses a deployed build needs (ADR 0029, ADR 0058): the website's, `IDLEO_SITE_URL`, the renter app's,
+ * `IDLEO_APP_URL`, and the host site's, `IDLEO_HOST_URL`, each https and not on this machine. A local build may leave
+ * them out. Every build checks all three, since each site links to the others.
  */
 export function siteSettingsProblems(env: BuildEnv): string[] {
   const problems: string[] = [];
@@ -61,17 +70,27 @@ export function siteSettingsProblems(env: BuildEnv): string[] {
   if (deployment === "local") {
     return problems;
   }
-  if (!env.IDLEO_SITE_URL) {
-    problems.push(`a ${deployment} build needs IDLEO_SITE_URL, the public site's address`);
-  } else if (isLocalOrPlain(env.IDLEO_SITE_URL)) {
-    problems.push(`a ${deployment} build needs an https site address that isn't on this machine`);
-  }
-  if (!env.IDLEO_APP_URL) {
-    problems.push(`a ${deployment} build needs IDLEO_APP_URL, the app's address`);
-  } else if (isLocalOrPlain(env.IDLEO_APP_URL)) {
-    problems.push(`a ${deployment} build needs an https app address that isn't on this machine`);
+  for (const { setting, what, short } of ADDRESSES) {
+    const value = env[setting];
+    if (!value) {
+      problems.push(`a ${deployment} build needs ${setting}, ${what}'s address`);
+    } else if (isLocalOrPlain(value)) {
+      problems.push(`a ${deployment} build needs an https ${short} address that isn't on this machine`);
+    }
   }
   return problems;
+}
+
+/** The three addresses, without a trailing slash: the settings', or the local stack's. Refuses a deployed build without them. */
+export function assertSiteAddresses(env: BuildEnv): { site: string; app: string; host: string } {
+  const problems = siteSettingsProblems(env);
+  if (problems.length > 0) {
+    throw new Error(`Refusing to build: ${problems.join("; ")}`);
+  }
+  const [site, app, host] = ADDRESSES.map(({ setting, local }) =>
+    (env[setting] ?? local).replace(/\/+$/, ""),
+  );
+  return { site: site!, app: app!, host: host! };
 }
 
 /** Every problem with these settings; empty when the build may go ahead. */

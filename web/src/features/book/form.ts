@@ -4,7 +4,7 @@ import type { Session, Template } from "@/api/queries";
 import { paisePerMinute, parseRupees, rupeeInput } from "@/lib/money";
 import { paramDefaults, paramsSchema, paramValuesFrom, toParams, type ParamFormValues } from "./params";
 import { asksGpuMemory, budgetOf, presetDefaults, presetSets } from "./steps";
-import type { InputUpload } from "./useUploads";
+import type { InputUpload } from "@/features/upload/useUploads";
 import { classMb, neededMb } from "./vram";
 
 export type CreateSession = components["schemas"]["CreateSessionRequest"];

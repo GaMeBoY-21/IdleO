@@ -32,6 +32,8 @@ web:
   allowed-origins:
     - http://localhost:3000
     - http://127.0.0.1:3000
+    # The host site's (ADR 0058).
+    - http://localhost:3003
 
 spring:
   datasource:

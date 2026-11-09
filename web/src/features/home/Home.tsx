@@ -10,7 +10,6 @@ import { useWide } from "@/lib/media";
 import { useTitle } from "@/lib/title";
 import { BookAgainTile, latestSetup } from "./BookAgain";
 import { CreditTile } from "./CreditTile";
-import { EarnTile } from "./EarnTile";
 import { RunningTile } from "./RunningTile";
 import { LaptopHomeSkeleton } from "./laptop/LaptopHomeSkeleton";
 import { MainServiceTile, QuestionTile, WideServiceTile } from "./ServiceTiles";
@@ -31,7 +30,7 @@ const PHONE_FRAME =
 
 /**
  * The renter's home (approved reference `AppHome`): tiles on a grid, each a thing to check or to start. A dark
- * tile for each session that's live, the services (the first lime and tall), credit, what to book again, and hosting;
+ * tile for each session that's live, the services (the first lime and tall), credit and what to book again;
  * with nothing running, the first tile is the question, with the services inside it. The order is chosen in code, not
  * by CSS, so what a screen reader reads and the tab order follow what's on screen.
  */
@@ -141,7 +140,6 @@ export function Home() {
             .map((service, index) => (
               <WideServiceTile key={service.id} service={service} index={index + 1} />
             ))}
-        <EarnTile />
         {!sessions.data && (
           <Tile className="col-span-2 row-span-2">
             <ErrorState

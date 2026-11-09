@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { parse } from "yaml";
 import { describe, expect, it } from "vitest";
 import { data } from "@/test/fixtures";
-import { type Chosen } from "./chosen-files";
+import { type Chosen } from "@/features/upload/chosen-files";
 import { inspect, matches, problem, UNREADABLE_ZIP, zipNames } from "./content-rules";
 
 const root = new URL("../../../../", import.meta.url).pathname;

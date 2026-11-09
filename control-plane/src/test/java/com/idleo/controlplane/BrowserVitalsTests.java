@@ -60,6 +60,21 @@ class BrowserVitalsTests {
                 .isGreaterThanOrEqualTo(1);
     }
 
+    /** The host site (ADR 0058) reports as its own app, beside the renter app's. */
+    @Test
+    void theHostSitesVitalsAreTheirOwn() throws Exception {
+        send("""
+                        {"app": "host", "release": "2026.11.09-host", "items": [
+                          {"type": "vital", "name": "LCP", "value": 1700, "route": "/earnings/", "device": "laptop"}
+                        ]}
+                        """).andExpect(status().isNoContent());
+        assertThat(meters.get("browser.vitals.lcp")
+                        .tags("app", "host", "route", "/earnings/")
+                        .summary()
+                        .count())
+                .isGreaterThanOrEqualTo(1);
+    }
+
     @Test
     void anErrorIsCountedByReleaseAndLoggedWithoutWhatIsPersonal(CapturedOutput output) throws Exception {
         var before =

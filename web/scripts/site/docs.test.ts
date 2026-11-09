@@ -6,7 +6,11 @@ import { describe, expect, it } from "vitest";
 import { publicOperations, loadSpec } from "./openapi";
 import { repository, siteContext } from "./context";
 
-const context = siteContext("https://api.example.invalid", "https://app.example.invalid");
+const context = siteContext(
+  "https://api.example.invalid",
+  "https://app.example.invalid",
+  "https://host.example.invalid",
+);
 const page = (path: string) => context.docs.find((candidate) => candidate.path === path)!;
 const spec = loadSpec(repository("api/openapi.yaml"));
 

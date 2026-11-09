@@ -13,6 +13,7 @@ import { useWide } from "@/lib/media";
 import { useTitle } from "@/lib/title";
 import { useAfterPaint } from "@/lib/after-first-screen";
 import { PayoutHistory, PayoutsTile, StatementTile } from "./Payouts";
+import { HOST_PATHS } from "@/sites/host/paths";
 
 const PAYOUT_NOTE = "Paid to your UPI ID every Monday, 7 days after each session.";
 
@@ -45,7 +46,7 @@ export function Earnings() {
     // From 768 px: the totals in the left rail's dark tile, the history beside it (web/DESIGN.md "Laptop layout").
     return (
       <HostFlow
-        back="/hosting/"
+        back={HOST_PATHS.home}
         backLabel="Hosting"
         summary={owner ? <Totals owner={owner} heading /> : <TotalsSkeleton />}
       >

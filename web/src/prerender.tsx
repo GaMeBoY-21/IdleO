@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { renderToString } from "react-dom/server";
 import { Router } from "wouter";
-import { App, preloadScreen } from "./App";
+import { App, preloadScreen } from "@site/routes";
 
 /**
  * A screen's first frame as static HTML, written into its index.html at build time (scripts/postbuild.ts, ADR
