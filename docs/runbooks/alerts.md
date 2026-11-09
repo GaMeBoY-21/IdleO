@@ -228,7 +228,7 @@ Then Loki, `{service_name="control-plane"} |= "Invocation of listener"` with the
 
 ## Long suite failing
 
-**Means:** a long suite's last run on main or on its schedule failed (ADR 0050). They're too slow to be required checks, so a red one stops nothing: `HostileSuiteFailing` (`hostile.yml`: the job sandbox's 16 attacks), `FailoverSuiteFailing` (`failover.yml`), `K8sSuiteFailing` (`k8s.yml`), `GitopsSuiteFailing` (`gitops.yml`: canaries and rollback), `SecuritySuiteFailing` (`security.yml`: the attacks on the cluster), `E2eSuiteFailing` (`e2e.yml`), `WebBrowserSuiteFailing` (`web.yml`'s browser job).
+**Means:** a long suite's last run on main or on its schedule failed (ADR 0050). They're too slow to be required checks, so a red one stops nothing: `ConsoleScreensSuiteFailing` (`budgets.yml`: a console screen over its paint or change budget on the seeded data; the figures are in the `console-budgets` artifact), `HostileSuiteFailing` (`hostile.yml`: the job sandbox's 16 attacks), `FailoverSuiteFailing` (`failover.yml`), `K8sSuiteFailing` (`k8s.yml`), `GitopsSuiteFailing` (`gitops.yml`: canaries and rollback), `SecuritySuiteFailing` (`security.yml`: the attacks on the cluster), `E2eSuiteFailing` (`e2e.yml`), `WebBrowserSuiteFailing` (`web.yml`'s browser job).
 
 **Check first:** the failed run on the workflow's page on GitHub, and whether main moved since. Read the hostile and security suites first: a red one may mean a sandbox or cluster rule stopped holding. Until it's read, what that suite proves is unproven.
 
@@ -236,7 +236,7 @@ Then Loki, `{service_name="control-plane"} |= "Invocation of listener"` with the
 
 ## Long suite missing
 
-**Means:** a long suite hasn't reported a result for 8 days, against a schedule of once a week: `HostileSuiteMissing`, `FailoverSuiteMissing`, `K8sSuiteMissing`, `GitopsSuiteMissing`, `SecuritySuiteMissing`, `E2eSuiteMissing`, `WebBrowserSuiteMissing`. The workflow didn't run (Actions disabled, a billing stop, a scheduling outage), kept being cancelled or running out of time, or couldn't send its result (its `GRAFANA_CLOUD_OTLP_*` secrets).
+**Means:** a long suite hasn't reported a result for 8 days, against a schedule of once a week: `HostileSuiteMissing`, `ConsoleScreensSuiteMissing`, `FailoverSuiteMissing`, `K8sSuiteMissing`, `GitopsSuiteMissing`, `SecuritySuiteMissing`, `E2eSuiteMissing`, `WebBrowserSuiteMissing`. The workflow didn't run (Actions disabled, a billing stop, a scheduling outage), kept being cancelled or running out of time, or couldn't send its result (its `GRAFANA_CLOUD_OTLP_*` secrets).
 
 **Check first:** the workflow's recent runs on GitHub, and their "Report" step.
 

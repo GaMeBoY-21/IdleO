@@ -284,3 +284,30 @@ tests:
             exp_annotations:
               summary: The console's budgets failed on their schedule.
               runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#long-suite-failing
+  - interval: 7d
+    input_series:
+      - series: 'idleo_suite_passed{suite="console-screens"}'
+        values: '1 0 1'
+    alert_rule_test:
+      - eval_time: 1d
+        alertname: ConsoleScreensSuiteFailing
+        exp_alerts: []
+      - eval_time: 8d
+        alertname: ConsoleScreensSuiteFailing
+        exp_alerts:
+          - exp_labels: {env: ci, severity: digest, suite: console-screens}
+            exp_annotations:
+              summary: The console's screens missed their budgets on their schedule.
+              runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#long-suite-failing
+  - interval: 1d
+    input_series:
+      - series: 'idleo_other_suite{suite="none"}'
+        values: '1x20'
+    alert_rule_test:
+      - eval_time: 10d
+        alertname: ConsoleScreensSuiteMissing
+        exp_alerts:
+          - exp_labels: {env: ci, severity: digest, suite: console-screens}
+            exp_annotations:
+              summary: The console's screens haven't reported for 8 days.
+              runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#long-suite-missing
