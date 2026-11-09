@@ -18,7 +18,8 @@ function codesInTheDatabase(): string[] {
   const codes = new Set<string>();
   for (const file of readdirSync(folder)) {
     const text = readFileSync(resolve(folder, file), "utf8");
-    for (const match of text.matchAll(/\b\w+\s+IN\s*\(((?:\s*'[^']+'\s*,?)+)\)/gi)) {
+    // Each list a rule allows: IN ( ... ), then the quoted values inside it.
+    for (const match of text.matchAll(/\bIN\s*\(([^)]*)\)/gi)) {
       for (const value of match[1]!.matchAll(/'([^']+)'/g)) {
         const code = value[1]!;
         if (/^[A-Za-z][A-Za-z0-9_]*$/.test(code) && (code.includes("_") || code === code.toUpperCase())) {
