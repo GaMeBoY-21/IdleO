@@ -1,0 +1,61 @@
+import { expect, test, type Page } from "@playwright/test";
+import * as data from "./fixtures";
+import * as admin from "./fixtures-admin";
+import { routes } from "./fixtures-admin-routes";
+import { fakeApi, signIn, type Answer } from "./support";
+
+/**
+ * A long list scrolls smoothly (ADR 0057). In the serial project, beside the Lighthouse runs, as a frame's length means
+ * nothing while other browsers compete for the machine: on CI's parallel shards it measured 100 ms on a runner busy with
+ * other tests, against 29 to 32 ms alone. The budget is the same either way, 50 ms.
+ */
+async function open(page: Page, path: string, overrides: Record<string, Answer> = {}) {
+  await fakeApi(page, routes(overrides));
+  await signIn(page, "asha", path);
+  await expect(page.getByRole("navigation", { name: "Admin" })).toBeVisible();
+}
+
+test.beforeEach(async ({ page }) => {
+  await page.clock.setFixedTime(data.NOW);
+});
+
+test("10,000 rows are windowed and scroll with no frame over 50 ms", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const row = admin.sessions.sessions[0]!;
+  const many = Array.from({ length: 10_000 }, (_, index) => ({
+    ...row,
+    id: `00000000-0000-7000-8000-${String(index).padStart(12, "0")}`,
+  }));
+  await open(page, "/admin/sessions/", {
+    "/admin/v1/sessions": { json: { sessions: many, nextCursor: null } },
+  });
+  const region = page.getByRole("region", { name: "Sessions" });
+  await expect(region.locator("tr[data-row-key]").first()).toBeVisible();
+  const inPage = await region.locator("tr[data-row-key]").count();
+  expect(inPage, "rows in the page").toBeLessThan(100);
+  await expect(page.getByRole("table", { name: "Sessions" })).toHaveAttribute("aria-rowcount", "10001");
+  const frames = await region.evaluate(async (element) => {
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    const longest: number[] = [];
+    let at = performance.now();
+    const started = at;
+    const step = element.scrollHeight / 300;
+    return await new Promise<number[]>((resolve) => {
+      const tick = (now: number) => {
+        longest.push(now - at);
+        at = now;
+        element.scrollTop += step;
+        if (now - started < 4_000) {
+          requestAnimationFrame(tick);
+        } else {
+          resolve(longest);
+        }
+      };
+      requestAnimationFrame(tick);
+    });
+  });
+  const worst = Math.max(...frames.slice(1));
+  console.log(`console table: ${frames.length} frames over 10,000 rows, the worst ${worst.toFixed(1)} ms`);
+  expect(worst).toBeLessThanOrEqual(50);
+  await expect(region.locator("tr[data-row-key]").last()).toBeVisible();
+});
