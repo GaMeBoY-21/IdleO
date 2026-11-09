@@ -6,6 +6,7 @@ import { useTitle } from "@/lib/title";
 import { HostFlow } from "@/components/shell/HostFlow";
 import { PriceForm } from "./PriceForm";
 import { useHostId } from "@/lib/use-host-id";
+import { HOST_PATHS, laptopPath } from "@/sites/host/paths";
 
 /** A machine's price and limits (docs/design/hosting/price-phone.html): the form, and Save back to the machine. */
 export function Price() {
@@ -13,7 +14,7 @@ export function Price() {
   const host = useHost(id);
   const [, navigate] = useLocation();
   useTitle("Price and limits");
-  const back = id ? `/hosting/machine/?id=${id}` : "/hosting/";
+  const back = id ? laptopPath(id) : HOST_PATHS.home;
 
   return (
     <HostFlow

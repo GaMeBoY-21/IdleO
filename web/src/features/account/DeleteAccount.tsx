@@ -12,6 +12,8 @@ import { useAfterPaint } from "@/lib/after-first-screen";
 import { problemMessage } from "@/lib/problems";
 import { formatDay } from "@/lib/time";
 import { useTitle } from "@/lib/title";
+import { hostLink } from "@/lib/site-links";
+import { HOST_PATHS } from "@/sites/host/paths";
 
 /** What erasure deletes, in the person's words (ADR 0037, docs/reference/personal-data-map.md). */
 export const ERASED = [
@@ -201,9 +203,9 @@ function Deletion({ standing }: { standing: DeletionStanding }) {
                   {blocker.code === "payout-method-needed" && (
                     <>
                       {" "}
-                      <Link className="font-semibold underline" href="/hosting/payout-details/">
+                      <a className="font-semibold underline" href={hostLink(HOST_PATHS.payoutDetails)}>
                         Payout details
-                      </Link>
+                      </a>
                     </>
                   )}
                 </span>

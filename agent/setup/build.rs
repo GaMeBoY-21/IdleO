@@ -1,7 +1,7 @@
 //! Bakes the app's addresses into the setup program, and embeds the icon and the manifest (`asInvoker`: a program
 //! called "Setup" must never ask for admin rights; it installs per user).
 //!
-//! The addresses come from the environment at build time: `IDLEO_SETUP_API_URL`, `IDLEO_SETUP_APP_URL`,
+//! The addresses come from the environment at build time: `IDLEO_SETUP_API_URL`, `IDLEO_SETUP_HOST_URL`,
 //! `IDLEO_SETUP_SITE_URL`, `IDLEO_SETUP_CONTROL_PLANE` (`host:port`) and `IDLEO_SETUP_CA_ROOT` (a PEM file); and, for a
 //! development build only, `IDLEO_SETUP_REGISTRY` (`host:port`), where the development image registry is (ADR 0035).
 //! `./start.sh --lan` sets them to the Mac's LAN address and the development CA. Without them a development build
@@ -23,7 +23,8 @@ fn main() {
         }
     };
     let api = value("IDLEO_SETUP_API_URL", "http://localhost:8080");
-    let app = value("IDLEO_SETUP_APP_URL", "http://localhost:3000");
+    // The host site (ADR 0058), where the tray's Open dashboard goes.
+    let host_site = value("IDLEO_SETUP_HOST_URL", "http://localhost:3003");
     let site = value("IDLEO_SETUP_SITE_URL", "http://localhost:3002");
     let control_plane = value("IDLEO_SETUP_CONTROL_PLANE", "localhost:9443");
     let (host, port) = control_plane.rsplit_once(':').expect("IDLEO_SETUP_CONTROL_PLANE is host:port");
@@ -57,7 +58,7 @@ fn main() {
     std::fs::write(
         out,
         format!(
-            "/// The addresses and root baked into this build.\n#[must_use]\n#[allow(clippy::manual_string_new)]\npub fn baked() -> crate::steps::Config {{\n    crate::steps::Config {{\n        api_url: {api:?}.to_owned(),\n        app_url: {app:?}.to_owned(),\n        site_url: {site:?}.to_owned(),\n        control_plane_host: {host:?}.to_owned(),\n        control_plane_port: {port},\n        ca_root_pem: {root:?}.to_owned(),\n        registry: {registry:?}.map(str::to_owned),\n    }}\n}}\n",
+            "/// The addresses and root baked into this build.\n#[must_use]\n#[allow(clippy::manual_string_new)]\npub fn baked() -> crate::steps::Config {{\n    crate::steps::Config {{\n        api_url: {api:?}.to_owned(),\n        host_url: {host_site:?}.to_owned(),\n        site_url: {site:?}.to_owned(),\n        control_plane_host: {host:?}.to_owned(),\n        control_plane_port: {port},\n        ca_root_pem: {root:?}.to_owned(),\n        registry: {registry:?}.map(str::to_owned),\n    }}\n}}\n",
             registry = registry.as_deref()
         ),
     )

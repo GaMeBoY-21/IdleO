@@ -1,7 +1,7 @@
 import { vi } from "vitest";
-import type { Chosen } from "@/features/book/chosen-files";
-import type { PartRequest } from "@/features/book/part-put";
-import type { UploadApi } from "@/features/book/upload";
+import type { Chosen } from "@/features/upload/chosen-files";
+import type { PartRequest } from "@/features/upload/part-put";
+import type { UploadApi } from "@/features/upload/upload";
 
 export const MIB = 1024 * 1024;
 

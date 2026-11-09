@@ -16,6 +16,7 @@ import { useNow } from "@/lib/clock";
 import { cn } from "@/lib/cn";
 import { blockedWords, payoutStatus } from "@/lib/payouts";
 import { formatDateTime, formatDay } from "@/lib/time";
+import { HOST_PATHS } from "@/sites/host/paths";
 
 /**
  * A host's payouts on Earnings (ADR 0040): what's pending (each session with the day it becomes available), what's
@@ -49,7 +50,7 @@ export function Summary({ summary }: { summary: PayoutSummary }) {
     <Tile as="section" aria-labelledby="payouts-title" className="flex flex-col gap-4 xl:p-7">
       <div className="flex items-baseline justify-between gap-3">
         <SectionTitle id="payouts-title">Payouts</SectionTitle>
-        <Link href="/hosting/payout-details/" className="text-small font-semibold underline">
+        <Link href={HOST_PATHS.payoutDetails} className="text-small font-semibold underline">
           Payout details
         </Link>
       </div>
@@ -82,7 +83,7 @@ export function Summary({ summary }: { summary: PayoutSummary }) {
         {blocked ? (
           <p className="font-semibold text-warn-fg">
             {blocked}{" "}
-            <Link href="/hosting/payout-details/" className="underline">
+            <Link href={HOST_PATHS.payoutDetails} className="underline">
               Payout details
             </Link>
           </p>

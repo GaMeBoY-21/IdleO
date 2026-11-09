@@ -1,13 +1,14 @@
 // The web image's nginx server block for one build folder (web/Dockerfile, ADR 0045): the same rules scripts/serve.ts
 // applies, and the deployment runbook gives every host. The security headers from headers.json on every response, a
-// page in path-headers.json (the Credit page, ADR 0039) with its own instead, a permanent redirect for each path in
-// redirects.json, a screen's page for an address under its folder in rewrites.json (a link's id), a folder's
+// page in path-headers.json (the Credit page, ADR 0039) with its own instead, a permanent redirect for each rule in
+// redirects.json (src/sites/redirects.ts: query kept, a prefix's rest kept, to this site or another), a screen's page for an address under its folder in rewrites.json (a link's id), a folder's
 // index.html for its path, 404.html with a 404, and long caching only for hashed assets.
 //
 //   node scripts/nginx-config.ts <build folder> <port>      prints the server block
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
+import { parseRedirects } from "../src/sites/redirects.ts";
 
 type Headers = Record<string, string>;
 
@@ -18,8 +19,18 @@ export interface ServeRules {
   rewrites: Record<string, string>;
 }
 
-/** The files the build writes beside its pages, which are rules for the host, never served. */
-export const RULE_FILES = ["headers.json", "path-headers.json", "redirects.json", "rewrites.json"];
+/**
+ * The files the build writes beside its pages, which are rules for the host, never served: ours, and Cloudflare Pages'
+ * own (scripts/pages-config.ts).
+ */
+export const RULE_FILES = [
+  "headers.json",
+  "path-headers.json",
+  "redirects.json",
+  "rewrites.json",
+  "_headers",
+  "_redirects",
+];
 
 /** The rules a build folder carries; only headers.json is required. */
 export function readRules(dist: string): ServeRules {
@@ -106,14 +117,23 @@ export function serverBlock(rules: ServeRules, root: string, port: number): stri
       );
     }
   }
-  for (const [from, to] of Object.entries(rules.redirects)) {
-    lines.push(
-      `    location = ${path(from)} {`,
-      ...addHeaders(rules.headers, "        "),
-      `        add_header Cache-Control "public, max-age=3600" always;`,
-      `        return 301 ${path(to)};`,
-      "    }",
-    );
+  // A redirect keeps the query ($is_args$args), and a prefix's rest ($1); one to a folder answers without its slash too.
+  for (const { from, prefix, to } of parseRedirects(rules.redirects)) {
+    const openings = prefix
+      ? [`location ~ ^${from.replace(/\./g, "\\.")}(.*)$`]
+      : [
+          `location = ${from}`,
+          ...(from.endsWith("/") && from !== "/" ? [`location = ${from.slice(0, -1)}`] : []),
+        ];
+    for (const opening of openings) {
+      lines.push(
+        `    ${opening} {`,
+        ...addHeaders(rules.headers, "        "),
+        `        add_header Cache-Control "public, max-age=3600" always;`,
+        `        return 301 ${to}${prefix ? "$1" : ""}$is_args$args;`,
+        "    }",
+      );
+    }
   }
   for (const [prefix, page] of Object.entries(rules.rewrites)) {
     lines.push(

@@ -4,7 +4,7 @@ import type { Chosen } from "./chosen-files";
 import { isCancelled, Upload, type UploadProgress } from "./upload";
 import type { ResumeStore, Unfinished } from "./upload-resume";
 
-/** Remembers in memory, as IndexedDB would (src/features/book/upload-resume.test.ts tests the real one). */
+/** Remembers in memory, as IndexedDB would (src/features/upload/upload-resume.test.ts tests the real one). */
 const memoryStore = (): ResumeStore & { saved: Map<string, Unfinished> } => {
   const saved = new Map<string, Unfinished>();
   return {

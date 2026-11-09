@@ -53,8 +53,8 @@ pub fn run() -> ExitCode {
                         let _ = requests.send(request.clone());
                     }
                     Some(Action::OpenDashboard) => {
-                        if let Some(url) = current.as_ref().and_then(|status| status.app_url.as_deref()) {
-                            let _ = idleo_release::browser::open(&menu::dashboard_url(url));
+                        if let Some(url) = current.as_ref().and_then(idleo_release::channel::Status::dashboard_url) {
+                            let _ = idleo_release::browser::open(&url);
                         }
                     }
                     None => {}

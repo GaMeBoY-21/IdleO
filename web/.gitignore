@@ -6,6 +6,12 @@ dist-*-sourcemaps/
 dist-site/
 dist-site-ssr/
 dist-firebase/
+# The host site's build and pre-render, and a second build's (ADR 0058).
+dist-host/
+dist-host-ssr/
+dist-firebase-host/
+dist-firebase-ssr/
+dist-firebase-host-ssr/
 *.tsbuildinfo
 # Generated from api/openapi.yaml and src/design/tokens.ts on every build, typecheck and test.
 src/api/schema.gen.ts

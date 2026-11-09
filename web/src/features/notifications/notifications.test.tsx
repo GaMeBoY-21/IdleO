@@ -75,6 +75,7 @@ const item = (n: number, over: Partial<InboxItem> = {}): InboxItem => ({
   title: `Title ${n}`,
   body: `Body ${n}`,
   link: `/session/?id=${n}`,
+  site: "app",
   createdAt: "2026-10-12T10:00:00Z",
   read: false,
   ...over,
@@ -148,6 +149,15 @@ describe("the list", () => {
     expect(within(rows[1]!).queryByText("Unread:")).not.toBeInTheDocument();
     expect(within(rows[0]!).getByRole("link")).toHaveAttribute("href", "/session/?id=2");
     expect(screen.getByText("1 unread")).toBeInTheDocument();
+  });
+
+  it("opens a host's message on the host site, at its whole address (ADR 0058)", () => {
+    state.inbox.data = pages([item(1, { link: "/earnings/", site: "host" })], 1);
+    render(<Notifications />);
+    expect(within(screen.getAllByRole("listitem")[0]!).getByRole("link")).toHaveAttribute(
+      "href",
+      "http://localhost:3003/earnings/",
+    );
   });
 
   it("opening an unread message marks it read, and one already read is left alone", async () => {

@@ -102,7 +102,7 @@ export async function fromDrop(entry: DroppedEntry | null, file: File | null): P
 }
 
 /**
- * The same files chosen again: a resumed upload is found by this (src/features/book/upload-resume.ts). Name, path,
+ * The same files chosen again: a resumed upload is found by this (src/features/upload/upload-resume.ts). Name, path,
  * size and last change of every file; never their contents, which would mean reading gigabytes.
  */
 export function fingerprint(chosen: Chosen): string {

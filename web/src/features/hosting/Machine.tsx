@@ -17,6 +17,7 @@ import { MachineLink } from "./MachineLink";
 import { ManageMachine } from "./ManageMachine";
 import { PauseControl } from "./PauseControl";
 import { useHostId } from "@/lib/use-host-id";
+import { HOST_PATHS, laptopSessionsPath, pricePath } from "@/sites/host/paths";
 
 // Run self-test is the last thing on the page and not needed for its first paint: its code and its request wait for the
 // paint, like the Credit page's forms, so they never compete with what the paint waits for (ADR 0018).
@@ -44,7 +45,7 @@ export function Machine() {
 
   if (id === null) {
     return (
-      <HostFlow back="/hosting/" backLabel="Hosting">
+      <HostFlow back={HOST_PATHS.home} backLabel="Hosting">
         <EmptyState title="No machine chosen">Open a machine from the Hosting tab.</EmptyState>
       </HostFlow>
     );
@@ -55,7 +56,7 @@ export function Machine() {
       host.error instanceof ApiError &&
       (host.error.status === 404 || host.error.status === 410);
     return (
-      <HostFlow back="/hosting/" backLabel="Hosting">
+      <HostFlow back={HOST_PATHS.home} backLabel="Hosting">
         {host.isError ? (
           gone ? (
             <EmptyState title="This machine isn't here">
@@ -82,7 +83,7 @@ export function Machine() {
   const listing = machine.listing;
   return (
     <HostFlow
-      back="/hosting/"
+      back={HOST_PATHS.home}
       backLabel="Hosting"
       className="xl:grid xl:grid-cols-2 xl:items-start"
       summary={
@@ -113,7 +114,7 @@ export function Machine() {
       <PrivacyLine host={machine} />
       <div className="flex flex-col gap-2.5 xl:col-span-2">
         <MachineLink
-          href={`/hosting/price/?id=${machine.id}`}
+          href={pricePath(machine.id)}
           title="Price and limits"
           detail={
             listing
@@ -122,7 +123,7 @@ export function Machine() {
           }
         />
         <MachineLink
-          href={`/hosting/sessions/?id=${machine.id}`}
+          href={laptopSessionsPath(machine.id)}
           title="Sessions it ran"
           detail="What ran here, and what each earned"
         />

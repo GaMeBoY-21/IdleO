@@ -8,6 +8,7 @@ import { EmptyState, ErrorState, StaleNotice, staleSince } from "@/components/ui
 import { Tile } from "@/components/ui/Tile";
 import { RelativeTime } from "@/components/ui/Time";
 import { useAfterPaint } from "@/lib/after-first-screen";
+import { AppLink } from "@/components/ui/AppLink";
 import { cn } from "@/lib/cn";
 import { problemMessage } from "@/lib/problems";
 import { useTitle } from "@/lib/title";
@@ -133,7 +134,7 @@ export function Notifications() {
 function Row({ item, onOpen }: { item: InboxItem; onOpen: () => void }) {
   return (
     <li>
-      <Link href={item.link} onClick={onOpen} className={cn(ROW, "hover:bg-panel-2")}>
+      <AppLink href={item.link} site={item.site} onClick={onOpen} className={cn(ROW, "hover:bg-panel-2")}>
         <span
           aria-hidden="true"
           className={cn("mt-2 size-2 shrink-0 rounded-full", item.read ? "bg-transparent" : "bg-primary")}
@@ -149,7 +150,7 @@ function Row({ item, onOpen }: { item: InboxItem; onOpen: () => void }) {
           </p>
         </div>
         <ChevronRight aria-hidden="true" className="mt-1 size-5 shrink-0 text-text-2" strokeWidth={1.75} />
-      </Link>
+      </AppLink>
     </li>
   );
 }

@@ -38,6 +38,7 @@ Run it again after a change and what changed is released as a canary. Switching 
 | --- | --- |
 | Website | https://idleo.localhost:8443/ |
 | App | https://app.idleo.localhost:8443/ |
+| Host site | https://host.idleo.localhost:8443/ |
 | API | https://api.idleo.localhost:8443/ |
 | Agents (gRPC, mutual TLS) | localhost:19443 |
 | Sign-in (development) | http://signin.idleo.localhost:18099/idleo-local |

@@ -52,7 +52,9 @@ class BrowserVitals {
     private static final Pattern ROUTE = Pattern.compile("/[a-z0-9/:._-]{0,80}");
     private static final Pattern RELEASE = Pattern.compile("[A-Za-z0-9._-]{1,40}");
     private static final Pattern SOURCE = Pattern.compile("(https?://[a-z0-9.:-]+)?/[A-Za-z0-9/._-]{1,160}");
-    private static final Set<String> APPS = Set.of("app", "site");
+    /** The web app's sites (ADR 0058) and the website. */
+    private static final Set<String> APPS = Set.of("app", "host", "site");
+
     private static final Set<String> DEVICES = Set.of("phone", "laptop");
     /** Seconds, around the 2.5 s the slow-page alert and Google's "good" LCP draw the line at. */
     private static final double[] SECONDS = {0.1, 0.2, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 4.0, 6.0, 10.0};

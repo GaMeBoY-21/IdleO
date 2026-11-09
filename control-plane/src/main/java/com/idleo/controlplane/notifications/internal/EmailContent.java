@@ -101,7 +101,7 @@ class EmailContent {
     }
 
     private EmailSender.Email email(String to, Message message, UUID id, String why, boolean unsubscribe) {
-        var link = properties.absolute(message.link());
+        var link = properties.absolute(message);
         var account = properties.absolute("/account/");
         var text = message.title() + "\n\n" + message.body() + "\n\nOpen it: " + link + "\n\n--\n" + why
                 + "\nChange what we email you in Account: " + account + "\n";

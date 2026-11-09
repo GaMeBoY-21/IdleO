@@ -3,7 +3,7 @@ import { StrictMode } from "react";
 import { createRoot, hydrateRoot } from "react-dom/client";
 import { keptUser } from "@/api/persisted-cache";
 import { createQueryClient } from "@/api/queries";
-import { App, preloadScreen } from "@/App";
+import { App, preloadScreen } from "@site/routes";
 import { authStore } from "@/auth";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { SignedOutCacheReset } from "@/components/shell/SignedOutCacheReset";
@@ -18,7 +18,7 @@ import "./styles.css";
 holdEarlyErrors();
 afterFirstScreen(() => {
   void import("@/telemetry/report").then(({ startReporting }) =>
-    startReporting({ api: config.apiUrl, app: "app", release: config.release }),
+    startReporting({ api: config.apiUrl, app: config.site, release: config.release }),
   );
 });
 
@@ -46,7 +46,7 @@ const app = (
 // the app adopts that HTML as it stands, so what painted first stays; with one, the frame may differ, so the app
 // draws the screen afresh over it.
 // The screen this page opens on is loaded first (its code is already preloading, src/screens.ts), so it's drawn
-// without waiting on React's Suspense (src/App.tsx).
+// without waiting on React's Suspense (src/sites/frame.tsx). `@site` is this build's site (vite.config.ts, ADR 0058).
 const root = document.getElementById("root")!;
 void preloadScreen(window.location.pathname).then(() => {
   if (window.location.search === "" && root.firstChild) {

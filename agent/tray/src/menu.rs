@@ -149,12 +149,6 @@ fn auto_pause(settings: AutoPause) -> Item {
     }
 }
 
-/// The dashboard's address: the web app's Hosting page.
-#[must_use]
-pub fn dashboard_url(app_url: &str) -> String {
-    format!("{}/hosting/", app_url.trim_end_matches('/'))
-}
-
 #[cfg(test)]
 mod tests {
     use idleo_release::channel::Reason;
@@ -259,6 +253,5 @@ mod tests {
     #[test]
     fn without_the_agent_only_the_line_and_the_dashboard() {
         assert_eq!(texts(&build(None, at(14, 0), IST)), ["Starting…", "—", "Open dashboard"]);
-        assert_eq!(dashboard_url("http://192.168.1.20:3000/"), "http://192.168.1.20:3000/hosting/");
     }
 }

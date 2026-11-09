@@ -27,6 +27,7 @@ import { maskedPan, PAN_SHAPE, UPI_SHAPE } from "@/lib/payouts";
 import { problemMessage } from "@/lib/problems";
 import { formatDateTime } from "@/lib/time";
 import { useTitle } from "@/lib/title";
+import { HOST_PATHS } from "@/sites/host/paths";
 
 const LEDE = "Where your earnings go: your PAN, for tax, and a UPI ID registered in the same name.";
 
@@ -55,7 +56,7 @@ export function PayoutDetails() {
   );
   if (wide) {
     return (
-      <HostFlow back="/hosting/earnings/" backLabel="Earnings" title="Payout details" lede={LEDE}>
+      <HostFlow back={HOST_PATHS.earnings} backLabel="Earnings" title="Payout details" lede={LEDE}>
         {since !== null && <StaleNotice updatedAt={since} />}
         {body}
       </HostFlow>
@@ -194,7 +195,7 @@ function UpiTile({ details }: { details: Details }) {
   const needsSignIn =
     confirm.error instanceof ApiError && confirm.error.type === "/problems/fresh-sign-in-required";
   const signInAgain = () =>
-    void signOut().then(() => navigate(`/sign-in/?next=${encodeURIComponent("/hosting/payout-details/")}`));
+    void signOut().then(() => navigate(`/sign-in/?next=${encodeURIComponent(HOST_PATHS.payoutDetails)}`));
   const shapeError = shown && !UPI_SHAPE.test(typed) ? "A UPI ID looks like name@bank." : undefined;
   return (
     <Tile as="section" aria-labelledby="upi-title" className="flex flex-col gap-4">

@@ -14,7 +14,8 @@ import { takeEarlyErrors, type EarlyError } from "./early-errors";
 export interface ReportOptions {
   /** The control plane's address; `/v1/vitals` is added. */
   api: string;
-  app: "app" | "site";
+  /** Which build: a site of the web app (src/sites/sites.ts), or the website. */
+  app: "app" | "host" | "site";
   release: string;
 }
 

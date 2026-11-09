@@ -5,12 +5,13 @@
 import { createHash } from "node:crypto";
 import { cpSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { siteSettingsProblems } from "../src/build-settings.ts";
+import { assertSiteAddresses } from "../src/build-settings.ts";
 import { brand } from "../src/brand/brand.ts";
 import { themeBootScript } from "../src/design/theme.ts";
 import { contentSecurityPolicy, securityHeaders } from "../src/security/headers.ts";
 import type { PageDef, SiteContext } from "../src/site/context.ts";
 import { OLD_LANDING, LANDING, type EntryLinks } from "../src/site/paths.ts";
+import { writePagesConfig } from "./pages-config.ts";
 import { siteContext } from "./site/context.ts";
 
 const here = (path: string) => fileURLToPath(new URL(`../${path}`, import.meta.url));
@@ -21,13 +22,9 @@ type Chunk = { file: string; css?: string[]; imports?: string[]; isEntry?: boole
 const manifest = JSON.parse(readFileSync(`${siteDist}.vite/manifest.json`, "utf8")) as Record<string, Chunk>;
 
 const env = process.env;
-// A deployed build needs both addresses; a local one has the local stack's (start.sh): the website at :3002, the app at :3000.
-const problems = siteSettingsProblems(env);
-if (problems.length > 0) {
-  throw new Error(`Refusing to build the website: ${problems.join("; ")}`);
-}
-const siteUrl = (env.IDLEO_SITE_URL ?? "http://localhost:3002").replace(/\/$/, "");
-const appUrl = (env.IDLEO_APP_URL ?? "http://localhost:3000").replace(/\/$/, "");
+// A deployed build needs every site's address; a local one has the local stack's (start.sh): the website at :3002, the
+// renter app at :3000, the host site at :3003.
+const { site: siteUrl, app: appUrl, host: hostUrl } = assertSiteAddresses(env);
 const stylesheet = manifest["src/site/site.css"]?.file;
 if (!stylesheet) {
   throw new Error("no style sheet for the public pages in the site build's manifest");
@@ -127,7 +124,7 @@ ${loaded.map((one) => `    <script type="module" src="/${one.entry}"></script>`)
 `;
 }
 
-const context = siteContext(env.VITE_API_URL, appUrl);
+const context = siteContext(env.VITE_API_URL, appUrl, hostUrl);
 
 const { pages, renderPage, notFoundPage } = (await import(
   new URL("../dist-site-ssr/render.js", import.meta.url).href
@@ -177,6 +174,8 @@ writeFileSync(
 );
 writeFileSync(`${dist}redirects.json`, `${JSON.stringify({ [OLD_LANDING]: LANDING }, null, 2)}\n`);
 writeFileSync(`${dist}headers.json`, `${JSON.stringify(securityHeaders(csp), null, 2)}\n`);
+// Cloudflare Pages' own rule files, from the same rules (ADR 0058).
+writePagesConfig(dist);
 const leftMaps = readdirSync(dist, { recursive: true }).filter((file) => String(file).endsWith(".map"));
 if (leftMaps.length > 0) {
   throw new Error(`source maps left in the website, which would be served: ${leftMaps.join(", ")}`);

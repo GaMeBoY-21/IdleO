@@ -1,6 +1,8 @@
-// Serves a build folder (dist/ for the app, dist-website/ for the website: IDLEO_DIST and PORT) the way a host or CDN
-// should (ADR 0018): the security headers from its headers.json on every response (a page in its path-headers.json gets its own), a permanent redirect for each path
-// in its redirects.json (the website's old landing page), a folder's index.html for its path, 404.html with a 404, text pre-compressed once (Brotli, else gzip)
+// Serves a build folder (dist/ for the renter app, dist-host/ for the host site, dist-website/ for the website: IDLEO_DIST
+// and PORT) the way a host or CDN should (ADR 0018): the security headers from its headers.json on every response (a page
+// in its path-headers.json gets its own), a permanent redirect for each rule in its redirects.json (the website's old
+// landing page, the renter app's old hosting addresses: src/sites/redirects.ts), a folder's index.html for its path,
+// 404.html with a 404, text pre-compressed once (Brotli, else gzip)
 // as a CDN serves it, and long caching only for hashed assets. Used by the end-to-end test and Lighthouse;
 // production picks its host with deployment.
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
@@ -8,6 +10,8 @@ import { createServer } from "node:http";
 import { extname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { brotliCompressSync, constants, gzipSync } from "node:zlib";
+import { RULE_FILES } from "./nginx-config.ts";
+import { parseRedirects, redirectFor } from "../src/sites/redirects.ts";
 
 const dist = fileURLToPath(new URL(`../${process.env.IDLEO_DIST ?? "dist"}/`, import.meta.url));
 const port = Number(process.env.PORT ?? 3000);
@@ -24,9 +28,11 @@ const pathHeaders = existsSync(join(dist, "path-headers.json"))
 const rewrites = existsSync(join(dist, "rewrites.json"))
   ? (JSON.parse(readFileSync(join(dist, "rewrites.json"), "utf8")) as Record<string, string>)
   : {};
-const redirects = existsSync(join(dist, "redirects.json"))
-  ? (JSON.parse(readFileSync(join(dist, "redirects.json"), "utf8")) as Record<string, string>)
-  : {};
+const redirects = parseRedirects(
+  existsSync(join(dist, "redirects.json"))
+    ? (JSON.parse(readFileSync(join(dist, "redirects.json"), "utf8")) as Record<string, string>)
+    : {},
+);
 const types: Record<string, string> = {
   ".html": "text/html; charset=utf-8",
   ".js": "text/javascript; charset=utf-8",
@@ -72,8 +78,9 @@ function load(directory: string): void {
 load(dist);
 
 createServer((request, response) => {
-  const path = decodeURIComponent(new URL(request.url ?? "/", "http://localhost").pathname);
-  const moved = redirects[path];
+  const url = new URL(request.url ?? "/", "http://localhost");
+  const path = decodeURIComponent(url.pathname);
+  const moved = redirectFor(redirects, path, url.search);
   if (moved) {
     response.writeHead(301, { ...headers, Location: moved, "Cache-Control": "public, max-age=3600" });
     response.end();
@@ -83,7 +90,7 @@ createServer((request, response) => {
   const rewritten = Object.entries(rewrites).find(([prefix]) => path.startsWith(prefix) && path !== prefix);
   let file = files.get(rewritten ? rewritten[1] : path.endsWith("/") ? `${path}index.html` : path);
   let status = 200;
-  if (!file || ["/headers.json", "/path-headers.json", "/redirects.json", "/rewrites.json"].includes(path)) {
+  if (!file || RULE_FILES.includes(path.slice(1))) {
     file = files.get("/404.html")!;
     status = 404;
   }

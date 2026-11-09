@@ -4,10 +4,14 @@ import * as hosting from "./fixtures-hosting";
 import * as payouts from "./fixtures-payouts";
 import * as trust from "./fixtures-trust";
 import { hostingApi } from "./hosting-api";
+import { HOST_URL } from "./sites";
 import { capture, expectAccessible, fakeApi, onPhone, signIn, watchConsole, type Answer } from "./support";
 
+// The host site's screens, on its own address (ADR 0058).
+test.use({ baseURL: HOST_URL });
+
 /**
- * The hosting screens (ADR 0023) in every state, light and dark, phone and laptop: the Hosting tab, a machine in each
+ * The host site's screens (ADR 0023, ADR 0058) in every state, light and dark, phone and laptop: its home, a machine in each
  * state, its price and limits, the sessions it ran, earnings, and the four steps of adding one. The API answers from
  * fixtures (e2e/fixtures-hosting.ts), whose figures add up.
  */
@@ -36,7 +40,7 @@ const open = async (page: Page, path: string, overrides: Record<string, Answer> 
 
 test.describe("the Hosting tab", () => {
   test("with a running machine and a paused one", async ({ page }, info) => {
-    await open(page, "/hosting/");
+    await open(page, "/");
     await expect(page.getByText("Earned this week")).toBeVisible();
     if (onPhone(info)) {
       await expect(page.getByText("in total · payouts start with the paid pilot")).toBeVisible();
@@ -60,7 +64,7 @@ test.describe("the Hosting tab", () => {
   test("with none of the states hidden: offline, update needed, idle and waiting for checks", async ({
     page,
   }, info) => {
-    await open(page, "/hosting/", {
+    await open(page, "/", {
       "/v1/hosts": {
         json: {
           hosts: [
@@ -89,7 +93,7 @@ test.describe("the Hosting tab", () => {
   });
 
   test("with no machines: what hosting is, and the one step", async ({ page }, info) => {
-    await open(page, "/hosting/", {
+    await open(page, "/", {
       "/v1/hosts": { json: hosting.noHosts },
       "/v1/earnings": { json: hosting.noEarnings },
     });
@@ -100,7 +104,7 @@ test.describe("the Hosting tab", () => {
   });
 
   test("loading, then an error with a retry", async ({ page }, info) => {
-    await open(page, "/hosting/", { "/v1/hosts": "hold", "/v1/earnings": "hold" });
+    await open(page, "/", { "/v1/hosts": "hold", "/v1/earnings": "hold" });
     await expect(page.getByRole("status", { name: "Loading your machines" })).toBeVisible();
     await expectAccessible(page);
     await capture(page, info, "hosting-loading");
@@ -114,7 +118,7 @@ test.describe("the Hosting tab", () => {
 
   test("with stale figures after a failed refresh", async ({ page }, info) => {
     let failures = 0;
-    await open(page, "/hosting/", {
+    await open(page, "/", {
       "/v1/hosts": (call) => {
         if (call === 1) {
           return { json: hosting.hosts };
@@ -132,7 +136,7 @@ test.describe("the Hosting tab", () => {
 });
 
 test.describe("one machine", () => {
-  const at = (host: hosting.Host) => `/hosting/machine/?id=${host.id}`;
+  const at = (host: hosting.Host) => `/laptop/?id=${host.id}`;
 
   test("running a session: what it's earned so far, its temperature against the limit", async ({
     page,
@@ -367,7 +371,7 @@ test.describe("one machine", () => {
     await expectAccessible(page);
     await capture(page, info, "machine-remove");
     await page.getByRole("button", { name: "Remove Desk PC" }).click();
-    await expect(page).toHaveURL(/\/hosting\/$/);
+    await expect(page).toHaveURL(`${HOST_URL}/`);
   });
 
   test("removing one that's running a session is refused, in words", async ({ page }, info) => {
@@ -405,7 +409,7 @@ test.describe("one machine", () => {
 });
 
 test.describe("price and limits", () => {
-  const at = (host: hosting.Host) => `/hosting/price/?id=${host.id}`;
+  const at = (host: hosting.Host) => `/laptop/price/?id=${host.id}`;
 
   test("the price in ₹0.60 steps, what you keep, the range others charge, the limits", async ({
     page,
@@ -437,7 +441,7 @@ test.describe("price and limits", () => {
     await expect(page.locator("output").getByText("₹12.00")).toBeVisible();
     await expect(page.getByText(/^You keep₹9\.60 an hour/)).toBeVisible();
     await page.getByRole("button", { name: "Save" }).click();
-    await expect(page).toHaveURL(/\/hosting\/machine\/\?id=/);
+    await expect(page).toHaveURL(/\/laptop\/\?id=/);
     expect(body).toEqual({
       batchPricePaisePerMin: 20,
       gpuTempCapC: 85,
@@ -476,7 +480,7 @@ test.describe("price and limits", () => {
 });
 
 test.describe("sessions it ran", () => {
-  const at = (host: hosting.Host) => `/hosting/sessions/?id=${host.id}`;
+  const at = (host: hosting.Host) => `/sessions/?id=${host.id}`;
 
   test("what ran, how long, what it earned and how it ended, never who for", async ({ page }, info) => {
     await open(page, at(hosting.hostRunning));
@@ -512,7 +516,7 @@ test.describe("sessions it ran", () => {
 
 test.describe("earnings", () => {
   test("the totals, then every credit and giveback, newest first", async ({ page }, info) => {
-    await open(page, "/hosting/earnings/");
+    await open(page, "/earnings/");
     await expect(
       page.getByText("Paid to your UPI ID every Monday, 7 days after each session."),
     ).toBeVisible();
@@ -526,7 +530,7 @@ test.describe("earnings", () => {
   });
 
   test("a refund to a renter is a line of its own, and a held session says so", async ({ page }, info) => {
-    await open(page, "/hosting/earnings/", { "/v1/earnings": { json: hosting.withReportRefund() } });
+    await open(page, "/earnings/", { "/v1/earnings": { json: hosting.withReportRefund() } });
     const refund = page.getByRole("listitem").filter({ hasText: "Refunded to renter" });
     await expect(refund).toHaveCount(1);
     // Only the host's part of the refund: the platform's commission was spent first.
@@ -543,7 +547,7 @@ test.describe("earnings", () => {
   });
 
   test("nothing earned yet, loading, and an error with a retry", async ({ page }, info) => {
-    await open(page, "/hosting/earnings/", { "/v1/earnings": { json: hosting.noEarnings } });
+    await open(page, "/earnings/", { "/v1/earnings": { json: hosting.noEarnings } });
     await expect(page.getByText("Nothing earned yet")).toBeVisible();
     await expectAccessible(page);
     await capture(page, info, "earnings-empty");
@@ -564,7 +568,7 @@ test.describe("earnings", () => {
 
 test.describe("payouts", () => {
   test("say why a host can't be paid yet, and where to fix it", async ({ page }, info) => {
-    await open(page, "/hosting/earnings/", { "/v1/payouts/summary": { json: payouts.summaryNoPan } });
+    await open(page, "/earnings/", { "/v1/payouts/summary": { json: payouts.summaryNoPan } });
     await expect(page.getByText("Add your PAN and a UPI ID to be paid.")).toBeVisible();
     await expectAccessible(page);
     await capture(page, info, "earnings-payouts-blocked");
@@ -573,7 +577,7 @@ test.describe("payouts", () => {
   test("payout details: a PAN first, then a UPI ID checked with the bank's name, then used", async ({
     page,
   }, info) => {
-    await open(page, "/hosting/payout-details/", { "/v1/payout-details": { json: payouts.detailsNew } });
+    await open(page, "/payout-details/", { "/v1/payout-details": { json: payouts.detailsNew } });
     await expect(page.getByRole("textbox", { name: "PAN", exact: true })).toBeVisible();
     await expect(page.getByLabel("Your UPI ID")).toBeDisabled();
     await expectAccessible(page);
@@ -598,7 +602,7 @@ test.describe("payouts", () => {
   });
 
   test("payout details: loading and an error with a retry", async ({ page }, info) => {
-    await open(page, "/hosting/payout-details/", { "/v1/payout-details": "hold" });
+    await open(page, "/payout-details/", { "/v1/payout-details": "hold" });
     await expect(page.getByRole("status", { name: "Loading your payout details" })).toBeVisible();
     await expectAccessible(page);
     await capture(page, info, "payout-details-loading");
@@ -613,7 +617,7 @@ test.describe("payouts", () => {
 
 test.describe("adding a machine", () => {
   test("is a download and an approval, never a code", async ({ page }, info) => {
-    await open(page, "/hosting/add/");
+    await open(page, "/add/");
     await expect(page.getByRole("heading", { level: 1, name: "Earn with this laptop" })).toBeVisible();
     await expect(page.getByRole("listitem")).toHaveText([
       /Download the IdleO app for Windows/,
@@ -631,7 +635,7 @@ test.describe("adding a machine", () => {
   });
 
   test("offers the Windows app with its version and size once it's released", async ({ page }, info) => {
-    await open(page, "/hosting/add/", { "/v1/agent-releases/latest": { json: hosting.latestRelease } });
+    await open(page, "/add/", { "/v1/agent-releases/latest": { json: hosting.latestRelease } });
     const download = page.getByRole("link", { name: "Download for Windows" });
     await expect(download).toHaveAttribute("href", /\/v1\/agent-releases\/latest\/setup$/);
     await expect(page.getByText("v0.2.0 · 6.8 MB")).toBeVisible();
@@ -680,7 +684,7 @@ test.describe("linking a laptop", () => {
     await expect(page.getByText(/We check every new laptop before it goes live/)).toBeVisible();
     await expect(page.getByRole("link", { name: "Open your laptop" })).toHaveAttribute(
       "href",
-      `/hosting/machine/?id=${hosting.hostNew.id}`,
+      `/laptop/?id=${hosting.hostNew.id}`,
     );
     await expectAccessible(page);
     await capture(page, info, "link-approved");

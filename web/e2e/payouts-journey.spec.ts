@@ -1,6 +1,10 @@
 import { expect, test } from "@playwright/test";
 import { readFileSync } from "node:fs";
+import { HOST_URL } from "./sites";
 import { expectAccessible, signIn, watchConsole } from "./support";
+
+// Payout details and earnings are the host site's (ADR 0058).
+test.use({ baseURL: HOST_URL });
 
 /**
  * Money out on the real stack (ADR 0040, scripts/e2e/agent-online.sh), in two steps the script runs around its own:
@@ -24,7 +28,7 @@ test.afterEach(() => finish());
 
 test("gives a PAN, checks a UPI ID with the bank's name for it, and uses it", async ({ page }) => {
   test.skip(step !== "verify");
-  await signIn(page, who, "/hosting/payout-details/");
+  await signIn(page, who, "/payout-details/");
   await expect(page.getByRole("heading", { name: "Payout details", level: 1 })).toBeVisible();
   await page.getByRole("textbox", { name: "PAN", exact: true }).fill("ABCPE4321F");
   await page.getByLabel("Name exactly as on your PAN").fill("Nikki Host");
@@ -45,7 +49,7 @@ test("gives a PAN, checks a UPI ID with the bank's name for it, and uses it", as
 
 test("shows the payout paid, the refund recovered, and the year's statement", async ({ page }) => {
   test.skip(step !== "paid");
-  await signIn(page, who, "/hosting/earnings/");
+  await signIn(page, who, "/earnings/");
   const history = page.getByRole("region", { name: "Payout history" });
   await expect(history).toContainText("Paid", { timeout: 15_000 });
   await expect(page.getByText(/^Recovered: refund for session [0-9a-f]{8} on /).first()).toBeVisible();
@@ -63,7 +67,7 @@ test("shows the payout paid, the refund recovered, and the year's statement", as
 
 test("changing the UPI ID holds payouts, and the screen says so", async ({ page }) => {
   test.skip(step !== "paid");
-  await signIn(page, who, "/hosting/payout-details/");
+  await signIn(page, who, "/payout-details/");
   await page.getByLabel("Change your UPI ID").fill("e2e.changed@ybl");
   await page.getByRole("button", { name: "Check it" }).click();
   await expect(page.getByRole("status").filter({ hasText: "holds your next payout" })).toBeVisible({

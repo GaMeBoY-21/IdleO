@@ -142,7 +142,7 @@ class NotificationDeliveryTests {
 
     private List<Map<String, Object>> inbox(UUID userId) {
         return jdbc.queryForList(
-                "select kind, title, body, link, in_app, email_wanted, email_sent_at, email_claimed_at"
+                "select kind, title, body, link, site, in_app, email_wanted, email_sent_at, email_claimed_at"
                         + " from notifications.notifications where user_id = ? order by id",
                 userId);
     }
@@ -336,7 +336,8 @@ class NotificationDeliveryTests {
         assertThat(ownerMessages.getFirst())
                 .containsEntry("kind", "machine-offline")
                 .containsEntry("title", "ROG laptop went offline during a session")
-                .containsEntry("link", "/hosting/machine/?id=" + host);
+                .containsEntry("link", "/laptop/?id=" + host)
+                .containsEntry("site", "host");
         assertThat(mail.sent()).hasSize(1);
         var email = mail.sent().getFirst();
         assertThat(email.to()).isEqualTo(emailOf(owner));

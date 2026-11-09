@@ -1,8 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { oneFile } from "@/features/book/chosen-files";
-import { Upload } from "@/features/book/upload";
-import { uploadApi } from "@/features/book/useUploads";
+import { oneFile } from "@/features/upload/chosen-files";
+import { Upload } from "@/features/upload/upload";
+import { uploadApi } from "@/features/upload/useUploads";
 import { useSearch } from "wouter";
 import { api, data } from "@/api/client";
 import { AccountFrame } from "@/components/shell/AccountFrame";

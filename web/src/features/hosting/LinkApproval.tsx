@@ -24,6 +24,7 @@ import { formatCountdown, youKeep } from "@/lib/hosting";
 import { problemMessage } from "@/lib/problems";
 import { useTitle } from "@/lib/title";
 import { ListingFields, useListingDraft } from "./PriceForm";
+import { laptopPath } from "@/sites/host/paths";
 
 const SYSTEMS: Record<string, string> = { windows: "Windows", linux: "Linux", macos: "macOS" };
 const MAX_NAME = 100;
@@ -291,7 +292,7 @@ function Done({ link }: { link: HostLink }) {
       </p>
       <p className="text-small text-ink">You can close this tab; the laptop finishes linking by itself.</p>
       {link.hostId && (
-        <Link href={`/hosting/machine/?id=${link.hostId}`} className={buttonClasses("ink", true, false)}>
+        <Link href={laptopPath(link.hostId)} className={buttonClasses("ink", true, false)}>
           Open your laptop
         </Link>
       )}

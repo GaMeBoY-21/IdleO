@@ -7,6 +7,7 @@ import * as privacy from "./fixtures-privacy";
 import * as support from "./fixtures-support";
 import * as trust from "./fixtures-trust";
 import { hostingApi } from "./hosting-api";
+import { HOST_URL } from "./sites";
 import { fakeApi, recordLayoutShifts, signIn, type Answer } from "./support";
 
 /**
@@ -63,22 +64,29 @@ const screens = [
   { name: "book", path: "/book/", ready: () => "Run your code" },
   { name: "book, a service", path: "/book/?service=fine-tune", ready: () => "≈ ₹3–8" },
   { name: "my files", path: "/files/", ready: () => "my-llm-7b/" },
-  { name: "hosting", path: "/hosting/", ready: () => "Add a machine" },
-  { name: "a running machine", path: `/hosting/machine/?id=${hosting.ROG.id}`, ready: () => "Pause hosting" },
+  { name: "hosting", path: "/", site: HOST_URL, ready: () => "Add a machine" },
+  {
+    name: "a running machine",
+    path: `/laptop/?id=${hosting.ROG.id}`,
+    site: HOST_URL,
+    ready: () => "Pause hosting",
+  },
   {
     name: "a machine's price",
-    path: `/hosting/price/?id=${hosting.ROG.id}`,
+    path: `/laptop/price/?id=${hosting.ROG.id}`,
+    site: HOST_URL,
     ready: () => "One session at a time",
   },
   {
     name: "what a machine ran",
-    path: `/hosting/sessions/?id=${hosting.ROG.id}`,
+    path: `/sessions/?id=${hosting.ROG.id}`,
+    site: HOST_URL,
     ready: () => "Fine-tuning · 18 min",
   },
-  { name: "earnings", path: "/hosting/earnings/", ready: () => "Given back for lost time" },
+  { name: "earnings", path: "/earnings/", site: HOST_URL, ready: () => "Given back for lost time" },
   // The payouts' tiles arrive after the paint, each drawn first at its own height (ADR 0040).
-  { name: "earnings, with payouts", path: "/hosting/earnings/", ready: () => "Didn't go through" },
-  { name: "payout details", path: "/hosting/payout-details/", ready: () => "Payouts go here" },
+  { name: "earnings, with payouts", path: "/earnings/", site: HOST_URL, ready: () => "Didn't go through" },
+  { name: "payout details", path: "/payout-details/", site: HOST_URL, ready: () => "Payouts go here" },
   { name: "account", path: "/account/", ready: () => "New device sign-in" },
   { name: "API keys", path: "/account/keys/", ready: () => "Dashboard" },
   { name: "reports", path: "/account/reports/", ready: () => "It ran at the speed of its GPU." },
@@ -127,8 +135,13 @@ const screens = [
     } as Record<string, Answer>,
   },
   { name: "a CLI sign-in to approve", path: "/cli-login/?code=WDJB-MJHT", ready: () => "Approve" },
-  { name: "adding a machine", path: "/hosting/add/", ready: () => "Windows app: coming soon" },
-  { name: "linking a laptop", path: `/link/${hosting.LINK_ID}/`, ready: () => "Approve and start earning" },
+  { name: "adding a machine", path: "/add/", site: HOST_URL, ready: () => "Windows app: coming soon" },
+  {
+    name: "linking a laptop",
+    path: `/link/${hosting.LINK_ID}/`,
+    site: HOST_URL,
+    ready: () => "Approve and start earning",
+  },
 ];
 
 test("sign-in loads without moving, its form arriving in the space kept for it", async ({ page }) => {
@@ -190,12 +203,14 @@ for (const screen of screens) {
       answers[path] ??= answer;
     }
     await fakeApi(page, answers);
-    await signIn(page, "asha");
+    // The host site's screens on its own address, signed in there (ADR 0058).
+    const site = "site" in screen ? screen.site : "";
+    await signIn(page, "asha", "/", site);
     await waitForKeptAccount(page);
     await page.unrouteAll({ behavior: "wait" });
     await fakeApi(page, answers, { delayMs: 600 });
     const shifts = await recordLayoutShifts(page);
-    await page.goto(screen.path);
+    await page.goto(`${site}${screen.path}`);
     await expect(page.getByText(screen.ready()).first()).toBeVisible({ timeout: 10_000 });
     await page.waitForTimeout(1000);
     const { total, sources } = await shifts();

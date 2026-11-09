@@ -22,7 +22,7 @@ export function Avatar({ large = false }: { large?: boolean }) {
   );
 }
 
-/** The phone's last tab: "More", which opens the menu (Account, My files, Appearance, Sign out). */
+/** The phone's last tab: "More", which opens the menu (Account, the other site, Sign out). */
 export function MoreFace() {
   return (
     <>

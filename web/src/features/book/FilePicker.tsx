@@ -15,10 +15,10 @@ import {
   totalBytes,
   type Chosen,
   type DroppedEntry,
-} from "./chosen-files";
+} from "@/features/upload/chosen-files";
 import { uploadLine } from "./upload-line";
 import { inspect } from "./content-rules";
-import type { InputUpload } from "./useUploads";
+import type { InputUpload } from "@/features/upload/useUploads";
 
 type TemplateInput = components["schemas"]["TemplateInput"];
 

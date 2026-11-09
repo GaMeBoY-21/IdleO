@@ -26,7 +26,7 @@ fn key() -> SigningKey {
 fn config() -> Config {
     Config {
         api_url: "http://192.168.1.20:8080".into(),
-        app_url: "http://192.168.1.20:3000".into(),
+        host_url: "http://192.168.1.20:3003".into(),
         site_url: "http://192.168.1.20:3002".into(),
         control_plane_host: "192.168.1.20".into(),
         control_plane_port: 9443,
@@ -179,7 +179,7 @@ async fn the_happy_path_runs_every_step_in_order_and_leaves_a_listed_install() {
     assert!(
         toml.contains("host = \"192.168.1.20\"")
             && toml.contains("port = 9443")
-            && toml.contains("app_url = \"http://192.168.1.20:3000\"")
+            && toml.contains("host_url = \"http://192.168.1.20:3003\"")
     );
     assert!(layout.agent_dir().join("ca-root.pem").exists());
     assert!(install::is_installed(&system));

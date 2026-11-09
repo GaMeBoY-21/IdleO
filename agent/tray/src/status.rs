@@ -202,6 +202,7 @@ pub(crate) mod tests {
             dev_build: false,
             auto_pause: AutoPause::default(),
             app_url: Some("http://192.168.1.20:3000".to_owned()),
+            host_url: None,
             prefetch: None,
         }
     }

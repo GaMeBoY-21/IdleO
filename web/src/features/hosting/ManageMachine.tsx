@@ -8,6 +8,7 @@ import { Tile } from "@/components/ui/Tile";
 import { Field } from "@/components/ui/Field";
 import { cn } from "@/lib/cn";
 import { problemMessage } from "@/lib/problems";
+import { HOST_PATHS } from "@/sites/host/paths";
 
 // The sheet (Radix) isn't needed until Remove is pressed.
 const RemoveDialog = lazy(() =>
@@ -104,7 +105,7 @@ export function ManageMachine({ host }: { host: Host }) {
               remove.reset();
             }}
             onRemove={() =>
-              remove.mutate(undefined, { onSuccess: () => navigate("/hosting/", { replace: true }) })
+              remove.mutate(undefined, { onSuccess: () => navigate(HOST_PATHS.home, { replace: true }) })
             }
             removing={remove.isPending}
             error={remove.isError ? <Banner tone="danger">{problemMessage(remove.error)}</Banner> : null}

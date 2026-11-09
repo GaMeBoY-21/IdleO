@@ -17761,6 +17761,11 @@ components:
           type: string
         read:
           type: boolean
+        site:
+          type: string
+          enum:
+          - app
+          - host
         title:
           type: string
       required:
@@ -17770,6 +17775,7 @@ components:
       - kind
       - link
       - read
+      - site
       - title
     InboxPage:
       type: object

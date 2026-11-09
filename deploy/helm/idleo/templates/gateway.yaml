@@ -37,6 +37,7 @@ spec:
   dnsNames:
     - {{ $hosts.site }}
     - {{ $hosts.app }}
+    - {{ $hosts.host }}
     - {{ $hosts.api }}
   privateKey:
     algorithm: ECDSA
@@ -69,7 +70,7 @@ metadata:
 spec:
   parentRefs:
     - { name: idleo, sectionName: http }
-  hostnames: [{{ $hosts.site | quote }}, {{ $hosts.app | quote }}, {{ $hosts.api | quote }}]
+  hostnames: [{{ $hosts.site | quote }}, {{ $hosts.app | quote }}, {{ $hosts.host | quote }}, {{ $hosts.api | quote }}]
   rules:
     - filters:
         - type: RequestRedirect
@@ -126,4 +127,19 @@ spec:
   rules:
     - backendRefs:
         - { name: idleo-web, port: 8081 }
+---
+# The host site (ADR 0058).
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: idleo-host
+  labels:
+    {{- include "idleo.labels" (list . "gateway") | nindent 4 }}
+spec:
+  parentRefs:
+    - { name: idleo, sectionName: https }
+  hostnames: [{{ $hosts.host | quote }}]
+  rules:
+    - backendRefs:
+        - { name: idleo-web, port: 8082 }
 {{- end }}

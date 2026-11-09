@@ -12,8 +12,9 @@ pnpm audit --audit-level high
 pnpm typecheck
 pnpm lint
 pnpm test
-# The app and the website are two builds with two outputs, each told the other's address (ADR 0029).
+# The app's sites and the website are builds with their own outputs, each told the others' addresses (ADR 0029, ADR 0058).
 production_env=(IDLEO_DEPLOYMENT=production IDLEO_SITE_URL=https://site.example.invalid IDLEO_APP_URL=https://app.example.invalid
+  IDLEO_HOST_URL=https://host.example.invalid
   VITE_API_URL=https://api.example.invalid VITE_STORAGE_URL=https://storage.example.invalid VITE_AUTH=firebase
   VITE_FIREBASE_API_KEY=placeholder-not-a-key VITE_FIREBASE_AUTH_DOMAIN=placeholder.firebaseapp.com
   VITE_FIREBASE_PROJECT_ID=placeholder VITE_CHECKOUT_URL=https://checkout.razorpay.com/v1/checkout.js)
@@ -38,4 +39,15 @@ if env "${without_app[@]}" IDLEO_WEBSITE_DIST="$refused/dist-website" node scrip
   echo "web: the website's build accepted a missing IDLEO_APP_URL"; exit 1
 fi
 grep -q "needs IDLEO_APP_URL" "$refused/site.log"
+# And without the host site's, by the host site's build and the website's.
+without_host=()
+for setting in "${production_env[@]}"; do [[ $setting == IDLEO_HOST_URL=* ]] || without_host+=("$setting"); done
+if env "${without_host[@]}" IDLEO_WEB_SITE=host pnpm exec vite build --outDir "$refused/dist-host" >"$refused/host.log" 2>&1; then
+  echo "web: a production build of the host site accepted a missing IDLEO_HOST_URL"; exit 1
+fi
+grep -q "needs IDLEO_HOST_URL" "$refused/host.log"
+if env "${without_host[@]}" IDLEO_WEBSITE_DIST="$refused/dist-website" node scripts/build-site.ts >"$refused/site-host.log" 2>&1; then
+  echo "web: the website's build accepted a missing IDLEO_HOST_URL"; exit 1
+fi
+grep -q "needs IDLEO_HOST_URL" "$refused/site-host.log"
 rm -rf "$refused"

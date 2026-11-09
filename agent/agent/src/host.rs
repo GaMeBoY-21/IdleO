@@ -94,22 +94,25 @@ pub struct Host {
     /// Whether the job runner answers with the sandbox's rules loaded: set when it first does ([`Host::set_runner_installed`]).
     runner_installed: std::sync::atomic::AtomicBool,
     app_url: Option<String>,
+    /// The host site (ADR 0058), where Open dashboard goes.
+    hosts_site: Option<String>,
 }
 
 impl Host {
     /// A hub for the agent whose settings live in `data_dir`; `runner_installed` says whether it can run jobs.
     #[must_use]
     pub fn new(inputs: Arc<dyn MachineInputs>, data_dir: PathBuf, runner_installed: bool) -> Arc<Self> {
-        Self::with_app_url(inputs, data_dir, runner_installed, None)
+        Self::with_web_urls(inputs, data_dir, runner_installed, None, None)
     }
 
-    /// The same, telling the tray where the web app is.
+    /// The same, telling the tray where the host site is (ADR 0058), or on an older install the renter app.
     #[must_use]
-    pub fn with_app_url(
+    pub fn with_web_urls(
         inputs: Arc<dyn MachineInputs>,
         data_dir: PathBuf,
         runner_installed: bool,
         app_url: Option<String>,
+        host_url: Option<String>,
     ) -> Arc<Self> {
         let auto_pause = settings::load(&data_dir);
         let inner = Inner {
@@ -131,7 +134,7 @@ impl Host {
             cached_images: Vec::new(),
         };
         let (status, _) =
-            watch::channel(Self::status_of(&inner, runner_installed, app_url.as_deref(), OffsetDateTime::now_utc()));
+            watch::channel(Self::status_of(&inner, runner_installed, [&app_url, &host_url], OffsetDateTime::now_utc()));
         Arc::new(Self {
             inner: Mutex::new(inner),
             status,
@@ -141,6 +144,7 @@ impl Host {
             started: Instant::now(),
             runner_installed: std::sync::atomic::AtomicBool::new(runner_installed),
             app_url,
+            hosts_site: host_url,
         })
     }
 
@@ -205,7 +209,7 @@ impl Host {
         let next = Self::status_of(
             inner,
             self.runner_installed.load(std::sync::atomic::Ordering::SeqCst),
-            self.app_url.as_deref(),
+            [&self.app_url, &self.hosts_site],
             OffsetDateTime::now_utc(),
         );
         self.status.send_if_modified(|current| {
@@ -218,7 +222,9 @@ impl Host {
         });
     }
 
-    fn status_of(inner: &Inner, runner_installed: bool, app_url: Option<&str>, wall: OffsetDateTime) -> Status {
+    /// `web`: the renter app's address and the host site's, as the config has them.
+    fn status_of(inner: &Inner, runner_installed: bool, web: [&Option<String>; 2], wall: OffsetDateTime) -> Status {
+        let [app_url, host_url] = web;
         let (state, reason, paused_until) = match inner.availability.state() {
             State::Available => (channel::State::Available, None, None),
             State::AutoPaused { reason, .. } => (channel::State::AutoPaused, Some(reason), None),
@@ -239,7 +245,8 @@ impl Host {
             runner_installed,
             dev_build: idleo_release::keys::DEV_BUILD,
             auto_pause: inner.availability.settings(),
-            app_url: app_url.map(str::to_owned),
+            app_url: app_url.clone(),
+            host_url: host_url.clone(),
             prefetch: inner.prefetch,
         }
     }

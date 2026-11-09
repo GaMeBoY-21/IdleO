@@ -20,7 +20,7 @@ describe("the Hosting tab's machines", () => {
   it("shows a running machine as a dark tile that opens it, with what it has earned so far", () => {
     render(<MachineRow host={data.hostRunning} />);
     const row = screen.getByRole("link");
-    expect(row).toHaveAttribute("href", `/hosting/machine/?id=${data.ROG.id}`);
+    expect(row).toHaveAttribute("href", `/laptop/?id=${data.ROG.id}`);
     expect(row).toHaveTextContent(`${data.ROG.name}Running a session · earning ₹`);
     expect(row.className).toContain("bg-night");
   });

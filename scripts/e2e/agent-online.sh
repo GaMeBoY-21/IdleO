@@ -40,7 +40,7 @@
 #
 # Ports, from the environment: E2E_HTTP_PORT (8080), E2E_GRPC_PORT (9443), LOCAL_SIGN_IN_PORT (8099),
 # LOCAL_STORAGE_PORT (9100), LOCAL_MAIL_SMTP_PORT (1025), LOCAL_MAIL_WEB_PORT (8025), E2E_WEB_PORT (3000),
-# E2E_FIREBASE_WEB_PORT (3001).
+# E2E_FIREBASE_WEB_PORT (3001), E2E_SITE_PORT (3002), E2E_HOST_PORT (3003, the host site).
 # --web compares screenshots with VISUAL_BASELINE_DIR (web/visual-baseline): an empty one is filled
 # first; otherwise every picture must match, and a new or changed picture fails until accepted with
 # E2E_UPDATE_SNAPSHOTS=all (Playwright's --update-snapshots; web/README.md "Screenshots").
@@ -73,6 +73,8 @@ mail_web_port="${LOCAL_MAIL_WEB_PORT:-8025}"
 web_port="${E2E_WEB_PORT:-3000}"
 firebase_web_port="${E2E_FIREBASE_WEB_PORT:-3001}"
 site_port="${E2E_SITE_PORT:-3002}"
+# The host site (ADR 0058).
+host_port="${E2E_HOST_PORT:-3003}"
 razorpay_port="${E2E_RAZORPAY_PORT:-8091}"
 razorpayx_port="${E2E_RAZORPAYX_PORT:-8092}"
 startup_timeout="${E2E_STARTUP_TIMEOUT:-600}"
@@ -408,7 +410,7 @@ on_signal() {
 }
 trap on_signal INT TERM
 
-for port in "$http_port" "$grpc_port" "$sign_in_port" "$storage_port" "$mail_smtp_port" "$mail_web_port" "$web_port" "$firebase_web_port" "$site_port" "$razorpay_port" "$razorpayx_port"; do
+for port in "$http_port" "$grpc_port" "$sign_in_port" "$storage_port" "$mail_smtp_port" "$mail_web_port" "$web_port" "$firebase_web_port" "$site_port" "$host_port" "$razorpay_port" "$razorpayx_port"; do
   if port_in_use "$port"; then
     fail "port $port is already in use; stop what holds it, or move the stack with E2E_HTTP_PORT, E2E_GRPC_PORT, LOCAL_SIGN_IN_PORT, LOCAL_STORAGE_PORT, LOCAL_MAIL_SMTP_PORT, LOCAL_MAIL_WEB_PORT, E2E_WEB_PORT, E2E_FIREBASE_WEB_PORT or E2E_SITE_PORT"
   fi
@@ -549,8 +551,10 @@ summary+=("agents enrolled: $agents")
 log "building the web app"
 web_started="$(now_ms)"
 (cd web && pnpm install --frozen-lockfile) >"$out/web-build.log" 2>&1 || fail "pnpm install failed; see private/e2e/web-build.log"
-# The app and the website are two builds, each told the other's address (web/src/build-settings.ts).
-site_settings=(IDLEO_SITE_URL="http://localhost:$site_port" IDLEO_APP_URL="http://localhost:$web_port")
+# The renter app, the host site and the website are builds of their own, each told the others' addresses
+# (web/src/build-settings.ts, ADR 0058); `pnpm build` makes both of the app's sites, dist/ and dist-host/.
+site_settings=(IDLEO_SITE_URL="http://localhost:$site_port" IDLEO_APP_URL="http://localhost:$web_port"
+  IDLEO_HOST_URL="http://localhost:$host_port")
 (cd web && env "${site_settings[@]}" IDLEO_DEPLOYMENT=local VITE_API_URL="$api" VITE_STORAGE_URL="http://localhost:$storage_port" VITE_AUTH=oidc-mock VITE_OIDC_ISSUER="$sign_in" \
   VITE_OIDC_CLIENT_ID=idleo-local VITE_CHECKOUT_URL="http://localhost:$razorpay_port/v1/checkout.js" pnpm build) >>"$out/web-build.log" 2>&1 || fail "the web build failed; see private/e2e/web-build.log"
 (cd web && env "${site_settings[@]}" IDLEO_DEPLOYMENT=local VITE_API_URL="$api" pnpm build:site) >>"$out/web-build.log" 2>&1 ||
@@ -573,7 +577,10 @@ serve_web() {
     sleep 0.2
   done
 }
-if ! $keep_running || [[ "${E2E_SERVE_WEB:-1}" != 0 ]]; then serve_web dist "$web_port"; fi
+if ! $keep_running || [[ "${E2E_SERVE_WEB:-1}" != 0 ]]; then
+  serve_web dist "$web_port"
+  serve_web dist-host "$host_port"
+fi
 $web_only && serve_web dist-firebase "$firebase_web_port"
 serve_web dist-website "$site_port"
 if ! $keep_running; then
@@ -582,9 +589,10 @@ fi
 summary+=("web app built and served: $(seconds_since "$web_started") s")
 web_url="http://localhost:$web_port"
 site_url="http://localhost:$site_port"
+host_url="http://localhost:$host_port"
 # Playwright, with this stack's addresses (web/playwright.config.ts).
 web_test() {
-  (cd web && WEB_URL="$web_url" SITE_URL="$site_url" API_URL="$api" SIGN_IN_URL="$sign_in" FIREBASE_WEB_URL="http://localhost:$firebase_web_port" \
+  (cd web && WEB_URL="$web_url" HOST_URL="$host_url" SITE_URL="$site_url" API_URL="$api" SIGN_IN_URL="$sign_in" FIREBASE_WEB_URL="http://localhost:$firebase_web_port" \
     pnpm exec playwright test "$@")
 }
 
@@ -1173,10 +1181,10 @@ if $web_only; then
   if [[ -n "$measuring" ]]; then
     (cd web && rm -rf .lighthouseci .lighthouseci-desktop .lighthouseci-devtools .lighthouseci-first-visit && LIGHTHOUSE_THROTTLING="$measuring" \
       LIGHTHOUSE_PAGES="${E2E_LIGHTHOUSE_PAGES:-home,hosting,add,link,book,session}" LIGHTHOUSE_RUNS="${E2E_LIGHTHOUSE_RUNS:-5}" \
-      E2E_LIGHTHOUSE_USER="$user-lighthouse" WEB_URL="$web_url" SITE_URL="$site_url" API_URL="$api" SIGN_IN_URL="$sign_in" \
+      E2E_LIGHTHOUSE_USER="$user-lighthouse" WEB_URL="$web_url" HOST_URL="$host_url" SITE_URL="$site_url" API_URL="$api" SIGN_IN_URL="$sign_in" \
       pnpm exec playwright test --project=lighthouse --grep "the budgets hold on sign-in") >"$out/web-lighthouse.log" 2>&1 || lighthouse_failed=true
   else
-    (cd web && rm -rf .lighthouseci .lighthouseci-desktop .lighthouseci-devtools .lighthouseci-first-visit && E2E_LIGHTHOUSE_USER="$user-lighthouse" WEB_URL="$web_url" SITE_URL="$site_url" \
+    (cd web && rm -rf .lighthouseci .lighthouseci-desktop .lighthouseci-devtools .lighthouseci-first-visit && E2E_LIGHTHOUSE_USER="$user-lighthouse" WEB_URL="$web_url" HOST_URL="$host_url" SITE_URL="$site_url" \
       API_URL="$api" SIGN_IN_URL="$sign_in" pnpm lighthouse) >"$out/web-lighthouse.log" 2>&1 || lighthouse_failed=true
   fi
   mkdir -p "$lighthouse_kept"
@@ -1213,8 +1221,15 @@ PY
     summary+=("lighthouse public pages (mobile, the median of 3 runs: LCP <= 1500 ms, TBT <= 100 ms, CLS 0, accessibility 100, SEO 100): PASS")
   fi
   if [[ -z "$measuring" ]]; then
-    first_load="$(cd web && IDLEO_DIST=dist-firebase node scripts/first-load.ts | tail -1)" || fail "the first-load JavaScript budget failed"
-    summary+=("${first_load# }: PASS")
+    # Each site's own (ADR 0058), on the production adapter's builds, and every build holding only its own site's code.
+    for web_site in app host; do
+      first_load="$(cd web && IDLEO_DIST=dist-firebase IDLEO_WEB_SITE=$web_site node scripts/first-load.ts)" ||
+        fail "the $web_site site's first-load JavaScript budget failed"
+      summary+=("$(printf '%s\n' "$first_load" | grep 'first load of' | sed 's/^ *//'): PASS")
+      summary+=("$(printf '%s\n' "$first_load" | grep 'the main script' | sed 's/^ *//') on the $web_site site: PASS")
+    done
+    separation="$(cd web && IDLEO_DIST=dist-firebase node scripts/site-modules.ts)" || fail "a site's build holds another site's code"
+    summary+=("code apart: ${separation//$'\n'/; }: PASS")
     site_load="$(cd web && node scripts/site-size.ts | tail -1)" || fail "the public pages' first-load budget failed"
     summary+=("${site_load# }: PASS")
   fi

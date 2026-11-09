@@ -3,15 +3,15 @@ import { brand } from "@/brand/brand";
 import { Wordmark } from "@/brand/Wordmark";
 import { AppLink } from "@/components/ui/AppLink";
 import { cn } from "@/lib/cn";
+import { nav } from "@site/site";
 import { AccountLink } from "./AccountLink";
 import { NotificationBell } from "./NotificationBell";
-import { destinations, isCurrent } from "./nav";
 
 /** The sidebar's width: the content beside it is pushed in by the same (`md:pl-sidebar`, web/DESIGN.md "Navigation"). */
 export const SIDEBAR_PUSH = "md:pl-sidebar";
 
 /**
- * The app's left sidebar, from 768 px (approved reference `AppHome`): the wordmark, the six destinations, and the
+ * The site's left sidebar, from 768 px (approved reference `AppHome`): the wordmark, the site's destinations, and the
  * account at the bottom beside the bell. The current destination has the raised fill and a 4 px bar in the accent;
  * the others are indented to line up with its text.
  */
@@ -23,8 +23,8 @@ export function Sidebar() {
         <Wordmark />
       </Link>
       <nav aria-label="Main" className="flex flex-col gap-1.5">
-        {destinations.map(({ href, label }) => {
-          const current = isCurrent(pathname, href);
+        {nav.destinations.map(({ href, label }) => {
+          const current = nav.isCurrent(pathname, href);
           return (
             <AppLink
               key={href}

@@ -24,7 +24,7 @@ import { advancedParams, chosenOption, stepsOf } from "./steps";
 import { takeDrop } from "./dropped";
 import { useQuote } from "./useQuote";
 import { useRequest } from "./useRequest";
-import { isBusy, useUploads, type InputUpload } from "./useUploads";
+import { isBusy, useUploads, type InputUpload } from "@/features/upload/useUploads";
 import { BIGGEST_MB, neededMb } from "./vram";
 import { YourRequest } from "./YourRequest";
 

@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { createHmac } from "node:crypto";
 import { writeFileSync } from "node:fs";
+import { HOST_URL } from "./sites";
 import { signIn, typeToConfirm } from "./support";
 
 /**
@@ -329,7 +330,7 @@ test("an admin enrols a second factor, then activates a host, grants credit and 
   });
 
   await test.step("the host's owner finds the refund as a line of their earnings, and nothing about the renter", async () => {
-    await signIn(ownerPage, hostOwner!, "/hosting/earnings/");
+    await signIn(ownerPage, hostOwner!, "/earnings/", HOST_URL);
     const line = ownerPage.getByRole("listitem").filter({ hasText: "Refunded to renter" }).first();
     await expect(line).toContainText("Taken back −₹0.01");
     await expect(ownerPage.locator("main")).not.toContainText(webUser!);

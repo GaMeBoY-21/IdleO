@@ -3,6 +3,7 @@ import react from "@vitejs/plugin-react";
 import { fileURLToPath } from "node:url";
 import { defineConfig, loadEnv, type Plugin } from "vite";
 import { assertBuildSettings, type BuildEnv } from "./src/build-settings.ts";
+import { distOf, SITE_FACTS, siteOf } from "./src/sites/sites.ts";
 import { themeBootScript } from "./src/design/theme.ts";
 
 /** Writes the theme script into index.html's head, so it runs before the first paint (web/DESIGN.md "Colour"). */
@@ -50,9 +51,27 @@ function shellChunk(id: string): string | undefined {
  * "Watch the main script").
  */
 function mainScriptModules(): Plugin {
+  const root = fileURLToPath(new URL(".", import.meta.url));
   return {
     name: "idleo-main-script-modules",
     generateBundle(_, bundle) {
+      // And every chunk's source modules, by path from web/, for scripts/site-modules.ts to hold each site to its own
+      // code (ADR 0058).
+      const chunks = Object.values(bundle).flatMap((file) =>
+        file.type === "chunk"
+          ? [
+              [
+                file.fileName,
+                Object.keys(file.modules).map((id) => id.replace(root, "").replace(/\?.*$/, "")),
+              ],
+            ]
+          : [],
+      );
+      this.emitFile({
+        type: "asset",
+        fileName: ".vite/chunk-modules.json",
+        source: JSON.stringify(Object.fromEntries(chunks)),
+      });
       const shell = Object.values(bundle).find((file) => file.type === "chunk" && file.name === "shell");
       if (shell?.type === "chunk") {
         const sizes = Object.entries(shell.modules).map(([id, module]) => [id, module.renderedLength]);
@@ -68,23 +87,36 @@ function mainScriptModules(): Plugin {
 
 export default defineConfig(({ mode }) => {
   const env = { ...loadEnv(mode, process.cwd(), ["VITE_", "IDLEO_"]), ...process.env } as BuildEnv;
+  // Which site this build is (ADR 0058, src/sites/sites.ts): `@site` is its folder, so its routes, bars and screens are the
+  // only ones in the bundle.
+  const site = siteOf(process.env);
   // A wrong combination (above all, the mock sign-in adapter outside a local build) stops here, before any
   // bundle exists (ADR 0018).
   assertBuildSettings(env);
   return {
     plugins: [react(), tailwindcss(), themeBoot(), mainScriptModules()],
-    resolve: { alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) } },
+    resolve: {
+      alias: {
+        "@site": fileURLToPath(new URL(`./src/sites/${site}`, import.meta.url)),
+        "@": fileURLToPath(new URL("./src", import.meta.url)),
+      },
+    },
     // The adapter not chosen is dead code, so it's left out of the bundle entirely.
     define: {
       "import.meta.env.VITE_AUTH": JSON.stringify(env.VITE_AUTH),
       // Where the app's links to the website (Terms, Privacy, "← idleo") lead.
       "import.meta.env.IDLEO_SITE_URL": JSON.stringify(env.IDLEO_SITE_URL ?? ""),
+      // Where each site's links to the other lead ("Rent a GPU", "Earn with your laptop", a renter's PAN).
+      "import.meta.env.IDLEO_APP_URL": JSON.stringify(env.IDLEO_APP_URL ?? ""),
+      "import.meta.env.IDLEO_HOST_URL": JSON.stringify(env.IDLEO_HOST_URL ?? ""),
+      "import.meta.env.IDLEO_WEB_SITE": JSON.stringify(site),
       // The release real visits' vitals and errors name (ADR 0036).
       "import.meta.env.IDLEO_RELEASE": JSON.stringify(process.env.IDLEO_RELEASE ?? "development"),
     },
     build: {
-      // IDLEO_DIST: a second build side by side, as the end-to-end test makes for the Firebase screens.
-      outDir: process.env.IDLEO_DIST ?? "dist",
+      // Each site's own folder (dist, dist-host); IDLEO_DIST: a second build side by side, as the end-to-end test makes
+      // for the Firebase screens.
+      outDir: distOf(site, process.env.IDLEO_DIST),
       target: "es2022",
       manifest: true,
       // Source maps are made for every build but never served: scripts/postbuild.ts moves them out of dist into
@@ -97,7 +129,7 @@ export default defineConfig(({ mode }) => {
       modulePreload: false,
       rollupOptions: { output: { manualChunks: shellChunk } },
     },
-    server: { port: 3000, strictPort: true },
-    preview: { port: 3000, strictPort: true },
+    server: { port: SITE_FACTS[site].port, strictPort: true },
+    preview: { port: SITE_FACTS[site].port, strictPort: true },
   };
 });

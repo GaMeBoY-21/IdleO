@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { itemsOf, useInbox, useMarkRead, type InboxItem } from "@/api/inbox";
+import { AppLink } from "@/components/ui/AppLink";
 import { Banner } from "@/components/ui/Banner";
 import { Button } from "@/components/ui/Button";
 import { useAfterFirstScreen } from "@/lib/after-first-screen";
@@ -69,13 +70,14 @@ function Arrivals() {
             </Button>
           }
         >
-          <Link
+          <AppLink
             href={item.link}
+            site={item.site}
             className="font-semibold underline"
             onClick={() => markRead.mutate({ id: item.id })}
           >
             {item.title}
-          </Link>
+          </AppLink>
           <span className="block text-text-2">{item.body}</span>
         </Banner>
       ))}

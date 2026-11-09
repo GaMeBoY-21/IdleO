@@ -110,7 +110,7 @@ class HostLinkTests {
         var link = start();
 
         assertThat(link.get("approveUrl").asString())
-                .isEqualTo("http://localhost:3000/link/" + link.get("id").asString() + "/");
+                .isEqualTo("http://localhost:3003/link/" + link.get("id").asString() + "/");
         assertThat(link.get("intervalSeconds").asLong()).isEqualTo(3);
         assertThat(link.get("expiresInSeconds").asLong()).isEqualTo(600);
         var row = jdbc.queryForObject(

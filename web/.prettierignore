@@ -2,6 +2,11 @@ node_modules
 dist
 dist-ssr
 dist-firebase
+dist-host
+dist-host-ssr
+dist-firebase-host
+dist-firebase-ssr
+dist-firebase-host-ssr
 dist-site
 dist-site-ssr
 dist-website

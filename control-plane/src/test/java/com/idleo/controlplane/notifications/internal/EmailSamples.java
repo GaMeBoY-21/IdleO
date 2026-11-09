@@ -20,6 +20,7 @@ class EmailSamples {
 
     private final EmailContent content = new EmailContent(new NotificationProperties(
             URI.create("https://app.idleo.in/"),
+            URI.create("https://host.idleo.in/"),
             new NotificationProperties.Email("IdleO <notifications@mail.idleo.in>", null)));
 
     @Test
@@ -75,29 +76,33 @@ class EmailSamples {
         samples.put(
                 NotificationKind.MACHINE_OFFLINE,
                 new Message(
-                        "ASUS ROG Strix went offline during a session",
-                        "It was running a session when it lost its connection, so the session moved to another"
-                                + " machine. Check that it's on and connected; it takes new work again once it is.",
-                        "/hosting/machine/?id=" + ID));
+                                "ASUS ROG Strix went offline during a session",
+                                "It was running a session when it lost its connection, so the session moved to another"
+                                        + " machine. Check that it's on and connected; it takes new work again once it is.",
+                                "/laptop/?id=" + ID)
+                        .onHostSite());
         samples.put(
                 NotificationKind.AGENT_UPDATE_NEEDED,
                 new Message(
-                        "ASUS ROG Strix needs an update",
-                        "Its IdleO app is older than we support, so it takes no new work. It updates by itself when"
-                                + " the laptop is on and idle.",
-                        "/hosting/machine/?id=" + ID));
+                                "ASUS ROG Strix needs an update",
+                                "Its IdleO app is older than we support, so it takes no new work. It updates by itself when"
+                                        + " the laptop is on and idle.",
+                                "/laptop/?id=" + ID)
+                        .onHostSite());
         samples.put(
                 NotificationKind.WEEKLY_EARNINGS,
                 new Message(
-                        "You earned ₹212.40 this week",
-                        "Your machines were rented for 17 h 5 min. Payouts start with the paid pilot.",
-                        "/hosting/earnings/"));
+                                "You earned ₹212.40 this week",
+                                "Your machines were rented for 17 h 5 min. Payouts start with the paid pilot.",
+                                "/earnings/")
+                        .onHostSite());
         samples.put(
                 NotificationKind.PAYOUT,
                 new Message(
-                        "₹187.00 is on its way to your UPI ID",
-                        "This week's payout left us for your UPI ID. Most banks show it within minutes.",
-                        "/hosting/earnings/"));
+                                "₹187.00 is on its way to your UPI ID",
+                                "This week's payout left us for your UPI ID. Most banks show it within minutes.",
+                                "/earnings/")
+                        .onHostSite());
         samples.put(
                 NotificationKind.REPORT_ANSWERED,
                 new Message(

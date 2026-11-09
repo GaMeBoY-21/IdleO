@@ -5,6 +5,7 @@ import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { readBaseline, regressions, REGRESSION_LIMIT } from "../scripts/lighthouse-baseline";
+import { HOST_URL } from "./sites";
 import { API, signIn } from "./support";
 
 /**
@@ -20,6 +21,9 @@ import { API, signIn } from "./support";
  */
 const PORT = 9333;
 const WEB = process.env.WEB_URL ?? "http://localhost:3000";
+/** The screens on the host site (ADR 0058), each measured at its own address, signed in there. */
+const HOST_SCREENS: ReadonlySet<string> = new Set(["hosting", "machine", "add", "link"]);
+const siteFor = (name: string) => (HOST_SCREENS.has(name) ? HOST_URL : WEB);
 const user = process.env.E2E_LIGHTHOUSE_USER ?? `lighthouse-${Date.now()}`;
 const signInServer = process.env.SIGN_IN_URL ?? "http://localhost:8099/idleo-local";
 /**
@@ -144,6 +148,8 @@ test("the budgets hold on sign-in, Home, Book and the session screen", async () 
       }
       if (name === "hosting") {
         machineId = await addMachine(context.request);
+        // The same person signs in on the host site, its own origin (ADR 0058).
+        await signIn(page, user, "/", HOST_URL);
       }
       if (name === "link") {
         linkId = await startLink(context.request);
@@ -154,18 +160,19 @@ test("the budgets hold on sign-in, Home, Book and the session screen", async () 
         book: "/book/?service=fine-tune",
         session: `/session/?id=${sessionId}`,
         "session-link": `/session/?id=${sessionId}`,
-        hosting: "/hosting/",
-        machine: `/hosting/machine/?id=${machineId}`,
+        hosting: "/",
+        machine: `/laptop/?id=${machineId}`,
         account: "/account/",
         keys: "/account/keys/",
         notifications: "/notifications/",
         credit: "/credit/",
-        add: "/hosting/add/",
+        add: "/add/",
         link: `/link/${linkId}/`,
       }[name];
       if (ONLY && !ONLY.includes(name)) {
         continue;
       }
+      const site = siteFor(name);
       for (const formFactor of ONLY ? (["mobile"] as const) : (["mobile", "desktop"] as const)) {
         // lhci reads .lighthouseci/lhr-<number>.json; the desktop reports are kept apart, for the record.
         const asserted = formFactor === "mobile" && name !== "session-link";
@@ -178,7 +185,7 @@ test("the budgets hold on sign-in, Home, Book and the session screen", async () 
             if (forgetFigures) {
               // The figures kept from earlier visits are idb-keyval's (src/api/persisted-cache.ts), deleted from a page
               // of the app's own origin that asks for none (its 404).
-              await page.goto(`${WEB}/no-such-page/`);
+              await page.goto(`${site}/no-such-page/`);
               await page.evaluate(
                 () =>
                   new Promise<void>((resolve, reject) => {
@@ -206,7 +213,7 @@ test("the budgets hold on sign-in, Home, Book and the session screen", async () 
           // Not in .lighthouseci/: lhci asserts every report there against the budget.
           for (let run = 1; run <= FIRST_VISIT_RUNS; run++) {
             await coldStart(true);
-            const first = await lighthouse(`${WEB}${path}`, {
+            const first = await lighthouse(`${site}${path}`, {
               port: PORT,
               output: "json",
               logLevel: "error",
@@ -227,7 +234,7 @@ test("the budgets hold on sign-in, Home, Book and the session screen", async () 
           // (Hosting's was 300 ms to first paint against 186 ms, Home's 2,564 ms against 1,954 ms), and on CI two such
           // runs in three made the median miss. The budget and the median of RUNS are what they were.
           await coldStart();
-          const warmUp = await lighthouse(`${WEB}${path}`, {
+          const warmUp = await lighthouse(`${site}${path}`, {
             port: PORT,
             output: "json",
             logLevel: "error",
@@ -242,7 +249,7 @@ test("the budgets hold on sign-in, Home, Book and the session screen", async () 
         for (let run = 1; run <= (asserted ? RUNS : 1); run++) {
           await coldStart();
           const result = await lighthouse(
-            `${WEB}${path}`,
+            `${site}${path}`,
             {
               port: PORT,
               output: ["json", "html"],
@@ -290,7 +297,7 @@ test("the budgets hold on sign-in, Home, Book and the session screen", async () 
           const devtools: number[] = [];
           for (let run = 1; run <= DEVTOOLS_RUNS; run++) {
             await coldStart();
-            const real = await lighthouse(`${WEB}${path}`, {
+            const real = await lighthouse(`${site}${path}`, {
               port: PORT,
               output: "json",
               logLevel: "error",
@@ -430,9 +437,9 @@ async function startLink(request: APIRequestContext): Promise<string> {
   return ((await started.json()) as { id: string }).id;
 }
 
-/** The owner's screens: opening a machine from the Hosting tab, and choosing how long to pause it. */
+/** The owner's screens on the host site: opening a machine from its home, and choosing how long to pause it. */
 async function hostingInp(page: Page): Promise<number> {
-  const cdp = await measured(page, "/hosting/");
+  const cdp = await measured(page, "/", HOST_URL);
   await page.getByRole("link", { name: /Lighthouse laptop/ }).click();
   await expect(page.getByRole("heading", { level: 1, name: "Lighthouse laptop" })).toBeVisible();
   await page.getByRole("button", { name: "Pause hosting" }).click();
@@ -485,10 +492,10 @@ async function stopOne(request: APIRequestContext, id: string): Promise<void> {
 }
 
 /** Opens a page on a CPU slowed four times, with web-vitals recording interaction to next paint. */
-async function measured(page: Page, path: string): Promise<CDPSession> {
+async function measured(page: Page, path: string, site = WEB): Promise<CDPSession> {
   const cdp = await page.context().newCDPSession(page);
   await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 });
-  await page.goto(`${WEB}${path}`);
+  await page.goto(`${site}${path}`);
   await page.waitForLoadState("load");
   // Through DevTools, which the page's Content Security Policy rightly doesn't let a script tag do.
   await page.evaluate(readFileSync("node_modules/web-vitals/dist/web-vitals.iife.js", "utf8"));
@@ -560,13 +567,13 @@ async function interactionToNextPaint(page: Page): Promise<number> {
   const cdp = await measured(page, "/");
   await expect(page.getByRole("heading", { name: "What do you want to run?" })).toBeAttached();
   await page.getByRole("button", { name: "More" }).click();
-  await expect(page.getByRole("menuitem", { name: "My files" })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "Earn with your laptop" })).toBeVisible();
   await expect(page.getByRole("menuitem", { name: "Sign out" })).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(page.getByRole("menuitem", { name: "Sign out" })).toHaveCount(0);
   // Not Credit: it's a page load of its own (its own security policy, ADR 0039), which payInp measures.
-  await page.getByRole("link", { name: "Hosting" }).first().click();
-  await expect(page.getByRole("heading", { name: "Hosting", level: 1 })).toBeVisible();
+  await page.getByRole("link", { name: "Sessions" }).first().click();
+  await expect(page.getByRole("heading", { name: "Sessions", level: 1 })).toBeVisible();
   await page.getByRole("link", { name: "Home" }).first().click();
   await expect(page.getByRole("heading", { name: "What do you want to run?" })).toBeAttached();
   return finish(page, cdp);

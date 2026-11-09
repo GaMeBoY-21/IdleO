@@ -196,6 +196,8 @@ identity:
 # machine, and a mail server on this machine (ProductionSettingsGuard). docs/runbooks/email.md.
 notifications:
   web-app-url: ${NOTIFICATIONS_WEB_APP_URL:http://localhost:3000}
+  # The host site (ADR 0058), where a host's links go: their laptops, earnings and payouts.
+  host-site-url: ${NOTIFICATIONS_HOST_SITE_URL:http://localhost:3003}
   email:
     from: ${NOTIFICATIONS_EMAIL_FROM:IdleO <notifications@localhost>}
     # The provider's signing secret for its bounce and complaint webhook (Resend's whsec_…, ADR 0036); without one
@@ -229,12 +231,11 @@ logging:
         environment: ${IDLEO_ENVIRONMENT:local}
 
 hosts:
-  # Linking a host by approval (ADR 0032): the web app's /link/<id>/ page is where its owner approves, the same web app
-  # as a CLI sign-in. A new host is created pending, and an admin activates it (its agent's self-test beside the
+  # Linking a host by approval (ADR 0032): the host site's /link/<id>/ page is where its owner approves (ADR 0058). A new host is created pending, and an admin activates it (its agent's self-test beside the
   # button), until auto-activate is turned on after the invite-only pilot: a pending host whose self-test passed is then
   # activated by itself.
   link:
-    web-app-url: ${HOSTS_LINK_WEB_APP_URL:${IDENTITY_WEB_APP_URL:http://localhost:3000}}
+    web-app-url: ${HOSTS_LINK_WEB_APP_URL:http://localhost:3003}
   auto-activate: false
   # The host score: every host's score is worked out afresh once a day, and a
   # host's again after each of its sessions ends or is lost.

@@ -103,8 +103,8 @@ impl Step {
 pub struct Config {
     /// The control plane's REST address.
     pub api_url: String,
-    /// The web app.
-    pub app_url: String,
+    /// The host site (ADR 0058), where the tray's Open dashboard goes.
+    pub host_url: String,
     /// The public website, for the help pages.
     pub site_url: String,
     /// The agent endpoint's host.
@@ -905,8 +905,8 @@ impl<S: System> Engine<'_, S> {
         std::fs::write(dir.join("ca-root.pem"), &self.config.ca_root_pem)?;
         let text = format!(
             "# Written by IdleO's setup. The agent's own settings are in settings.toml.\n\
-             api_url = \"{}\"\napp_url = \"{}\"\nca_root = \"ca-root.pem\"\ndata_dir = \".\"\n\n[control_plane]\nhost = \"{}\"\nport = {}\n",
-            self.config.api_url, self.config.app_url, self.config.control_plane_host, self.config.control_plane_port
+             api_url = \"{}\"\nhost_url = \"{}\"\nca_root = \"ca-root.pem\"\ndata_dir = \".\"\n\n[control_plane]\nhost = \"{}\"\nport = {}\n",
+            self.config.api_url, self.config.host_url, self.config.control_plane_host, self.config.control_plane_port
         );
         std::fs::write(dir.join("agent.toml"), text)
     }

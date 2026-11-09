@@ -4,7 +4,8 @@ import { siteContext } from "../../scripts/site/context";
 import { pages, renderPage } from "./render";
 
 const APP = "https://app.example.invalid";
-const context = siteContext("https://api.example.invalid", APP);
+const HOST = "https://host.example.invalid";
+const context = siteContext("https://api.example.invalid", APP, HOST);
 const all = pages(context).map((page) => ({ page, html: renderPage(page, context.links) }));
 const text = (html: string) =>
   html
@@ -32,8 +33,8 @@ describe("the public pages", () => {
     expect(paths.filter((path) => path.startsWith("/docs/"))).toHaveLength(context.docs.length);
   });
 
-  it("start hosting in the app's Hosting tab, and the landing page is the website's own front door", () => {
-    expect(all.find(({ page }) => page.path === "/earn/")!.html).toContain(`href="${APP}/hosting/"`);
+  it("start hosting on the host site, and the landing page is the website's own front door", () => {
+    expect(all.find(({ page }) => page.path === "/earn/")!.html).toContain(`href="${HOST}/"`);
     expect(all.find(({ page }) => page.path === "/")!.html).toContain('aria-label="IdleO home"');
     expect(all.some(({ page }) => page.path === "/about/")).toBe(false);
   });

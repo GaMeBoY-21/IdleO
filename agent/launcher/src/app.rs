@@ -93,14 +93,14 @@ fn open(layout: &Layout) -> ExitCode {
                 && let Ok(Ok(idleo_release::channel::Message::Status(status))) =
                     tokio::time::timeout(Duration::from_secs(2), client.next()).await
             {
-                return status.app_url;
+                return status.dashboard_url();
             }
             tokio::time::sleep(Duration::from_millis(500)).await;
         }
         None
     });
     if let Some(url) = url {
-        let _ = idleo_release::browser::open(&format!("{}/hosting/", url.trim_end_matches('/')));
+        let _ = idleo_release::browser::open(&url);
     }
     ExitCode::SUCCESS
 }

@@ -1,5 +1,5 @@
 import { formatBytes } from "@/lib/bytes";
-import type { InputUpload } from "./useUploads";
+import type { InputUpload } from "@/features/upload/useUploads";
 
 /** "about 40 s left", "about 3 min left", "about 2 h 10 min left". */
 function timeLeft(seconds: number | null): string {

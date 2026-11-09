@@ -6,16 +6,7 @@ import { RailColumns } from "@/components/shell/Layout";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Tile } from "@/components/ui/Tile";
 import { cn } from "@/lib/cn";
-
-const SECTIONS = [
-  { href: "/account/", label: "Profile and notifications" },
-  { href: "/account/keys/", label: "API keys" },
-  { href: "/files/", label: "My files" },
-  { href: "/account/reports/", label: "Reports" },
-  { href: "/account/images/", label: "My images" },
-  { href: "/account/data/", label: "Your data" },
-  { href: "/account/help/", label: "Help" },
-] as const;
+import { nav } from "@site/site";
 
 /** Account's laptop frame: the 320 px rail (the person, the sections, appearance, Sign out) and the screen beside it. */
 export function AccountRail({
@@ -91,7 +82,7 @@ function SectionNav() {
   return (
     <Tile as="div" className="p-2.5">
       <nav aria-label="Account" className="flex flex-col gap-0.5">
-        {SECTIONS.map(({ href, label }) => {
+        {nav.accountSections.map(({ href, label }) => {
           const current = pathname === href || (href === "/account/" && pathname === "/account");
           return (
             <Link

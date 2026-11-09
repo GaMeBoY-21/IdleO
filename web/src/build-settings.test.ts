@@ -2,7 +2,7 @@
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { buildSettingsProblems, siteSettingsProblems } from "./build-settings";
+import { assertSiteAddresses, buildSettingsProblems, siteSettingsProblems } from "./build-settings";
 
 const local = {
   IDLEO_DEPLOYMENT: "local",
@@ -18,6 +18,7 @@ const production = {
   VITE_STORAGE_URL: "https://storage.example.invalid",
   IDLEO_SITE_URL: "https://site.example.invalid",
   IDLEO_APP_URL: "https://app.example.invalid",
+  IDLEO_HOST_URL: "https://host.example.invalid",
   VITE_AUTH: "firebase",
   VITE_FIREBASE_API_KEY: "placeholder",
   VITE_FIREBASE_AUTH_DOMAIN: "placeholder.firebaseapp.com",
@@ -49,8 +50,25 @@ describe("the build settings", () => {
     expect(buildSettingsProblems({ ...production, IDLEO_APP_URL: "http://localhost:3000" })).toEqual([
       "a production build needs an https app address that isn't on this machine",
     ]);
-    expect(siteSettingsProblems({ IDLEO_DEPLOYMENT: "production" })).toHaveLength(2);
+    expect(siteSettingsProblems({ IDLEO_DEPLOYMENT: "production" })).toHaveLength(3);
     expect(siteSettingsProblems({})).toEqual([]);
+  });
+
+  it("need the host site's address outside a local build, and an https one (ADR 0058)", () => {
+    expect(buildSettingsProblems({ ...production, IDLEO_HOST_URL: undefined })).toEqual([
+      "a production build needs IDLEO_HOST_URL, the host site's address",
+    ]);
+    expect(buildSettingsProblems({ ...production, IDLEO_HOST_URL: "http://host.example.invalid" })).toEqual([
+      "a production build needs an https host site address that isn't on this machine",
+    ]);
+    expect(assertSiteAddresses({})).toEqual({
+      site: "http://localhost:3002",
+      app: "http://localhost:3000",
+      host: "http://localhost:3003",
+    });
+    expect(assertSiteAddresses({ ...production, IDLEO_HOST_URL: "https://host.example.invalid/" }).host).toBe(
+      "https://host.example.invalid",
+    );
   });
 
   it("refuse the mock sign-in adapter outside a local build", () => {

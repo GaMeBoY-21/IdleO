@@ -4,6 +4,7 @@ import type { Host } from "@/api/hosting";
 import { cn } from "@/lib/cn";
 import { useNow } from "@/lib/clock";
 import { machineState } from "@/lib/hosting";
+import { laptopPath } from "@/sites/host/paths";
 
 /**
  * One machine on the Hosting tab (docs/design/hosting/hosting-phone.html): its name, and its state in words. One that's
@@ -15,7 +16,7 @@ export function MachineRow({ host }: { host: Host }) {
   const running = state.kind === "running";
   return (
     <Link
-      href={`/hosting/machine/?id=${host.id}`}
+      href={laptopPath(host.id)}
       className={cn(
         "flex min-h-18 items-center gap-3.5 rounded-panel px-4.5 py-3.5",
         "tile-motion",

@@ -27,8 +27,10 @@ pub struct Config {
     pub welcome_timeout: Duration,
     /// The control plane's REST address, where `link` asks to be linked (for example `https://api.idleo.in`).
     pub api_url: Option<String>,
-    /// The web app, where the tray's Open dashboard goes (for example `https://app.idleo.in`).
+    /// The renter app, from an install older than the host site's address (for example `https://app.idleo.in`).
     pub app_url: Option<String>,
+    /// The host site, where the tray's Open dashboard goes (for example `https://host.idleo.in`, ADR 0058).
+    pub host_url: Option<String>,
     /// The least upload, in kbit/s, a job may use whatever the line measures (ADR 0038): half of the measured upload, never
     /// under this. Enough to keep checkpoints moving.
     pub min_upload_kbps: u32,
@@ -65,6 +67,7 @@ struct File {
     welcome_timeout_secs: Option<u64>,
     api_url: Option<String>,
     app_url: Option<String>,
+    host_url: Option<String>,
     min_upload_kbps: Option<u32>,
 }
 
@@ -144,10 +147,15 @@ impl Config {
         {
             return Err(invalid("api_url must start with http:// or https://"));
         }
-        if let Some(url) = &file.app_url
-            && !(url.starts_with("http://") || url.starts_with("https://"))
-        {
-            return Err(invalid("app_url must start with http:// or https://"));
+        for (url, what) in [
+            (&file.app_url, "app_url must start with http:// or https://"),
+            (&file.host_url, "host_url must start with http:// or https://"),
+        ] {
+            if let Some(url) = url
+                && !(url.starts_with("http://") || url.starts_with("https://"))
+            {
+                return Err(invalid(what));
+            }
         }
         let min_upload_kbps = match file.min_upload_kbps {
             None => crate::fair_use::DEFAULT_FLOOR_KBPS,
@@ -163,6 +171,7 @@ impl Config {
             welcome_timeout,
             api_url: file.api_url,
             app_url: file.app_url,
+            host_url: file.host_url,
             min_upload_kbps,
         })
     }

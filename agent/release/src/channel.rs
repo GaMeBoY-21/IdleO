@@ -197,11 +197,29 @@ pub struct Status {
     pub dev_build: bool,
     /// Auto-pause's settings.
     pub auto_pause: AutoPause,
-    /// The web app, where the tray's Open dashboard goes; none if the agent's config doesn't say.
+    /// The renter app, from an install older than the host site's address (ADR 0058): Open dashboard goes to its
+    /// `/hosting/`, which redirects to the host site. None if the agent's config doesn't say.
     pub app_url: Option<String>,
+    /// The host site (ADR 0058), where the tray's Open dashboard goes; none from an older install, or a newer agent's
+    /// status read by an older tray.
+    #[serde(default)]
+    pub host_url: Option<String>,
     /// The job images being downloaded in the background, if any.
     #[serde(default)]
     pub prefetch: Option<Prefetch>,
+}
+
+impl Status {
+    /// Where Open dashboard goes: the host site's home (ADR 0058), or on an older install the renter app's old Hosting
+    /// address, which redirects there.
+    #[must_use]
+    pub fn dashboard_url(&self) -> Option<String> {
+        match (&self.host_url, &self.app_url) {
+            (Some(host), _) => Some(format!("{}/", host.trim_end_matches('/'))),
+            (None, Some(app)) => Some(format!("{}/hosting/", app.trim_end_matches('/'))),
+            (None, None) => None,
+        }
+    }
 }
 
 /// One self-test check, for the tray.
@@ -469,8 +487,21 @@ mod tests {
             dev_build: true,
             auto_pause: AutoPause::default(),
             app_url: Some("http://192.168.1.20:3000".to_owned()),
+            host_url: None,
             prefetch: None,
         }
+    }
+
+    #[test]
+    fn the_dashboard_is_the_host_site_or_an_older_installs_old_hosting_address() {
+        let host = Status { host_url: Some("https://host.idleo.in".to_owned()), ..status() };
+        assert_eq!(host.dashboard_url().as_deref(), Some("https://host.idleo.in/"));
+        assert_eq!(status().dashboard_url().as_deref(), Some("http://192.168.1.20:3000/hosting/"));
+        assert_eq!(Status { app_url: None, ..status() }.dashboard_url(), None);
+        // An older agent's status has no host_url, and still reads.
+        let older = serde_json::to_string(&status()).unwrap().replace(",\"host_url\":null", "");
+        assert!(!older.contains("host_url"));
+        assert_eq!(serde_json::from_str::<Status>(&older).unwrap(), status());
     }
 
     #[test]

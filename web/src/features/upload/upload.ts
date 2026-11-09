@@ -13,7 +13,7 @@ type UploadedPart = components["schemas"]["UploadedPart"];
  * - `POST /v1/uploads` opens it with each file's path and size; each file's parts are signed on demand
  *   (`POST /v1/uploads/{id}/part-urls`), a hundred at a time, so a 4,000-part model never asks for 4,000 links at once;
  * - each part is a slice of its file (Blob.slice), never a whole file in memory, PUT three at a time;
- * - each ETag is remembered in IndexedDB as it arrives (src/features/book/upload-resume.ts): choosing the same files
+ * - each ETag is remembered in IndexedDB as it arrives (src/features/upload/upload-resume.ts): choosing the same files
  *   again, after a reload or a dropped connection, opens the same upload with the same Idempotency-Key and sends
  *   only the parts storage hasn't taken;
  * - every file is then completed (`POST /v1/uploads/{id}/complete`), a hundred to a call;

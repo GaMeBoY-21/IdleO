@@ -61,6 +61,7 @@ sessions:
 # prod profile refuses to start: it needs a mail server (above), a sender address and the web app's address.
 notifications:
   web-app-url: ${NOTIFICATIONS_WEB_APP_URL}
+  host-site-url: ${NOTIFICATIONS_HOST_SITE_URL}
   email:
     from: ${NOTIFICATIONS_EMAIL_FROM}
     webhook-secret: ${NOTIFICATIONS_EMAIL_WEBHOOK_SECRET}

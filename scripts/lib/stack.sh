@@ -5,7 +5,8 @@
 #
 # The caller sets, before sourcing: root (the repository), out (a gitignored folder for logs, and keys and pids unless
 # state names another),
-# http_port, grpc_port, sign_in_port, storage_port, mail_smtp_port, mail_web_port, web_port, compose_project, and
+# http_port, grpc_port, sign_in_port, storage_port, mail_smtp_port, mail_web_port, web_port, host_port (the host site's,
+# ADR 0058; 3003 if unset), compose_project, and
 # razorpay_port for the fake Razorpay and razorpayx_port for the fake RazorpayX (stack_start_fake_razorpay; left
 # unset, payments and payouts are off). It
 # defines log and fail (each script prints its own prefix), and may set operator_name, the name operator commands
@@ -65,12 +66,12 @@ stack_start_control_plane() {
     export LOCAL_STORAGE_PORT="$storage_port" COMPOSE_PROJECT_NAME="$compose_project"
     # Email goes to Mailpit from compose.yaml (ADR 0026), and its links to this stack's web app.
     export LOCAL_MAIL_SMTP_PORT="$mail_smtp_port" LOCAL_MAIL_WEB_PORT="$mail_web_port"
-    export NOTIFICATIONS_WEB_APP_URL="http://localhost:$web_port"
-    # Where a CLI sign-in and a host link are approved (ADR 0025, ADR 0032): this stack's web app.
-    export IDENTITY_WEB_APP_URL="http://localhost:$web_port" HOSTS_LINK_WEB_APP_URL="http://localhost:$web_port"
-    # The web app's origin, which may call the API from a browser (ADR 0018), and the website's when the script has one
-    # (its pricing page asks for live prices, ADR 0029).
-    export WEB_ALLOWED_ORIGINS="http://localhost:$web_port${site_port:+,http://localhost:$site_port}"
+    export NOTIFICATIONS_WEB_APP_URL="http://localhost:$web_port" NOTIFICATIONS_HOST_SITE_URL="http://localhost:${host_port:-3003}"
+    # Where a CLI sign-in is approved (ADR 0025): this stack's renter app; a host link (ADR 0032), its host site (ADR 0058).
+    export IDENTITY_WEB_APP_URL="http://localhost:$web_port" HOSTS_LINK_WEB_APP_URL="http://localhost:${host_port:-3003}"
+    # The renter app's and the host site's origins, which may call the API from a browser (ADR 0018, ADR 0058), and the
+    # website's when the script has one (its pricing page asks for live prices, ADR 0029).
+    export WEB_ALLOWED_ORIGINS="http://localhost:$web_port,http://localhost:${host_port:-3003}${site_port:+,http://localhost:$site_port}"
     # The Windows app's release feed (ADR 0034) trusts the development release key when there is one
     # (scripts/release/dev-key.sh), or the caller's IDLEO_RELEASE_PUBLIC_KEY, and reads the feed every 10 s, so a
     # release published to this stack's storage shows at once.
@@ -166,7 +167,7 @@ stack_compose_up() {
   (
     export COMPOSE_PROJECT_NAME="$compose_project" LOCAL_SIGN_IN_PORT="$sign_in_port" LOCAL_STORAGE_PORT="$storage_port"
     export LOCAL_MAIL_SMTP_PORT="$mail_smtp_port" LOCAL_MAIL_WEB_PORT="$mail_web_port"
-    export WEB_ALLOWED_ORIGINS="http://localhost:$web_port${site_port:+,http://localhost:$site_port}"
+    export WEB_ALLOWED_ORIGINS="http://localhost:$web_port,http://localhost:${host_port:-3003}${site_port:+,http://localhost:$site_port}"
     if declare -F stack_control_plane_settings >/dev/null; then
       stack_control_plane_settings
     fi

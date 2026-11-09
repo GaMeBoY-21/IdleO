@@ -54,10 +54,16 @@ grep -qi '^content-security-policy:' <<<"$site_headers" || fail "the website has
 app_headers="$(curl -sf -D - -o /dev/null "$app_url/sign-in/")" || fail "the app didn't load at $app_url/sign-in/"
 grep -qi "^content-security-policy:.*connect-src[^;]*$api_url" <<<"$app_headers" ||
   fail "the app's policy doesn't allow its API: $app_headers"
+# The host site (ADR 0058) the same, and the app's old hosting addresses sent to it, query and all.
+host_headers="$(curl -sf -D - -o /dev/null "$host_url/sign-in/")" || fail "the host site didn't load at $host_url/sign-in/"
+grep -qi "^content-security-policy:.*connect-src[^;]*$api_url" <<<"$host_headers" ||
+  fail "the host site's policy doesn't allow its API: $host_headers"
+moved="$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "$app_url/hosting/machine/?id=42" || true)"
+[[ "$moved" == "301 $host_url/laptop/?id=42" ]] || fail "the app's old hosting address wasn't sent to the host site: $moved"
 redirect="$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "http://app.idleo.localhost:$plain_http_port/sign-in/" || true)"
 [[ "$redirect" == "301 $app_url/sign-in/" ]] ||
   fail "plain HTTP wasn't sent to HTTPS: $redirect"
-pass "the website and the app load over HTTPS with their security headers; HTTP redirects ($redirect)"
+pass "the website, the app and the host site load over HTTPS with their security headers; HTTP redirects ($redirect); the app's old hosting addresses go to the host site ($moved)"
 
 # 1b. The local CA vouches for this cluster's names only: a certificate it signs for another site is refused.
 openssl_bin="$(openssl3)"

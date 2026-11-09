@@ -1,11 +1,16 @@
-// The first-load JavaScript budget (ADR 0018, web/DESIGN.md "Speed is a feature"): what the signed-in home
-// downloads before it can show the renter's credit. That's the entry script and everything it imports
+// The first-load JavaScript budget (ADR 0018, web/DESIGN.md "Speed is a feature"), for one site (IDLEO_WEB_SITE, the
+// renter app by default; ADR 0058 holds every site to it): what its signed-in home downloads before it can show the
+// renter's credit, or the host's earnings. That's the entry script and everything it imports
 // statically, the home's own chunk, plus the sign-in adapter and its imports, which the home needs for a token before its
 // first API call. Counted gzipped, and failed above the budget. A screen loaded later (credit, sign-in) doesn't count.
 import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { brotliCompressSync, constants, gzipSync } from "node:zlib";
 import { fileURLToPath } from "node:url";
+import { SCREENS as APP_SCREENS } from "../src/screens.ts";
+import { SCREENS as HOST_SCREENS } from "../src/sites/host/screens.ts";
+import { distOf, siteOf } from "../src/sites/sites.ts";
 import { describeGrowth, tidyModuleSizes } from "./main-script-growth.ts";
+import { strangers } from "./site-modules.ts";
 
 export const BUDGET_KB = 150;
 /**
@@ -15,9 +20,16 @@ export const BUDGET_KB = 150;
  * modules it holds, against which the next failure names what grew.
  */
 export const MAIN_SCRIPT_BUDGET_KB = 96.6;
-const MAIN_SCRIPT_MODULES = fileURLToPath(new URL("./main-script-modules.json", import.meta.url));
+const site = siteOf(process.env);
+// Each site's own record of the modules (the renter app's keeps its first name).
+const MAIN_SCRIPT_MODULES = fileURLToPath(
+  new URL(
+    site === "app" ? "./main-script-modules.json" : `./main-script-modules.${site}.json`,
+    import.meta.url,
+  ),
+);
 
-const dist = fileURLToPath(new URL(`../${process.env.IDLEO_DIST ?? "dist"}/`, import.meta.url));
+const dist = fileURLToPath(new URL(`../${distOf(site, process.env.IDLEO_DIST)}/`, import.meta.url));
 const read = (file: string) => readFileSync(`${dist}${file}`, "utf8");
 const html = read("index.html");
 
@@ -56,9 +68,10 @@ function closure(start: string[], seen = new Set<string>()): Set<string> {
 }
 
 const manifest = JSON.parse(read(".vite/manifest.json")) as Record<string, { file: string }>;
-const home = manifest["src/features/home/Home.tsx"]?.file;
+const homeModule = (site === "app" ? APP_SCREENS : HOST_SCREENS)["/"]!;
+const home = manifest[homeModule]?.file;
 if (!home) {
-  throw new Error("no chunk for the home screen in the build manifest");
+  throw new Error(`no chunk for the ${site} site's home screen (${homeModule}) in the build manifest`);
 }
 const files = closure([...entries, home, `assets/${adapter[0]}`]);
 const rows = [...files].map((file) => ({ file, kb: gzipSync(read(file), { level: 9 }).length / 1024 }));
@@ -67,12 +80,24 @@ const total = rows.reduce((sum, row) => sum + row.kb, 0);
 for (const row of rows.sort((a, b) => b.kb - a.kb)) {
   console.log(`${row.kb.toFixed(1).padStart(6)} KB  ${row.file}`);
 }
-console.log(`${total.toFixed(1).padStart(6)} KB  first load of the signed-in home (budget ${BUDGET_KB} KB)`);
-// The admin console is its own chunk, loaded only on an /admin/ address (ADR 0027): nothing a renter loads first may
-// hold its code.
+console.log(
+  `${total.toFixed(1).padStart(6)} KB  first load of the ${site} site's signed-in home (budget ${BUDGET_KB} KB)`,
+);
+// The admin console is its own chunk, loaded only on an /admin/ address (ADR 0027), and no site's first load holds
+// another's code (ADR 0058): nothing a renter or a host loads first may hold the console's, or the other site's.
 const holdingAdmin = [...files].filter((file) => read(file).includes("/admin/v1/"));
 if (holdingAdmin.length > 0) {
   console.error(`the admin console's code is in the first load: ${holdingAdmin.join(", ")}`);
+  process.exit(1);
+}
+const chunkModules = JSON.parse(read(".vite/chunk-modules.json")) as Record<string, string[]>;
+const foreign = strangers(
+  site,
+  Object.fromEntries([...files].map((file) => [file, chunkModules[file] ?? []])),
+  { firstLoad: true },
+);
+if (foreign.length > 0) {
+  console.error(`the ${site} site's first load holds code that isn't its own:\n${foreign.join("\n")}`);
   process.exit(1);
 }
 if (total > BUDGET_KB) {
