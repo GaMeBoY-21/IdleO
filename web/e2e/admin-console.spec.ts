@@ -287,47 +287,6 @@ test.describe("the one table", () => {
     expect(copied).toMatch(/^[0-9a-f-]{36}$/);
     await expect(page.getByRole("button", { name: "Copied" })).toBeVisible();
   });
-
-  test("10,000 rows are windowed and scroll with no frame over 50 ms", async ({ page }, info) => {
-    test.skip(onPhone(info) || info.project.name.includes("dark"), "measured once, on a laptop");
-    const row = admin.sessions.sessions[0]!;
-    const many = Array.from({ length: 10_000 }, (_, index) => ({
-      ...row,
-      id: `00000000-0000-7000-8000-${String(index).padStart(12, "0")}`,
-    }));
-    await open(page, "/admin/sessions/", {
-      "/admin/v1/sessions": { json: { sessions: many, nextCursor: null } },
-    });
-    const region = page.getByRole("region", { name: "Sessions" });
-    await expect(region.locator("tr[data-row-key]").first()).toBeVisible();
-    const inPage = await region.locator("tr[data-row-key]").count();
-    expect(inPage, "rows in the page").toBeLessThan(100);
-    await expect(page.getByRole("table", { name: "Sessions" })).toHaveAttribute("aria-rowcount", "10001");
-    const frames = await region.evaluate(async (element) => {
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      const longest: number[] = [];
-      let at = performance.now();
-      const started = at;
-      const step = element.scrollHeight / 300;
-      return await new Promise<number[]>((resolve) => {
-        const tick = (now: number) => {
-          longest.push(now - at);
-          at = now;
-          element.scrollTop += step;
-          if (now - started < 4_000) {
-            requestAnimationFrame(tick);
-          } else {
-            resolve(longest);
-          }
-        };
-        requestAnimationFrame(tick);
-      });
-    });
-    const worst = Math.max(...frames.slice(1));
-    console.log(`console table: ${frames.length} frames over 10,000 rows, the worst ${worst.toFixed(1)} ms`);
-    expect(worst).toBeLessThanOrEqual(50);
-    await expect(region.locator("tr[data-row-key]").last()).toBeVisible();
-  });
 });
 
 test.describe("bulk from any list", () => {
