@@ -60,11 +60,8 @@ class ProductionSettingsGuardTests {
     @Test
     void refusesTheEndToEndClock() {
         prod("e2e.clock-file=/tmp/offset", "identity.issuers[0].issuer-uri=" + GOOGLE)
-                .run(context -> assertThat(context)
-                        .hasFailed()
-                        .getFailure()
-                        .rootCause()
-                        .hasMessageContaining("e2e.clock-file is set"));
+                .run(context ->
+                        assertThat(context).hasFailed().getFailure().hasMessageContaining("e2e.clock-file is set"));
     }
 
     @Test
