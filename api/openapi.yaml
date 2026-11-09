@@ -7360,6 +7360,31 @@ paths:
           description: "An error, as an RFC 9457 problem detail"
       tags:
       - deletion
+  /v1/demand:
+    get:
+      operationId: demandDemand
+      parameters:
+      - in: query
+        name: vramMb
+        required: true
+        schema:
+          type: integer
+          format: int32
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Demand"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - demand
   /v1/disputes:
     get:
       operationId: disputeList
@@ -9572,6 +9597,24 @@ paths:
           description: "An error, as an RFC 9457 problem detail"
       tags:
       - upload
+  /v1/usage:
+    get:
+      operationId: usageUsage
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MonthUsage"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - usage
   /v1/wallet:
     get:
       operationId: walletGet
@@ -16952,6 +16995,58 @@ components:
       - losses
       - waitingDays
       - waits
+    Demand:
+      type: object
+      properties:
+        asked:
+          type: integer
+          format: int64
+        days:
+          type: integer
+          format: int32
+        enough:
+          type: boolean
+        hours:
+          type: array
+          items:
+            $ref: "#/components/schemas/DemandHour"
+        served:
+          type: integer
+          format: int64
+        unmet:
+          type: integer
+          format: int64
+        vramMb:
+          type: integer
+          format: int32
+      required:
+      - asked
+      - days
+      - enough
+      - hours
+      - served
+      - unmet
+      - vramMb
+    DemandHour:
+      type: object
+      properties:
+        asked:
+          type: integer
+          format: int64
+        hour:
+          type: integer
+          format: int32
+        served:
+          type: integer
+          format: int64
+        unmet:
+          type: integer
+          format: int64
+      required:
+      - asked
+      - hour
+      - served
+      - unmet
     Details:
       type: object
       properties:
@@ -17122,6 +17217,18 @@ components:
           - "null"
       required:
       - entries
+    EarningsWeek:
+      type: object
+      properties:
+        earnedPaise:
+          type: integer
+          format: int64
+        startsAt:
+          type: string
+          format: date-time
+      required:
+      - earnedPaise
+      - startsAt
     EnrolmentCodeResponse:
       type: object
       properties:
@@ -18317,6 +18424,26 @@ components:
       - status
       - unlocked
       - unreadNotifications
+    MonthUsage:
+      type: object
+      properties:
+        days:
+          type: array
+          items:
+            $ref: "#/components/schemas/UsageDay"
+        minutes:
+          type: integer
+          format: int64
+        month:
+          type: string
+        spentPaise:
+          type: integer
+          format: int64
+      required:
+      - days
+      - minutes
+      - month
+      - spentPaise
     MyEnforcement:
       type: object
       properties:
@@ -18638,6 +18765,10 @@ components:
         weekStartsAt:
           type: string
           format: date-time
+        weeks:
+          type: array
+          items:
+            $ref: "#/components/schemas/EarningsWeek"
       required:
       - days
       - history
@@ -18647,6 +18778,7 @@ components:
       - totalPaise
       - weekPaise
       - weekStartsAt
+      - weeks
     PanView:
       type: object
       properties:
@@ -20989,6 +21121,22 @@ components:
       required:
       - etag
       - number
+    UsageDay:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date
+        minutes:
+          type: integer
+          format: int64
+        spentPaise:
+          type: integer
+          format: int64
+      required:
+      - date
+      - minutes
+      - spentPaise
     VramFromInputView:
       type: object
       properties:

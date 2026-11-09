@@ -434,6 +434,15 @@ export const earnings: OwnerEarnings = {
     nextCursor: earningsEntries.length > 20 ? "page-2" : null,
   },
   payoutsStart: "weekly",
+  // The last 8 weeks from Monday, each the sum of its entries; this week's is weekPaise.
+  weeks: Array.from({ length: 8 }, (_, index) => {
+    const startsAt = new Date(Date.parse(WEEK_STARTS_AT) - (7 - index) * 7 * DAY).toISOString();
+    const endsAt = new Date(Date.parse(startsAt) + 7 * DAY).toISOString();
+    return {
+      startsAt,
+      earnedPaise: net(earningsEntries.filter((e) => e.createdAt >= startsAt && e.createdAt < endsAt)),
+    };
+  }),
 };
 
 /** An owner who has machines and has earned nothing yet. */
@@ -446,6 +455,7 @@ export const noEarnings: OwnerEarnings = {
   machines: [],
   history: { entries: [], nextCursor: null },
   payoutsStart: "weekly",
+  weeks: earnings.weeks.map((week) => ({ ...week, earnedPaise: 0 })),
 };
 
 /** Every machine above, by id, for a fake API that answers any of them. */

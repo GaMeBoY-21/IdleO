@@ -97,6 +97,7 @@ class OwnerEarningsController {
      * @param weekPaise earned since then
      * @param minutesRentedThisWeek minutes paid for since then, less minutes given back
      * @param days the last 7 days, oldest first, today last
+     * @param weeks the last {@value #WEEKS} weeks from Monday, oldest first, this week last (ADR 0058)
      * @param payoutsStart how payouts are made: {@code weekly}, every Monday (ADR 0040)
      */
     record OwnerEarnings(
@@ -107,7 +108,13 @@ class OwnerEarningsController {
             List<EarningsDay> days,
             List<EarningsMachine> machines,
             EarningsPage history,
-            String payoutsStart) {}
+            String payoutsStart,
+            List<EarningsWeek> weeks) {}
+
+    /** A week from Monday, midnight IST, and what was earned in it. */
+    record EarningsWeek(Instant startsAt, long earnedPaise) {}
+
+    static final int WEEKS = 8;
 
     @GetMapping("/v1/earnings")
     OwnerEarnings get(
@@ -135,7 +142,8 @@ class OwnerEarningsController {
                     days(firstDay, Map.of()),
                     List.of(),
                     new EarningsPage(List.of(), null),
-                    "weekly");
+                    "weekly",
+                    weeks(weekStart, Map.of()));
         }
         var totals = queries.totals(hostIds);
         var page = history(hostIds, names, cursor, limit);
@@ -156,7 +164,30 @@ class OwnerEarningsController {
                                 machine.id(), machine.name(), machine.removed(), totals.getOrDefault(machine.id(), 0L)))
                         .toList(),
                 page,
-                "weekly");
+                "weekly",
+                weeks(
+                        weekStart,
+                        queries.perDay(
+                                hostIds,
+                                weekStart
+                                        .minusWeeks(WEEKS - 1)
+                                        .atStartOfDay(IST)
+                                        .toInstant(),
+                                IST.getId())));
+    }
+
+    /** The last {@value #WEEKS} weeks to the one starting {@code thisWeek}, each the sum of its days. */
+    private static List<EarningsWeek> weeks(LocalDate thisWeek, Map<LocalDate, Long> earned) {
+        var weeks = new ArrayList<EarningsWeek>();
+        for (int back = WEEKS - 1; back >= 0; back--) {
+            var start = thisWeek.minusWeeks(back);
+            long sum = 0;
+            for (int day = 0; day < 7; day++) {
+                sum += earned.getOrDefault(start.plusDays(day), 0L);
+            }
+            weeks.add(new EarningsWeek(start.atStartOfDay(IST).toInstant(), sum));
+        }
+        return weeks;
     }
 
     private static final java.time.format.DateTimeFormatter DAY_MONTH =

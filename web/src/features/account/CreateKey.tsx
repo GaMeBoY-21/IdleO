@@ -1,9 +1,9 @@
-import { Check, Copy } from "lucide-react";
 import { useRef, useState } from "react";
 import { useCreateKey, type CreatedApiKey } from "@/api/keys";
 import { Tile } from "@/components/ui/Tile";
 import { Banner } from "@/components/ui/Banner";
 import { Button } from "@/components/ui/Button";
+import { CopyButton } from "@/components/ui/CopyButton";
 import { Field } from "@/components/ui/Field";
 import { RadioGroup } from "@/components/ui/Inputs";
 import { problemMessage } from "@/lib/problems";
@@ -30,7 +30,6 @@ export function CreateKey() {
   const [scope, setScope] = useState<"full" | "read">("full");
   const [flagged, setFlagged] = useState(false);
   const [made, setMade] = useState<CreatedApiKey | null>(null);
-  const [copied, setCopied] = useState(false);
   // The key belongs to the form as it stands: pressing again, or a retry after a lost answer, sends the same one.
   const attempt = useRef<{ body: string; key: string } | null>(null);
   const problem = flagged ? keyNameProblem(name) : undefined;
@@ -54,7 +53,6 @@ export function CreateKey() {
       attempt.current = null;
       setName("");
       setFlagged(false);
-      setCopied(false);
       // The mutation holds its answer too, which is the key: it isn't kept.
       create.reset();
     } catch {
@@ -74,18 +72,8 @@ export function CreateKey() {
           {made.key}
         </p>
         <div className="flex flex-col gap-2 md:flex-row">
-          <Button
-            variant="ghost"
-            block
-            onClick={() => void navigator.clipboard.writeText(made.key).then(() => setCopied(true))}
-          >
-            {copied ? (
-              <Check aria-hidden="true" className="size-4" strokeWidth={2} />
-            ) : (
-              <Copy aria-hidden="true" className="size-4" strokeWidth={1.75} />
-            )}
-            {copied ? "Copied" : "Copy key"}
-          </Button>
+          {/* Its own each time, so a new key never starts out "Copied". */}
+          <CopyButton key={made.key} text={made.key} label="Copy key" block />
           <Button block onClick={() => setMade(null)}>
             Done
           </Button>

@@ -161,8 +161,8 @@ export function Home() {
           </Link>
         )}
       </div>
-      <FirstRun wallet={wallet} sessions={sessions.data?.sessions} />
-      {/* A phone has no Sessions tab: the list is one row away from Home. */}
+      <FirstRun wallet={wallet} sessions={sessions.data?.sessions} catalog={templates.data} />
+      {/* The list is also a tab; here it is one row away from what Home shows of it. */}
       {sessions.data && list.length > 0 && (
         <Link
           href="/sessions/"

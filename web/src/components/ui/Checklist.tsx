@@ -1,4 +1,5 @@
 import { Check } from "lucide-react";
+import type { ReactNode } from "react";
 import { AppLink } from "@/components/ui/AppLink";
 import { buttonClasses } from "@/components/ui/Button";
 import { SectionTitle, Tile } from "@/components/ui/Tile";
@@ -10,6 +11,8 @@ export interface Step {
   /** Done, not yet, or still being found out (null). */
   done: boolean | null;
   action?: { href: string; label: string };
+  /** In place of `action`: a control of its own (the renter's one-click test job). */
+  control?: ReactNode;
 }
 
 /**
@@ -52,17 +55,22 @@ export function Checklist({ id, title, steps }: { id: string; title: string; ste
               </p>
               <p className="text-small text-text-2">{step.detail}</p>
             </div>
-            {step.action && step.done === false && (
-              <AppLink
-                href={step.action.href}
-                className={
-                  index === next
-                    ? cn(buttonClasses("ghost", false, false), "shrink-0")
-                    : "min-h-touch shrink-0 self-center text-small font-semibold underline"
-                }
-              >
-                {step.action.label}
-              </AppLink>
+            {step.control && step.done === false ? (
+              <span className="shrink-0">{step.control}</span>
+            ) : (
+              step.action &&
+              step.done === false && (
+                <AppLink
+                  href={step.action.href}
+                  className={
+                    index === next
+                      ? cn(buttonClasses("ghost", false, false), "shrink-0")
+                      : "min-h-touch shrink-0 self-center text-small font-semibold underline"
+                  }
+                >
+                  {step.action.label}
+                </AppLink>
+              )
             )}
           </li>
         ))}

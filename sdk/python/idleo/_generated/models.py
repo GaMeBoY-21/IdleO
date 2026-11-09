@@ -227,6 +227,16 @@ class DeletionRequest(BaseModel):
     user_id: Annotated[UUID, Field(alias="userId")]
 
 
+class DemandHour(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    asked: int
+    hour: int
+    served: int
+    unmet: int
+
+
 class Details(BaseModel):
     model_config = ConfigDict(
         populate_by_name=True,
@@ -292,6 +302,14 @@ class EarningsPage(BaseModel):
     )
     entries: list[EarningsEntry]
     next_cursor: Annotated[str | None, Field(alias="nextCursor")] = None
+
+
+class EarningsWeek(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    earned_paise: Annotated[int, Field(alias="earnedPaise")]
+    starts_at: Annotated[AwareDatetime, Field(alias="startsAt")]
 
 
 class EnrolmentCodeResponse(BaseModel):
@@ -805,6 +823,7 @@ class OwnerEarnings(BaseModel):
     total_paise: Annotated[int, Field(alias="totalPaise")]
     week_paise: Annotated[int, Field(alias="weekPaise")]
     week_starts_at: Annotated[AwareDatetime, Field(alias="weekStartsAt")]
+    weeks: list[EarningsWeek]
 
 
 class PanView(BaseModel):
@@ -1668,6 +1687,15 @@ class UploadedPart(BaseModel):
     number: Annotated[int, Field(ge=1, le=10000)]
 
 
+class UsageDay(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    date: date_aliased
+    minutes: int
+    spent_paise: Annotated[int, Field(alias="spentPaise")]
+
+
 class VramFromInputView(BaseModel):
     model_config = ConfigDict(
         populate_by_name=True,
@@ -1794,6 +1822,19 @@ class DeletionStanding(BaseModel):
     waits: list[Wait]
 
 
+class Demand(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    asked: int
+    days: int
+    enough: bool
+    hours: list[DemandHour]
+    served: int
+    unmet: int
+    vram_mb: Annotated[int, Field(alias="vramMb")]
+
+
 class DisputePage(BaseModel):
     model_config = ConfigDict(
         populate_by_name=True,
@@ -1911,6 +1952,16 @@ class MeResponse(BaseModel):
     status: str
     unlocked: list[UnlockedEnum]
     unread_notifications: Annotated[int, Field(alias="unreadNotifications")]
+
+
+class MonthUsage(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    days: list[UsageDay]
+    minutes: int
+    month: str
+    spent_paise: Annotated[int, Field(alias="spentPaise")]
 
 
 class NotificationChoices(BaseModel):

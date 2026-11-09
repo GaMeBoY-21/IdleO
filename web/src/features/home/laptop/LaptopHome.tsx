@@ -6,23 +6,27 @@ import type { components } from "@/api/schema.gen";
 import { buttonClasses } from "@/components/ui/Button";
 import { PageHeading } from "@/components/ui/Heading";
 import { useAfterPaint } from "@/lib/after-first-screen";
-import { offeredServices, serviceOf } from "@/lib/catalog";
+import { offeredServices, serviceOf, serviceTypicalCost } from "@/lib/catalog";
+import { useTypicalPrices } from "@/api/home";
 import { BookAgainTile, latestSetup } from "../BookAgain";
 import { RunningTile } from "../RunningTile";
 import { FirstRun } from "../FirstRun";
 import { CreditPanel } from "./CreditPanel";
+import { DevelopersPanel } from "./DevelopersPanel";
 import { FreeGpus } from "./FreeGpus";
 import { HOME } from "./LaptopHomeSkeleton";
 import { RecentSessions } from "./RecentSessions";
 import { ServicesTile } from "./ServicesTile";
+import { UsagePanel } from "./UsagePanel";
 import { useDropAnywhere } from "./useDropAnywhere";
 
 type Catalog = components["schemas"]["TemplateList"];
 
 /**
- * Home from 768 px (approved reference `AppHome`): the question and "Book a GPU" over the services as accent cards,
- * what is running beside the credit, the recent sessions as a table, and a last row for the free GPUs and what to book
- * again. The GPUs free and the credit's history are asked for once the screen has painted.
+ * Home from 768 px (approved reference `AppHome`, ADR 0058's "full and simple"): the question and "Book a GPU" over the
+ * services as accent cards, each with its typical time and cost; then a row of three: the credit, the GPUs online by
+ * size and this month's use; what is running and the recent sessions; and a last row for a new renter's checklist, what
+ * to book again and the terminal. Everything after the services is asked for once the screen has painted.
  */
 export function LaptopHome({
   catalog,
@@ -38,6 +42,7 @@ export function LaptopHome({
   const painted = useAfterPaint();
   const services = offeredServices(catalog);
   const dropping = useDropAnywhere(services, true);
+  const prices = useTypicalPrices(painted);
   const live = sessions.filter(isLive);
   const again = latestSetup(sessions, catalog);
   const againName = again
@@ -57,18 +62,29 @@ export function LaptopHome({
           Book a GPU
         </Link>
       </div>
-      <ServicesTile services={services} catalog={catalog} dropping={dropping} />
-      <div className="grid cols-panels gap-4">
-        {live.map((session) => (
-          <RunningTile key={session.id} session={session} catalog={catalog} wide />
-        ))}
+      <ServicesTile services={services} catalog={catalog} dropping={dropping} prices={prices.data?.classes} />
+      <div className="grid gap-4 xl:grid-cols-3">
         <CreditPanel wallet={wallet} enabled={painted} />
-      </div>
-      <FirstRun wallet={wallet} sessions={sessions} />
-      <RecentSessions sessions={sessions} catalog={catalog} />
-      <div className="grid cols-cards gap-4">
         <FreeGpus enabled={painted} />
+        <UsagePanel enabled={painted} />
+      </div>
+      {live.length > 0 && (
+        <div className="grid cols-panels gap-4">
+          {live.map((session) => (
+            <RunningTile key={session.id} session={session} catalog={catalog} wide />
+          ))}
+        </div>
+      )}
+      <RecentSessions sessions={sessions} catalog={catalog} />
+      <FirstRun
+        wallet={wallet}
+        sessions={sessions}
+        catalog={catalog}
+        sampleCost={prices.data ? serviceTypicalCost(catalog, "diagnostics", prices.data.classes) : null}
+      />
+      <div className="grid cols-panels gap-4">
         {again && <BookAgainTile session={again} name={againName} />}
+        <DevelopersPanel />
       </div>
     </div>
   );

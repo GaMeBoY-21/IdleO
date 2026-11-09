@@ -20,6 +20,15 @@ describe("the owner's earnings", () => {
     expect(data.earnings.days).toHaveLength(7);
   });
 
+  it("have 8 weeks from Monday, the last this week's, and none more than the total", () => {
+    expect(data.earnings.weeks).toHaveLength(8);
+    expect(data.earnings.weeks.at(-1)!.startsAt).toBe(data.WEEK_STARTS_AT);
+    expect(data.earnings.weeks.at(-1)!.earnedPaise).toBe(data.earnings.weekPaise);
+    expect(data.earnings.weeks.reduce((total, week) => total + week.earnedPaise, 0)).toBeLessThanOrEqual(
+      data.earnings.totalPaise,
+    );
+  });
+
   it("count a giveback as a negative entry, labelled, beside the session it came from", () => {
     const back = data.earningsEntries.filter((entry) => entry.amountPaise < 0);
     expect(back.map((entry) => entry.label)).toEqual(["Given back for lost time"]);

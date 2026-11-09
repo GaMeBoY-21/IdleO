@@ -73,6 +73,7 @@ export const OWNED: Record<SiteName | "admin", readonly string[]> = {
     "src/features/account/MyImages.tsx",
     "src/features/account/Reports.tsx",
     "src/api/wallet.ts",
+    "src/api/home.ts",
     "src/api/images.ts",
     "src/api/keys.ts",
     "src/api/session-follower.ts",

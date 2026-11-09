@@ -1,3 +1,4 @@
+import { formatPaise, formatPaiseRange } from "./money";
 import type { components } from "@/api/schema.gen";
 
 type Service = components["schemas"]["ServiceResponse"];
@@ -54,6 +55,23 @@ export function bookHref(serviceId: string, templateId?: string): string {
  * ("about 15–75 min"), else the template's own typical runtime, else that the renter sets the time limit.
  */
 export function serviceTime(catalog: Catalog, serviceId: string): string {
+  const minutes = serviceMinutes(catalog, serviceId);
+  if (minutes && minutes.from !== "runtime") {
+    return minutes.low === minutes.high
+      ? `about ${minutes.low} min`
+      : `about ${minutes.low}–${minutes.high} min`;
+  }
+  const typical = templatesOf(catalog, serviceId)
+    .map((template) => template.typicalRuntimeSeconds)
+    .find((seconds) => seconds != null);
+  return aboutRuntime(typical) ?? "you choose the time limit";
+}
+
+/** How long a service's jobs typically run, in minutes: its questions' options, else its template's typical runtime. */
+function serviceMinutes(
+  catalog: Catalog,
+  serviceId: string,
+): { low: number; high: number; from: "options" | "runtime" } | null {
   const own = templatesOf(catalog, serviceId);
   const minutes = own.flatMap((template) =>
     template.questions.flatMap((question) =>
@@ -61,12 +79,37 @@ export function serviceTime(catalog: Catalog, serviceId: string): string {
     ),
   );
   if (minutes.length > 0) {
-    const low = Math.min(...minutes);
-    const high = Math.max(...minutes);
-    return low === high ? `about ${low} min` : `about ${low}–${high} min`;
+    return { low: Math.min(...minutes), high: Math.max(...minutes), from: "options" };
   }
-  const typical = own.map((template) => template.typicalRuntimeSeconds).find((seconds) => seconds != null);
-  return aboutRuntime(typical) ?? "you choose the time limit";
+  const seconds = own.map((template) => template.typicalRuntimeSeconds).find((value) => value != null);
+  return seconds == null ? null : { low: seconds / 60, high: seconds / 60, from: "runtime" };
+}
+
+/**
+ * What a service typically costs (ADR 0058): its shortest typical run at the low end of the typical price an hour of
+ * the smallest GPU size its first template fits on, to its longest at the high end; the same typical prices the website
+ * shows. Null when either isn't known: never a guess.
+ */
+export function serviceTypicalCost(
+  catalog: Catalog,
+  serviceId: string,
+  sizes: ReadonlyArray<{ gpuMemoryGb: number; typicalPricePaisePerHour: { min: number; max: number } }>,
+): string | null {
+  const minutes = serviceMinutes(catalog, serviceId);
+  const template = templatesOf(catalog, serviceId)[0];
+  if (!minutes || !template) {
+    return null;
+  }
+  const size = [...sizes]
+    .sort((a, b) => a.gpuMemoryGb - b.gpuMemoryGb)
+    .find((each) => each.gpuMemoryGb * 1000 >= template.minVramMb);
+  if (!size) {
+    return null;
+  }
+  const cost = (at: number, perHour: number) => Math.max(1, Math.round((at * perHour) / 60));
+  const low = cost(minutes.low, size.typicalPricePaisePerHour.min);
+  const high = cost(minutes.high, size.typicalPricePaisePerHour.max);
+  return low === high ? `typically ${formatPaise(low)}` : `typically ${formatPaiseRange(low, high)}`;
 }
 
 /** One sentence on what a service does: its first template's description. */

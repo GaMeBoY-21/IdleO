@@ -1,0 +1,55 @@
+import { useUsage } from "@/api/home";
+import { Bars, BarsSkeleton } from "@/components/ui/Bars";
+import { Money } from "@/components/ui/Money";
+import { Tile } from "@/components/ui/Tile";
+import { Skeleton } from "@/components/ui/Skeleton";
+import { formatMinutes } from "@/lib/hosting";
+import { formatPaise } from "@/lib/money";
+
+const dayOfMonth = (date: string) => Number(date.slice(8, 10));
+const spokenDay = new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "long", timeZone: "UTC" });
+
+/**
+ * This month's use (ADR 0058): what the renter spent and for how many minutes, each day so far as a small bar, all the
+ * server's (`GET /v1/usage`). Asked for once the screen has painted; its skeleton is the same size. A month with nothing
+ * yet says so, and where to start.
+ */
+export function UsagePanel({ enabled }: { enabled: boolean }) {
+  const usage = useUsage(enabled);
+  const month = usage.data;
+  return (
+    <Tile size="lg" aria-labelledby="usage-title" className="flex flex-col gap-3">
+      <h2 id="usage-title" className="text-caption font-bold tracking-wider text-text-2 uppercase">
+        This month
+      </h2>
+      <div className="flex min-h-14 flex-col justify-center">
+        {month ? (
+          <p className="flex flex-wrap items-baseline gap-x-3 tabular">
+            <span className="font-title text-display-figure">
+              <Money paise={month.spentPaise} />
+            </span>
+            <span className="text-small text-text-2">{formatMinutes(month.minutes)} of GPU time</span>
+          </p>
+        ) : (
+          <Skeleton className="h-12 w-40" />
+        )}
+      </div>
+      {month ? (
+        <Bars
+          label="Spent each day this month"
+          tone="panel"
+          bars={month.days.map((day) => ({
+            key: day.date,
+            value: day.spentPaise,
+            // Every fifth day and today are named under their bar; the rest are a screen reader's only.
+            label:
+              dayOfMonth(day.date) % 5 === 0 || day === month.days.at(-1) ? String(dayOfMonth(day.date)) : "",
+            spoken: `${spokenDay.format(new Date(`${day.date}T00:00:00Z`))}, ${formatPaise(day.spentPaise)}`,
+          }))}
+        />
+      ) : (
+        <BarsSkeleton count={30} tone="panel" />
+      )}
+    </Tile>
+  );
+}

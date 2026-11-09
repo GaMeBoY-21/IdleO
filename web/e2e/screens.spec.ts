@@ -111,7 +111,7 @@ test.describe("home", () => {
       await expect(recent.getByRole("row").filter({ hasText: "Diagnostics" })).not.toContainText("Run again");
       await expect(page.getByRole("link", { name: /^Book again/ })).toContainText("Fine-tuning · 6 min 10 s");
       await expect(page.getByRole("link", { name: "All sessions ›" })).toHaveAttribute("href", "/sessions/");
-      await expect(page.getByRole("region", { name: "GPUs free right now" })).toBeVisible();
+      await expect(page.getByRole("region", { name: "GPUs online now" })).toBeVisible();
     }
     // The first service is the lime tile, the other a white one.
     await expect(page.locator('a[href="/book/?service=fine-tune"]')).toContainText("Fine-tune a model");
