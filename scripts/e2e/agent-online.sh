@@ -1459,7 +1459,7 @@ scenario_account_web() {
   E2E_WEB_USER="$web_user" SKIP_VISUAL=1 \
     web_test --project=account-journey --reporter=line >>"$out/account-journey.log" 2>&1 ||
     fail "the account journeys failed; see private/e2e/account-journey.log"
-  note "account journeys: $(grep -Eo '[0-9]+ passed' "$out/account-journey.log" | tail -1) (first sign-in asks for an invite code, a wrong code is refused, the right one lets the person in, a code works once; Account saves a name and a choice across a reload, shows the money and safety kinds locked, and signs out): PASS"
+  note "account journeys: $(grep -Eo '[0-9]+ passed' "$out/account-journey.log" | tail -1) (first sign-in asks for an invite code, a wrong code is refused, the right one lets the person in, a code works once; Account saves a name and a choice across a reload, shows the money and safety kinds locked, and signs out; one person signs in on the renter app and the host site with one account, both sides open, credit and earnings apart; the old hosting addresses redirect to the host site, query and all): PASS"
 }
 scenario="account"
 : >"$out/summary-account.txt"
