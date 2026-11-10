@@ -21,6 +21,13 @@ production_env=(IDLEO_DEPLOYMENT=production IDLEO_SITE_URL=https://site.example.
 env "${production_env[@]}" pnpm build
 env "${production_env[@]}" pnpm build:site
 pnpm size
+# Each site's own security policy (ADR 0058): its API in connect-src, Razorpay's Checkout only on the renter app's Credit
+# page, and the host site, which takes no payment, naming Razorpay nowhere.
+grep -q 'connect-src[^;]*https://api.example.invalid' dist/headers.json dist-host/headers.json
+grep -q 'checkout.razorpay.com' dist/path-headers.json
+if grep -q 'razorpay' dist-host/headers.json dist-host/path-headers.json dist/headers.json; then
+  echo "web: Razorpay's Checkout is allowed beyond the renter app's Credit page"; exit 1
+fi
 refused="$(mktemp -d)"
 if IDLEO_DEPLOYMENT=production VITE_API_URL=https://api.example.invalid VITE_STORAGE_URL=https://storage.example.invalid \
   VITE_AUTH=oidc-mock VITE_OIDC_ISSUER=https://idp.example.invalid VITE_OIDC_CLIENT_ID=idleo \
