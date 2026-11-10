@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { ApiError } from "@/api/errors";
+import { savedName } from "./api";
 import { HANDBOOK, RUNBOOKS } from "./runbooks";
 import { GO_KEYS } from "./Keys";
 import { Problem } from "./ui";
@@ -100,5 +101,14 @@ describe("the ? panel", () => {
     for (const { href } of Object.values(GO_KEYS)) {
       expect(screens).toContain(href);
     }
+  });
+});
+
+describe("a fetched file", () => {
+  it("is saved under the name the server gave it, never in a folder of its choosing", () => {
+    expect(savedName('attachment; filename="idleo-ca-pack-2026-11.zip"')).toBe("idleo-ca-pack-2026-11.zip");
+    expect(savedName('attachment; filename="../../etc/passwd"')).toBe("passwd");
+    expect(savedName("attachment")).toBeNull();
+    expect(savedName(null)).toBeNull();
   });
 });

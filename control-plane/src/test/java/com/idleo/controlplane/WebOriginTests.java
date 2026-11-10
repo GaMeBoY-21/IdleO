@@ -53,6 +53,19 @@ class WebOriginTests {
     }
 
     @Test
+    void theAppsPathsDontTakeTheConsolesSessionHeader() throws Exception {
+        mvc.perform(options("/v1/sessions")
+                        .header("Origin", WEB)
+                        .header("Access-Control-Request-Method", "POST")
+                        .header("Access-Control-Request-Headers", "authorization, admin-session"))
+                // The answer lists what it allows, and the browser refuses the rest.
+                .andExpect(header().string(
+                                "Access-Control-Allow-Headers",
+                                org.hamcrest.Matchers.not(
+                                        org.hamcrest.Matchers.containsStringIgnoringCase("admin-session"))));
+    }
+
+    @Test
     void anyOtherOriginIsRefused() throws Exception {
         mvc.perform(options("/v1/sessions")
                         .header("Origin", "https://elsewhere.example.invalid")
@@ -76,5 +89,19 @@ class WebOriginTests {
                         .header("Origin", "https://elsewhere.example.invalid")
                         .header("Access-Control-Request-Method", "GET"))
                 .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void theAdminConsoleCanReadAFilesNameButTheAppCant() throws Exception {
+        var user = TestUsers.signUp(mvc);
+        mvc.perform(get("/admin/v1/session").header("Origin", WEB).header("Authorization", user.bearer()))
+                .andExpect(header().string(
+                                "Access-Control-Expose-Headers",
+                                org.hamcrest.Matchers.containsStringIgnoringCase("Content-Disposition")));
+        mvc.perform(get("/v1/me").header("Origin", WEB).header("Authorization", user.bearer()))
+                .andExpect(header().string(
+                                "Access-Control-Expose-Headers",
+                                org.hamcrest.Matchers.not(
+                                        org.hamcrest.Matchers.containsStringIgnoringCase("Content-Disposition"))));
     }
 }
