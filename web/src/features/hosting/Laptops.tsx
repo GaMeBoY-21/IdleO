@@ -15,6 +15,7 @@ import { AddTile, LaptopPitch } from "./laptop/LaptopHosting";
 import { MachineTile } from "./laptop/MachineTile";
 import { useAfterPaint } from "@/lib/after-first-screen";
 import { AtAGlance } from "./laptop/AtAGlance";
+import { HelpTile } from "./laptop/HomeCards";
 import { MachineRow } from "./MachineRow";
 
 /**
@@ -66,7 +67,12 @@ export function Laptops() {
           </div>
         )}
         {!hosts.isError && machines && machines.length > 0 && (
-          <AtAGlance machines={machines} enabled={painted} />
+          <div className="grid items-start gap-4 xl:grid-cols-3">
+            <div className="xl:col-span-2">
+              <AtAGlance machines={machines} enabled={painted} />
+            </div>
+            <HelpTile />
+          </div>
         )}
       </div>
     );
