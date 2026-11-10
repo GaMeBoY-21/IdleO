@@ -61,7 +61,7 @@ Coverage says a button sends its request. What the request then does is the cont
 
 ### Role journeys
 
-`admin-roles.spec.ts` is a realistic day for each role against the real stack, in one world on one clock, after the payouts scenario has moved money:
+`admin-roles.spec.ts` is a realistic day for each role against the real stack. CI runs it as four e2e jobs, each a stack of its own with only what its journeys need, so none waits on another's 30-second factor steps: the desk (Support, the Auditor), safety, operations, and the money (Finance and the Owner, after an earning this week):
 
 - **Support:** the inbox, a macro, a reveal with a reason, and a target running out when the clock moves three days.
 - **Trust & Safety:** linked accounts, the ladder, and an appeal the admin who enforced can't decide while another can. Six months on, the strike has stopped counting.

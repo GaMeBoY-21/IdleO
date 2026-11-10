@@ -2126,6 +2126,39 @@ while IFS= read -r line; do summary+=("$line"); done <"$out/summary-queues.txt"
 # checked again; a report refunded after its session was paid out, owed and recovered from the next earnings; a
 # second host who asks to delete their account and is paid at once by a final payout before it goes; the day's
 # payouts reconciled with RazorpayX (0 found); and the ledger's payout rules held.
+# Books the 150 s charged run as the main renter (as $token) at up to $2 paise a minute; waits for its settlement.
+earn() {
+  local session
+  session="$(api_post /v1/sessions -H "Idempotency-Key: \"$user-$1\"" \
+    -d "{\"templateId\": \"charged-run\", \"maxPricePaisePerMin\": $2, \"maxSpendPaise\": 10000}" | json_get .id)"
+  [[ -n "$session" ]] || fail "booking $1 failed"
+  await_state "$session" COMPLETED 300
+  await_closed "$session" 120
+  printf '%s' "$session"
+}
+
+# The main owner as someone payouts can reach (ADR 0040): in a browser, a PAN and a UPI ID checked with the bank's name
+# for it; then every machine of theirs priced at 60 paise a minute, so one session earns more than RazorpayX's ₹1
+# minimum. Once a run: a second call finds them ready.
+payee_ready() {
+  local owner_id id
+  token="$(stack_token "$user")"
+  owner_id="$(api_get /v1/me | json_get .id)"
+  if [[ "$(sql "select state from payouts.pans where user_id = '$owner_id'")" != verified ]]; then
+    E2E_PAYOUTS_USER="$user" E2E_PAYOUTS_STEP=verify SKIP_VISUAL=1 \
+      web_test --project=payouts-journey --reporter=line >>"$out/payouts-journey.log" 2>&1 ||
+      fail "the payouts journey (verify) failed; see private/e2e/payouts-journey.log"
+  fi
+  [[ "$(sql "select state || ':' || pan_last4 from payouts.pans where user_id = '$owner_id'")" == "verified:321F" ]] ||
+    fail "the owner's PAN isn't verified"
+  [[ "$(sql "select count(*) from payouts.pans where user_id = '$owner_id' and encode(pan_sealed, 'escape') like '%ABCPE4321F%'")" == 0 ]] ||
+    fail "the PAN is stored in clear"
+  for id in $(api_get /v1/hosts | python3 -c 'import json, sys
+print(" ".join(h["id"] for h in json.load(sys.stdin)["hosts"] if not h.get("removed")))'); do
+    list_host "$id" 60
+  done
+}
+
 scenario_payouts() {
   local admin_user="$user-payouts-admin" admin_token admin_session owner_id payout status rows session dispute
   local earned_to_paid net retried owner2_token owner2_id host2 code n main_hosts=() id deadline before charged
@@ -2174,33 +2207,13 @@ scenario_payouts() {
     [[ "$(curl -sf -X POST "$api/v1/payout-details/upi-checks/$check/confirm" -H "Authorization: Bearer $fresh" | json_get .state)" == active ]] ||
       fail "UPI ID $1 didn't become where payouts go"
   }
-  # Books the 150 s charged run as the main renter at up to $2 paise a minute; waits for its settlement.
-  earn() {
-    local session
-    session="$(api_post /v1/sessions -H "Idempotency-Key: \"$user-$1\"" \
-      -d "{\"templateId\": \"charged-run\", \"maxPricePaisePerMin\": $2, \"maxSpendPaise\": 10000}" | json_get .id)"
-    [[ -n "$session" ]] || fail "booking $1 failed"
-    await_state "$session" COMPLETED 300
-    await_closed "$session" 120
-    printf '%s' "$session"
-  }
   for id in $(api_get /v1/hosts | python3 -c 'import json, sys
 print(" ".join(h["id"] for h in json.load(sys.stdin)["hosts"] if not h.get("removed")))'); do
     main_hosts+=("$id")
   done
 
-  # The owner verifies in a browser: a PAN, and a UPI ID checked with the bank's name for it.
-  E2E_PAYOUTS_USER="$user" E2E_PAYOUTS_STEP=verify SKIP_VISUAL=1 \
-    web_test --project=payouts-journey --reporter=line >>"$out/payouts-journey.log" 2>&1 ||
-    fail "the payouts journey (verify) failed; see private/e2e/payouts-journey.log"
-  [[ "$(sql "select state || ':' || pan_last4 from payouts.pans where user_id = '$owner_id'")" == "verified:321F" ]] ||
-    fail "the owner's PAN isn't verified"
-  [[ "$(sql "select count(*) from payouts.pans where user_id = '$owner_id' and encode(pan_sealed, 'escape') like '%ABCPE4321F%'")" == 0 ]] ||
-    fail "the PAN is stored in clear"
+  payee_ready
   note "payouts: the owner gave a PAN (sealed; shown as ••••••321F) and checked a UPI ID in the browser, read the name the fake RazorpayX's bank check returned, and used it: PASS"
-
-  # Every machine prices a minute at 60 paise from here, so one session earns more than RazorpayX's ₹1 minimum.
-  for id in "${main_hosts[@]}"; do list_host "$id" 60; done
 
   # 1. Processed: once the window has passed, a batch is prepared (a preview, nothing paid) and released by approval
   # (ADR 0055), which pays what's available, as previewed.
@@ -2515,73 +2528,119 @@ scenario="payouts"
 part payouts && scenario_payouts
 while IFS= read -r line; do summary+=("$line"); done <"$out/summary-payouts.txt"
 
-# A realistic day for each role, in a browser (web/e2e/admin-roles.spec.ts, ADR 0057), last, as it moves the stack's clock
-# on by months. Each works through the screens they use; the Owner closes the month the money above moved in. Then the
-# database refuses an entry dated in it, and an Auditor is refused every write in the permission matrix.
-scenario_roles() {
-  local base="$user-role" who who_token person_token person_id macro ticket late month release session
+# A realistic day for each role, in a browser (web/e2e/admin-roles.spec.ts, ADR 0057), in four parts that CI runs on
+# parallel jobs, each with only what its journeys need: the desk (Support and the Auditor), safety (Trust & Safety, and
+# six months on), operations, and the money (Finance and the Owner closing the month the money moved in). Each moves
+# the stack's clock on, so they run after everything else; in one run the money goes first, as it moves the clock to an
+# hour of its own rather than on from where it is.
+role_base=""
+# The role journeys' admins and the person they work on, once a run.
+role_people() {
+  [[ -z "$role_base" ]] || return 0
+  role_base="$user-role"
+  rm -rf "$out/role-secrets"
+  mkdir -p "$out/role-secrets"
+  chmod 700 "$out/role-secrets"
+  local who who_token
   invite_next=24
   for who in owner approver operations support trust finance auditor auditor-api writer person other; do
-    who_token="$(stack_token "$base-$who")"
-    [[ -n "$who_token" ]] || fail "no token for $base-$who"
+    who_token="$(stack_token "$role_base-$who")"
+    [[ -n "$who_token" ]] || fail "no token for $role_base-$who"
     activate_user "$who_token"
   done
-  ops grant-admin "$base-owner@example.com" --reason "'End-to-end role journeys'" --role owner || fail "grant-admin failed"
-  ops grant-admin "$base-writer@example.com" --reason "'End-to-end role journeys'" --role owner || fail "grant-admin failed"
-  ops grant-admin "$base-approver@example.com" --reason "'End-to-end role journeys'" --role owner || fail "grant-admin failed"
-  ops grant-admin "$base-operations@example.com" --reason "'End-to-end role journeys'" --role operations || fail "grant-admin failed"
-  ops grant-admin "$base-support@example.com" --reason "'End-to-end role journeys'" --role support || fail "grant-admin failed"
-  ops grant-admin "$base-trust@example.com" --reason "'End-to-end role journeys'" --role trust_safety || fail "grant-admin failed"
-  ops grant-admin "$base-finance@example.com" --reason "'End-to-end role journeys'" --role finance || fail "grant-admin failed"
-  ops grant-admin "$base-auditor@example.com" --reason "'End-to-end role journeys'" --role auditor || fail "grant-admin failed"
-  ops grant-admin "$base-auditor-api@example.com" --reason "'End-to-end role journeys'" --role auditor || fail "grant-admin failed"
-  person_token="$(stack_token "$base-person")"
-  person_id="$(token="$person_token" api_get /v1/me | json_get .id)"
+  for who in owner:owner writer:owner approver:owner operations:operations support:support trust:trust_safety \
+    finance:finance auditor:auditor auditor-api:auditor; do
+    ops grant-admin "$role_base-${who%%:*}@example.com" --reason "'End-to-end role journeys'" --role "${who#*:}" ||
+      fail "grant-admin failed; see private/e2e/ops.log"
+  done
+  role_person_token="$(stack_token "$role_base-person")"
+  role_person_id="$(token="$role_person_token" api_get /v1/me | json_get .id)"
+}
 
-  # What the day's work is: two tickets from the person, a macro to answer with, and earnings for this week's batch.
+# Runs the journeys whose titles match $2, logged as part $1, with whatever else the caller has set (E2E_ROLE_*).
+role_journeys() {
+  E2E_ROLE_OWNER="$role_base-owner" E2E_ROLE_APPROVER="$role_base-approver" E2E_ROLE_OPERATIONS="$role_base-operations" \
+    E2E_ROLE_SUPPORT="$role_base-support" E2E_ROLE_TRUST="$role_base-trust" E2E_ROLE_FINANCE="$role_base-finance" \
+    E2E_ROLE_AUDITOR="$role_base-auditor" E2E_ROLE_PERSON="$role_base-person" E2E_ROLE_PERSON_ID="$role_person_id" \
+    E2E_ROLE_PERSON_TOKEN="$role_person_token" E2E_ROLE_OTHER="$role_base-other" E2E_ROLE_SECRETS="$out/role-secrets" \
+    SKIP_VISUAL=1 \
+    web_test --project=admin-roles --grep "$2" --reporter=line >>"$out/admin-roles-$1.log" 2>&1 ||
+    fail "the role journeys ($1) failed; see private/e2e/admin-roles-$1.log"
+}
+
+# Finance's reconciliation, payout batch and CA pack at the start of next month, and the Owner closing this one: an
+# earning this week, past its dispute window, for the batch. The database then refuses an entry dated in the month.
+scenario_roles_money() {
+  local month refused
+  role_people
+  payee_ready
+  earn role-batch 100 >/dev/null
+  sleep 41
+  month="$(python3 -c 'import datetime, zoneinfo; print(datetime.datetime.now(zoneinfo.ZoneInfo("Asia/Kolkata")).strftime("%Y-%m"))')"
+  E2E_ROLE_MONTH="$month" role_journeys money "Finance, |Owner: "
+  [[ "$(sql "select state from billing.periods where month = '$month-01'")" == closed ]] || fail "$month didn't close"
+  refused="$(sql "insert into billing.ledger_entries (id, txn_id, account, amount_paise, direction, ref_type, ref_id, created_at)
+      values (gen_random_uuid(), '00000000-0000-7000-8000-00000000c105', 'gateway_fees', 1, 'debit', 'e2e', gen_random_uuid(), '$month-15T00:00:00Z'),
+             (gen_random_uuid(), '00000000-0000-7000-8000-00000000c105', 'gateway_clearing', 1, 'credit', 'e2e', gen_random_uuid(), '$month-15T00:00:00Z')" 2>&1 || true)"
+  [[ "$refused" == *"the month is closed"* ]] || fail "an entry dated in the closed month $month wasn't refused: $refused"
+  note "role journeys, money: $(grep -Eo '[0-9]+ passed' "$out/admin-roles-money.log" | tail -1): Finance's reconciliation, payout batch and CA pack at the start of next month, and the Owner closing $month, the month the money moved in, after which an entry dated in it is refused: PASS"
+}
+
+# Support's inbox, macro, reveal and a target run out; the Auditor reading with the chain intact, and then refused every
+# write in the permission matrix as the console would send it.
+scenario_roles_desk() {
+  local ticket late macro writer_token writer_secret writer_session auditor_token auditor_secret auditor_session
+  role_people
   ticket="$(sql "insert into support.tickets (id, user_id, topic, status, reply_to, created_at, updated_at)
-      values (gen_random_uuid(), '$person_id', 'account', 'open', '$base-person@example.com', now(), now()) returning number" | head -1)"
+      values (gen_random_uuid(), '$role_person_id', 'account', 'open', '$role_base-person@example.com', now(), now()) returning number" | head -1)"
   late="$(sql "insert into support.tickets (id, user_id, topic, status, reply_to, created_at, updated_at)
-      values (gen_random_uuid(), '$person_id', 'account', 'open', '$base-person@example.com', now(), now()) returning number" | head -1)"
+      values (gen_random_uuid(), '$role_person_id', 'account', 'open', '$role_base-person@example.com', now(), now()) returning number" | head -1)"
   macro="Answered $user"
-  local writer_token writer_secret writer_session
-  writer_token="$(stack_token "$base-writer")"
+  writer_token="$(stack_token "$role_base-writer")"
   writer_secret="$(curl -sf -X POST "$api/admin/v1/second-factor" -H "Authorization: Bearer $writer_token" | json_get .secret)"
   writer_session="$(python3 scripts/e2e/admin-session.py "$api" "$writer_token" "$writer_secret")" || fail "no session for the macro's writer"
   E2E_API="$api" E2E_ADMIN_TOKEN="$writer_token" E2E_ADMIN_SESSION="$writer_session" E2E_ADMIN_SECRET="$writer_secret" \
     E2E_ADMIN_STEPS="$out/role-writer.steps" python3 scripts/e2e/admin-call.py /admin/v1/queue/macros \
     "{\"type\": \"ticket\", \"name\": \"$macro\", \"body\": \"Hello, this is sorted now.\", \"setStatus\": \"resolved\"}" >/dev/null ||
     fail "writing the role journey's macro failed"
-  token="$(stack_token "$user")"
-  earn role-batch 100 >/dev/null
-  # Past the dispute window, so it's in the batch Finance prepares.
-  sleep 41
-  month="$(python3 -c 'import datetime, zoneinfo; print(datetime.datetime.now(zoneinfo.ZoneInfo("Asia/Kolkata")).strftime("%Y-%m"))')"
-  release="$(sql "select release from hosts.agent_rollouts order by created_at desc limit 1")"
-
-  E2E_ROLE_OWNER="$base-owner" E2E_ROLE_APPROVER="$base-approver" E2E_ROLE_OPERATIONS="$base-operations"     E2E_ROLE_SUPPORT="$base-support" E2E_ROLE_TRUST="$base-trust" E2E_ROLE_FINANCE="$base-finance"     E2E_ROLE_AUDITOR="$base-auditor" E2E_ROLE_PERSON="$base-person" E2E_ROLE_PERSON_ID="$person_id"     E2E_ROLE_PERSON_TOKEN="$person_token" E2E_ROLE_OTHER="$base-other" E2E_ROLE_TICKET="#$ticket"     E2E_ROLE_LATE_TICKET="#$late" E2E_ROLE_MACRO="$macro" E2E_ROLE_MONTH="$month" E2E_ROLE_RELEASE="$release" SKIP_VISUAL=1     web_test --project=admin-roles --reporter=line >>"$out/admin-roles.log" 2>&1 ||
-    fail "the role journeys failed; see private/e2e/admin-roles.log"
-  [[ "$(sql "select state from billing.periods where month = '$month-01'")" == closed ]] || fail "$month didn't close"
-  local refused
-  refused="$(sql "insert into billing.ledger_entries (id, txn_id, account, amount_paise, direction, ref_type, ref_id, created_at)
-      values (gen_random_uuid(), '00000000-0000-7000-8000-00000000c105', 'gateway_fees', 1, 'debit', 'e2e', gen_random_uuid(), '$month-15T00:00:00Z'),
-             (gen_random_uuid(), '00000000-0000-7000-8000-00000000c105', 'gateway_clearing', 1, 'credit', 'e2e', gen_random_uuid(), '$month-15T00:00:00Z')" 2>&1 || true)"
-  [[ "$refused" == *"the month is closed"* ]] || fail "an entry dated in the closed month $month wasn't refused: $refused"
-
-  # The Auditor can't write: every write in the permission matrix, as the console would send it, is refused.
-  local auditor_token auditor_secret auditor_session
-  auditor_token="$(stack_token "$base-auditor-api")"
+  E2E_ROLE_TICKET="#$ticket" E2E_ROLE_LATE_TICKET="#$late" E2E_ROLE_MACRO="$macro" role_journeys desk "Support: |Auditor: "
+  auditor_token="$(stack_token "$role_base-auditor-api")"
   auditor_secret="$(curl -sf -X POST "$api/admin/v1/second-factor" -H "Authorization: Bearer $auditor_token" | json_get .secret)"
   auditor_session="$(python3 scripts/e2e/admin-session.py "$api" "$auditor_token" "$auditor_secret")" || fail "no session for the Auditor"
   python3 scripts/e2e/admin-writes-refused.py "$api" "$auditor_token" "$auditor_session" control-plane/src/test/resources/admin-permission-matrix.csv ||
     fail "the Auditor wasn't refused a write"
-
-  note "role journeys: $(grep -Eo '[0-9]+ passed' "$out/admin-roles.log" | tail -1): Support, Trust & Safety, Operations, an Auditor refused every write with the audit chain intact, Finance, and the Owner closing $month, the month the money moved in, on a moved clock: PASS"
+  note "role journeys, desk: $(grep -Eo '[0-9]+ passed' "$out/admin-roles-desk.log" | tail -1): Support's inbox, macro, reveal and a target run out on a moved clock; an Auditor reading with the audit chain intact, then refused every write in the permission matrix: PASS"
 }
-scenario="roles"
-: >"$out/summary-roles.txt"
-part roles && scenario_roles
-while IFS= read -r line; do summary+=("$line"); done <"$out/summary-roles.txt"
+
+# Operations widening the signed test release's rollout with approval and pausing it, and maintenance mode.
+scenario_roles_ops() {
+  local deadline
+  role_people
+  if [[ -z "$(sql "select release from hosts.agent_rollouts where release = '$release_version'")" ]]; then
+    publish_test_release
+    deadline=$((SECONDS + 30))
+    until [[ -n "$(sql "select release from hosts.agent_rollouts where release = '$release_version'")" ]]; do
+      ((SECONDS < deadline)) || fail "the release $release_version didn't start a rollout"
+      sleep 0.5
+    done
+  fi
+  E2E_ROLE_RELEASE="$release_version" role_journeys ops "Operations: "
+  note "role journeys, operations: $(grep -Eo '[0-9]+ passed' "$out/admin-roles-ops.log" | tail -1): a rollout widened with approval and paused, and maintenance mode on and off again: PASS"
+}
+
+# Trust & Safety's linked accounts, ladder and an appeal another admin decides; then, six months on, the strike gone.
+scenario_roles_safety() {
+  role_people
+  role_journeys safety "Trust & Safety"
+  note "role journeys, safety: $(grep -Eo '[0-9]+ passed' "$out/admin-roles-safety.log" | tail -1): linked accounts, a warning and its appeal decided by another admin, and the strike no longer counting six months on: PASS"
+}
+
+for role_part in money desk ops safety; do
+  scenario="roles-$role_part"
+  : >"$out/summary-roles-$role_part.txt"
+  part "roles-$role_part" && "scenario_roles_$role_part"
+  while IFS= read -r line; do summary+=("$line"); done <"$out/summary-roles-$role_part.txt"
+done
 fi
 
 # 9. The nightly wallet check, now: every wallet, reservation and hold matches the ledger.

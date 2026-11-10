@@ -4,10 +4,10 @@ import { expect, test, type Browser, type Page } from "@playwright/test";
 import { API, signIn, typeToConfirm } from "./support";
 
 /**
- * A realistic day for each role, against the real stack (ADR 0057), run by scripts/e2e/agent-online.sh once the money has
- * moved. In order, because they share one world and one clock: Support, Trust & Safety, Operations and the Auditor work
- * through today; the clock then moves to the start of next month, for Finance's reconciliation, batch and CA pack and the
- * Owner's month close, of the month the money moved in; and last it moves past a strike's six months.
+ * A realistic day for each role, against the real stack (ADR 0057), run by scripts/e2e/agent-online.sh in four parts, each
+ * on a stack of its own (`--grep` picks them): Support and the Auditor; Trust & Safety, then six months on; Operations;
+ * and, once money has moved, Finance's reconciliation, batch and CA pack at the start of next month and the Owner's
+ * close of the month the money moved in. Within a part they run in order, as they share its world and its clock.
  */
 const owner = process.env.E2E_ROLE_OWNER;
 const approver = process.env.E2E_ROLE_APPROVER;
@@ -26,6 +26,8 @@ const macro = process.env.E2E_ROLE_MACRO ?? "";
 const month = process.env.E2E_ROLE_MONTH ?? "";
 const release = process.env.E2E_ROLE_RELEASE ?? "";
 const clockFile = process.env.E2E_CLOCK_FILE ?? "";
+/** Where each admin's authenticator secret is kept for the rest of a run (gitignored private/e2e/, a test stack's). */
+const secrets = process.env.E2E_ROLE_SECRETS ?? "";
 
 test.skip(!owner, "run by scripts/e2e/agent-online.sh");
 test.describe.configure({ mode: "serial" });
@@ -80,12 +82,24 @@ async function as(browser: Browser, user: string): Promise<Admin> {
   }
   const page = await (await browser.newContext({ viewport: { width: 1440, height: 900 } })).newPage();
   await signIn(page, user, "/admin/");
-  await expect(page.getByRole("heading", { level: 1, name: "Set up your authenticator" })).toBeVisible();
-  const secret = (await page.getByText(/^[A-Z2-7]{32}$/).textContent())!;
-  await page.getByLabel("Code from your authenticator app").fill(await freshCode(page, secret));
-  await page.getByRole("button", { name: "Confirm" }).click();
-  await expect(page.getByRole("list", { name: "Recovery codes" }).getByRole("listitem")).toHaveCount(10);
-  await page.getByRole("button", { name: "I've saved them" }).click();
+  const enrolling = page.getByRole("heading", { level: 1, name: "Set up your authenticator" });
+  const signingIn = page.getByRole("heading", { level: 1, name: "Admin sign-in" });
+  await expect(enrolling.or(signingIn)).toBeVisible();
+  let secret: string;
+  if (await enrolling.isVisible()) {
+    secret = (await page.getByText(/^[A-Z2-7]{32}$/).textContent())!;
+    await page.getByLabel("Code from your authenticator app").fill(await freshCode(page, secret));
+    await page.getByRole("button", { name: "Confirm" }).click();
+    await expect(page.getByRole("list", { name: "Recovery codes" }).getByRole("listitem")).toHaveCount(10);
+    await page.getByRole("button", { name: "I've saved them" }).click();
+    writeFileSync(`${secrets}/${user}`, secret);
+  } else {
+    // Enrolled by an earlier part of the same run, on the same stack: their authenticator is the file it kept.
+    secret = readFileSync(`${secrets}/${user}`, "utf8").trim();
+    await page.waitForTimeout(31_000);
+    await page.getByLabel("Code from your authenticator app").fill(await freshCode(page, secret));
+    await page.getByRole("button", { name: "Continue" }).click();
+  }
   await expect(page.getByRole("navigation", { name: "Admin" })).toBeVisible();
   // Whenever the console asks for a recent factor, they give one, and what they were doing goes on by itself.
   const asked = page.getByRole("dialog", { name: "Confirm it's you" });
