@@ -67,7 +67,15 @@ class SecurityConfiguration {
         source.registerCorsConfiguration("/v1/**", cors);
         // The admin console (ADR 0027) is part of the same web app: the same origins, and its admin session's header.
         var admin = new CorsConfiguration(cors);
-        admin.addAllowedHeader("Admin-Session");
+        // Lists of its own: the copy shares the app's, so adding to them would add to /v1/** too.
+        admin.setAllowedHeaders(List.of(
+                HttpHeaders.AUTHORIZATION,
+                HttpHeaders.CONTENT_TYPE,
+                HttpHeaders.IF_MATCH,
+                IdempotentRequests.HEADER,
+                "Admin-Session"));
+        // An approved export's name and kind, which the console saves it under.
+        admin.setExposedHeaders(List.of(HttpHeaders.ETAG, HttpHeaders.LOCATION, HttpHeaders.CONTENT_DISPOSITION));
         source.registerCorsConfiguration("/admin/v1/**", admin);
         return source;
     }

@@ -190,9 +190,17 @@ export async function adminData<T>(
 }
 
 /** Saves a file an admin call answered with, as its problem detail if it was refused. */
+/** The name a response asks to be saved under, from its Content-Disposition; null when it names none. */
+export function savedName(disposition: string | null): string | null {
+  const named = disposition?.match(/filename="([^"]+)"/)?.[1];
+  // Only the name: never a folder, whatever the header says.
+  return named ? (named.split(/[\\/]/).pop() ?? null) : null;
+}
+
+/** Saves a file the server sent, under the name it gave, or `fallback` when it gave none. */
 export async function adminFile(
   result: Promise<{ data?: unknown; error?: unknown; response: Response }>,
-  name: string,
+  fallback: string,
 ): Promise<void> {
   const { data: body, error, response } = await result;
   if (!response.ok || !(body instanceof Blob)) {
@@ -202,7 +210,7 @@ export async function adminFile(
   try {
     const link = document.createElement("a");
     link.href = url;
-    link.download = name;
+    link.download = savedName(response.headers.get("Content-Disposition")) ?? fallback;
     link.click();
   } finally {
     URL.revokeObjectURL(url);

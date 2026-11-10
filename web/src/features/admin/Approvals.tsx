@@ -54,6 +54,8 @@ export function Approvals() {
       ),
     initialPageParam: "",
     getNextPageParam: (page) => page.nextCursor ?? undefined,
+    // Read afresh on every visit: what another admin has just asked for must be here when the approver arrives.
+    staleTime: 0,
   });
   const download = async (request: AdminApproval) => {
     setError(null);
@@ -63,7 +65,7 @@ export function Approvals() {
           params: { path: { id: request.id } },
           parseAs: "blob",
         }),
-        `idleo-${request.kind}-${request.id.slice(0, 8)}.csv`,
+        `idleo-${request.kind}-${request.id.slice(0, 8)}`,
       );
       await client.invalidateQueries({ queryKey: [ADMIN, "approvals"] });
     } catch (failed) {
