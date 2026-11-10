@@ -58,7 +58,7 @@ export function Hosting() {
         )}
         {/* Last, so a checklist that arrives with its answers moves nothing above it. */}
         <div className="px-6 pb-8 xl:px-8 2xl:px-10">
-          <FirstRun enabled={painted} />
+          <FirstRun hosts={hosts} enabled={painted} />
         </div>
       </>
     );
@@ -140,7 +140,7 @@ export function Hosting() {
           {machines && <AddLink />}
         </>
       )}
-      <FirstRun enabled={painted} />
+      <FirstRun hosts={hosts} enabled={painted} />
     </Page>
   );
 }

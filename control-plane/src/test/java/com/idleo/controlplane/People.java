@@ -115,6 +115,9 @@ public final class People {
                 IDS.generate(),
                 me,
                 ts(now));
+        // A side this person unlocked with a code of one kind (ADR 0058).
+        jdbc.update(
+                "insert into identity.user_sides (user_id, side, unlocked_at) values (?, 'renting', ?)", me, ts(now));
         for (var schema : List.of("identity", "hosts", "trust")) {
             jdbc.update(
                     "insert into " + schema + ".idempotency_keys (user_id, idempotency_key, request_hash, state,"
