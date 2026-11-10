@@ -11,7 +11,10 @@ import { usePayoutDetails } from "@/api/payouts";
 import { maskedPan } from "@/lib/payouts";
 import { SkeletonLine } from "@/components/ui/Skeleton";
 import { SectionTitle, Tile } from "@/components/ui/Tile";
+import { useEarnings } from "@/api/hosting";
+import { BarsSkeleton } from "@/components/ui/Bars";
 import { PayoutHistory, PayoutsTile, StatementTile } from "./Payouts";
+import { WeeksBars } from "./WeekBars";
 
 /**
  * The host site's Payouts tab (ADR 0040, ADR 0058): what's available and pending, the next payout, the tax deducted this
@@ -37,7 +40,8 @@ export function HostPayouts() {
             <WhereTile enabled={painted} />
             <StatementTile enabled={painted} />
           </div>
-          <div className="xl:col-span-3">
+          <div className="flex flex-col gap-4 xl:col-span-3">
+            <WeeksOnTheWay enabled={painted} />
             <PayoutHistory enabled={painted} />
           </div>
         </div>
@@ -47,9 +51,24 @@ export function HostPayouts() {
   return (
     <Page title="Payouts">
       <PayoutsTile enabled={painted} />
-      <PayoutHistory enabled={painted} />
       <StatementTile enabled={painted} />
+      {/* Last: as long as the payouts are, so it arriving moves nothing above it. */}
+      <PayoutHistory enabled={painted} />
     </Page>
+  );
+}
+
+/** The last 8 weeks earned (ADR 0058): what payouts are made of, week by week. */
+function WeeksOnTheWay({ enabled }: { enabled: boolean }) {
+  const earnings = useEarnings(false, enabled);
+  const owner = earnings.data?.pages[0];
+  return (
+    <Tile as="section" aria-labelledby="weeks-paid-title" className="flex flex-col gap-3 xl:p-7">
+      <SectionTitle id="weeks-paid-title">Earned, the last 8 weeks</SectionTitle>
+      <div className="h-18">
+        {owner ? <WeeksBars weeks={owner.weeks} tone="panel" /> : <BarsSkeleton count={8} tone="panel" />}
+      </div>
+    </Tile>
   );
 }
 
