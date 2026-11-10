@@ -1,9 +1,14 @@
 import type { UseQueryResult } from "@tanstack/react-query";
 import { useCachedMe, type Session, type Wallet } from "@/api/queries";
 import type { components } from "@/api/schema.gen";
+import { Button } from "@/components/ui/Button";
 import { Checklist, type Step } from "@/components/ui/Checklist";
 import { bookHref } from "@/lib/catalog";
-import { SAMPLE_TEMPLATE, SampleJob } from "./SampleJob";
+import { lazy, Suspense } from "react";
+import { SAMPLE_TEMPLATE, sampleLabel } from "./sample-template";
+
+// Only a new renter's checklist draws it, so its code (Book's request) is a chunk of its own, never in Home's first load.
+const SampleJob = lazy(() => import("./SampleJob").then((module) => ({ default: module.SampleJob })));
 
 /** The CUDA test: the job a new renter runs first, which proves a GPU reaches their container. */
 export const FIRST_JOB = bookHref("diagnostics", SAMPLE_TEMPLATE);
@@ -46,7 +51,22 @@ export function FirstRun({
       detail: `The CUDA test runs nvidia-smi on a GPU and stops, proving a GPU reaches your job${sampleCost ? `, ${sampleCost}` : ""}.`,
       done: sessions ? sessions.some((session) => session.state === "COMPLETED") : null,
       action: { href: FIRST_JOB, label: "Run the test" },
-      ...(sample && budget ? { control: <SampleJob templateId={sample.id} budgetPaise={budget} /> } : {}),
+      ...(sample && budget
+        ? {
+            control: (
+              <Suspense
+                fallback={
+                  // The same button, busy, while its code arrives, so nothing moves.
+                  <Button variant="ghost" busy>
+                    {sampleLabel(budget)}
+                  </Button>
+                }
+              >
+                <SampleJob templateId={sample.id} budgetPaise={budget} />
+              </Suspense>
+            ),
+          }
+        : {}),
     },
   ];
   return <Checklist id="first-run-title" title="Get started" steps={steps} />;
