@@ -52,6 +52,16 @@ Each site has a first run, shown as a checklist on its home until every step is 
 
 Open question: the admin console's invites screen makes codes of each kind with the console's move to its own site; until then an operator makes them with `create-invites --unlocks`.
 
+### Full, simple screens
+
+"Full" means useful: at 1440 x 900 a main page's first screen holds real content, with no large empty area; "simple" means one primary action, plain words, and what matters most top left. `e2e/full-screens.spec.ts` holds every main page of both sites to it: a grid of points over the first screen beside the sidebar, each counted as content when it lands on a tile, a heading, text or a control, and empty when it lands on the page between them; under 60% fails, and each page's figure goes to the run's log and `web-full.json`.
+
+- **The renter app's Home:** the services, each with its typical time and its typical cost (the typical price of the smallest GPU size it fits on, `GET /v1/public/availability`, never a guess); the credit with Add credit; the GPUs online by size (8, 12, 16, 24 GB) with their prices an hour, from the live API; this month's spend and GPU time as a bar a day (`GET /v1/usage`, metering's settlements less lost time given back, by day in India); the running and recent sessions; a new renter's checklist, whose test job runs in one click at its template's own budget; and the terminal (the command line and the SDK as their docs give them, a snippet with Copy). Its tabs on a phone are Home, Book, Sessions, Files and Credit.
+- **The host site's home:** the earnings (this week, pending, the next payout's day and amount, 8 weeks of bars, `weeks` on `GET /v1/earnings`); each laptop; the demand for its GPU (`GET /v1/demand`: the last 28 days' bookings it could have run, asked, served and unmet, by hour in India, with fewer than 20 said to be too few to show a pattern) and what similar laptops ask; its score and plainly what would raise it; the last payouts with their TDS; a new host's checklist; and Help. Its tabs are Home, Laptops, Earnings, Payouts and Help; payouts have their own tab, no longer under Earnings.
+- **The website:** its front door has two paths, Rent a GPU and Earn with your laptop. The rent page (`/rent/`) and the earn page each have how it works, the live prices or the earnings calculator, the sandbox, the questions and one button to their site; the rent page's sections are the landing page's own, and its price list Pricing's (`LivePrices`). Live figures only where the API has them; the rest say "typical".
+
+One component per pattern: the bars (`components/ui/Bars.tsx`, the host's days and weeks and the renter's month), the copy button (`CopyButton`, the API key's too) and the checklist.
+
 ### One API
 
 CORS allows exactly the sites' origins per environment (`web.allowed-origins`); storage's CORS allows the renter app and the host site, since an appeal's evidence is uploaded from either.
