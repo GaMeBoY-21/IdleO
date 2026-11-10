@@ -579,8 +579,9 @@ test.describe("payouts", () => {
   }, info) => {
     await open(page, "/payouts/");
     await expect(page.getByRole("heading", { level: 1, name: "Payouts" })).toBeVisible();
-    await expect(page.getByRole("region", { name: "Payouts" })).toContainText("Next payout");
+    await expect(page.getByRole("region", { name: "Payouts", exact: true })).toContainText("Next payout");
     await expect(page.getByRole("region", { name: "Payout history" })).toContainText("Didn't go through");
+    await expect(page.getByRole("region", { name: "Where payouts go" })).toBeVisible();
     await expectAccessible(page);
     await capture(page, info, "payouts");
   });

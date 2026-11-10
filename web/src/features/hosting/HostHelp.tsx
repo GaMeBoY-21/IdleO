@@ -14,7 +14,9 @@ import { PageHeading } from "@/components/ui/Heading";
 import { cn } from "@/lib/cn";
 import { useWide } from "@/lib/media";
 import { HELP_VIRTUALIZATION } from "@/site/paths";
+import { useHosts } from "@/api/hosting";
 import { DownloadButton } from "./AddMachine";
+import { WhatEachNeeds } from "./laptop/AtAGlance";
 
 const ROW = "flex min-h-touch items-center gap-3 py-3 text-body hover:underline";
 
@@ -33,6 +35,7 @@ export function HostHelp() {
   useTitle("Help");
   const painted = useAfterPaint();
   const inbox = useInbox(painted);
+  const hosts = useHosts(painted);
   const latest = itemsOf(inbox.data).slice(0, 3);
   const wide = useWide();
   const tiles = (
@@ -102,7 +105,10 @@ export function HostHelp() {
   return (
     <div className={cn(FIT_FRAME, "flex flex-col gap-6")}>
       <PageHeading>Help</PageHeading>
-      <div className="grid items-stretch gap-4 xl:grid-cols-3">{tiles}</div>
+      <div className="grid items-stretch gap-4 xl:grid-cols-3">
+        {tiles}
+        <WhatEachNeeds machines={hosts.data?.hosts} />
+      </div>
     </div>
   );
 }

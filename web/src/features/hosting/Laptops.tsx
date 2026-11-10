@@ -13,6 +13,8 @@ import { HOST_PATHS } from "@/sites/host/paths";
 import { AddLink, Pitch } from "./Hosting";
 import { AddTile, LaptopPitch } from "./laptop/LaptopHosting";
 import { MachineTile } from "./laptop/MachineTile";
+import { useAfterPaint } from "@/lib/after-first-screen";
+import { AtAGlance } from "./laptop/AtAGlance";
 import { MachineRow } from "./MachineRow";
 
 /**
@@ -25,6 +27,7 @@ export function Laptops() {
   const machines = hosts.data?.hosts;
   const since = staleSince(hosts);
   const wide = useWide();
+  const painted = useAfterPaint();
 
   if (machines?.length === 0) {
     return wide ? (
@@ -61,6 +64,9 @@ export function Laptops() {
             {/* Adding another is the grid's last tile: what it takes, and the one step. */}
             <AddTile className="xl:h-host-panel" />
           </div>
+        )}
+        {!hosts.isError && machines && machines.length > 0 && (
+          <AtAGlance machines={machines} enabled={painted} />
         )}
       </div>
     );

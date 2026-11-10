@@ -36,9 +36,10 @@ export function EarningsHero({
       tone="night"
       size="lg"
       aria-labelledby="week-title"
-      className="grid gap-6 md:col-span-6 md:grid-cols-2 xl:col-span-8 xl:grid-cols-5 xl:gap-8 xl:py-7"
+      className="grid gap-6 md:col-span-6 md:grid-cols-2 xl:col-span-8 xl:h-host-panel xl:grid-cols-5 xl:gap-8 xl:py-7"
     >
-      <div className="flex flex-col gap-4 xl:col-span-2">
+      {/* Its figures at the foot, so nothing that arrives above them moves them. */}
+      <div className="flex flex-col justify-between gap-4 xl:col-span-2">
         {/* Two lines kept, so the note on figures from an earlier visit coming and going moves nothing. */}
         <h2 id="week-title" className="min-h-9 text-caption text-on-night-2">
           Earned this week, all laptops

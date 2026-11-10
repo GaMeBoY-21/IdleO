@@ -32,12 +32,15 @@ const renter = (): Record<string, Answer> => ({
   "/v1/wallet/refund-requests": { json: credit.noRefunds },
 });
 
-/** `asserted: false`: measured and reported, not held to the bar (Book is a short chooser by design, ADR 0058). */
+/**
+ * `asserted: false`: measured and reported, not held to the bar (ADR 0058): Book's first step is a short chooser by
+ * design, and My files is as long as what a renter keeps, four uploads in these fixtures.
+ */
 const PAGES: { site: "app" | "host"; path: string; name: string; ready: string; asserted?: false }[] = [
   { site: "app", path: "/", name: "renter home", ready: "What do you want to run?" },
   { site: "app", path: "/book/", name: "book", ready: "Fine-tune a model", asserted: false },
   { site: "app", path: "/sessions/", name: "sessions", ready: "Sessions" },
-  { site: "app", path: "/files/", name: "files", ready: "My files" },
+  { site: "app", path: "/files/", name: "files", ready: "My files", asserted: false },
   { site: "app", path: "/credit/", name: "credit", ready: "Credit" },
   { site: "host", path: "/", name: "host home", ready: "Demand for your GPU" },
   { site: "host", path: "/laptops/", name: "laptops", ready: "Add a laptop" },
