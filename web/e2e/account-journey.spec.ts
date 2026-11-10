@@ -191,7 +191,10 @@ test("one person rents and hosts with one account, signing in on each site", asy
   await signIn(page, base, "/");
   await expect(page.getByRole("heading", { name: "What do you want to run?" })).toBeAttached();
   await signIn(page, base, "/", HOST_URL);
-  await expect(page.getByText("Earned this week")).toBeVisible();
+  // The host site's own home, open to them: the checklist to start hosting, or the week's earnings once they host.
+  await expect(
+    page.getByRole("region", { name: "Start hosting" }).or(page.getByText("Earned this week")).first(),
+  ).toBeVisible();
   await expect(page.getByRole("heading", { name: "Hosting isn't open for your account yet" })).toHaveCount(0);
 
   const headers = { Authorization: `Bearer ${await token(request, base)}` };
