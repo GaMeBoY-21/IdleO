@@ -86,12 +86,12 @@ export function LaptopHosting({
       {machines === undefined ? (
         <>
           <span role="status" aria-label="Loading your machines" className="sr-only" />
-          <Skeleton tile className="h-service-card md:col-span-3 xl:col-span-4" />
-          <Skeleton tile className="h-service-card md:col-span-3 xl:col-span-4" />
+          <Skeleton tile className="h-service-card md:col-span-3 xl:col-span-4 xl:h-host-panel" />
+          <Skeleton tile className="h-service-card md:col-span-3 xl:col-span-4 xl:h-host-panel" />
         </>
       ) : (
         machines.map((host) => (
-          <MachineTile key={host.id} host={host} className="md:col-span-3 xl:col-span-4" />
+          <MachineTile key={host.id} host={host} className="md:col-span-3 xl:col-span-4 xl:h-host-panel" />
         ))
       )}
       <DemandTile host={first} enabled={enabled} />

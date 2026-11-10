@@ -1,12 +1,19 @@
 import { Link } from "wouter";
 import { useUploadPages } from "@/api/queries";
 import { AccountFrame } from "@/components/shell/AccountFrame";
-import { Tile } from "@/components/ui/Tile";
 import { Button, buttonClasses } from "@/components/ui/Button";
 import { SkeletonLine } from "@/components/ui/Skeleton";
 import { EmptyState, ErrorState, StaleNotice, staleSince } from "@/components/ui/States";
 import { useNow } from "@/lib/clock";
 import { useTitle } from "@/lib/title";
+import { FIT_FRAME } from "@/components/shell/Layout";
+import { PageHeading } from "@/components/ui/Heading";
+import { SectionTitle, Tile } from "@/components/ui/Tile";
+import type { components } from "@/api/schema.gen";
+import { formatBytes } from "@/lib/bytes";
+import { cn } from "@/lib/cn";
+import { useWide } from "@/lib/media";
+import { formatDay } from "@/lib/time";
 import { FileRow } from "./FileRow";
 
 /**
@@ -21,8 +28,9 @@ export function MyFiles() {
   const uploads = pages.data?.pages.flatMap((page) => page.uploads);
   const since = staleSince(pages);
 
-  return (
-    <AccountFrame title="My files">
+  const wide = useWide();
+  const body = (
+    <>
       {since !== null && <StaleNotice updatedAt={since} />}
       <p className="text-body text-text-2">
         What you upload when you book is kept here, to use again. Each is deleted 30 days after a session last
@@ -92,6 +100,51 @@ export function MyFiles() {
           ))}
         </Tile>
       )}
-    </AccountFrame>
+    </>
+  );
+  if (!wide) {
+    return <AccountFrame title="My files">{body}</AccountFrame>;
+  }
+  // From 768 px a tab of its own (ADR 0058): the list beside what's kept, how much, and when the next one goes.
+  return (
+    <div className={cn(FIT_FRAME, "flex flex-col gap-6")}>
+      <PageHeading>My files</PageHeading>
+      <div className="grid items-start gap-4 xl:grid-cols-3">
+        <div className="flex flex-col gap-4 xl:col-span-2">{body}</div>
+        <FilesSummary uploads={uploads} />
+      </div>
+    </div>
+  );
+}
+
+type Upload = components["schemas"]["UploadResponse"];
+
+/** What's kept, in sum: how many, how big, and which goes next, and when; then how to use one again. */
+function FilesSummary({ uploads }: { uploads: Upload[] | undefined }) {
+  const next = uploads ? [...uploads].sort((a, b) => a.expiresAt.localeCompare(b.expiresAt))[0] : undefined;
+  return (
+    <Tile as="section" aria-labelledby="files-summary-title" className="flex flex-col gap-3 xl:p-7">
+      <SectionTitle id="files-summary-title">Kept for you</SectionTitle>
+      <dl className="grid grid-cols-2 gap-2">
+        <div className="flex min-h-18 flex-col justify-center rounded-control bg-panel-2 px-4 py-3">
+          <dt className="text-small text-text-2">Uploads</dt>
+          <dd className="text-option font-semibold tabular">{uploads ? uploads.length : "…"}</dd>
+        </div>
+        <div className="flex min-h-18 flex-col justify-center rounded-control bg-panel-2 px-4 py-3">
+          <dt className="text-small text-text-2">In all</dt>
+          <dd className="text-option font-semibold tabular">
+            {uploads ? formatBytes(uploads.reduce((sum, upload) => sum + upload.sizeBytes, 0)) : "…"}
+          </dd>
+        </div>
+      </dl>
+      <p className="min-h-10 text-small text-text-2">
+        {next
+          ? `${next.name} goes next, on ${formatDay(next.expiresAt)}, unless a session uses it before then.`
+          : "Nothing is due to go."}
+      </p>
+      <p className="text-small text-text-2">
+        To use one again, choose From My files for an input on Book, or Run again from a session.
+      </p>
+    </Tile>
   );
 }
