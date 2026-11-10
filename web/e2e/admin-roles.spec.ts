@@ -68,7 +68,8 @@ async function freshCode(page: Page, secret: string): Promise<string> {
   return codeNow(secret);
 }
 
-type Admin = { page: Page; secret: string };
+/** An admin's own browser, and where the clock stood when they last signed in. */
+type Admin = { page: Page; secret: string; signedInAt: number };
 const admins = new Map<string, Admin>();
 
 /** This admin's own browser: enrolled at their first visit, signed in again if their session has run out. */
@@ -94,19 +95,29 @@ async function as(browser: Browser, user: string): Promise<Admin> {
     await asked.getByRole("button", { name: "Confirm" }).click();
     await expect(asked).toBeHidden({ timeout: 30_000 });
   });
-  const admin = { page, secret };
+  const admin = { page, secret, signedInAt: offset() };
   admins.set(user, admin);
   return admin;
 }
 
+/**
+ * Signs in the second admin before anything is asked of them: only an admin whose second factor is confirmed counts as
+ * one who can approve, and a request made while nobody else can goes solo, to wait out its cooling instead.
+ */
+async function approverReady(browser: Browser): Promise<void> {
+  await as(browser, approver!);
+}
+
 /** Their session has run out with the clock: the page loads again and asks them for a code, as it does a person. */
-async function again({ page, secret }: Admin): Promise<void> {
+async function again(admin: Admin): Promise<void> {
+  const { page, secret } = admin;
   await page.goto("/admin/");
   await expect(page.getByRole("heading", { level: 1, name: "Admin sign-in" })).toBeVisible();
   await page.waitForTimeout(31_000);
   await page.getByLabel("Code from your authenticator app").fill(await freshCode(page, secret));
   await page.getByRole("button", { name: "Continue" }).click();
   await expect(page.getByRole("navigation", { name: "Admin" })).toBeVisible();
+  admin.signedInAt = offset();
 }
 
 async function go(page: Page, screen: string): Promise<void> {
@@ -125,17 +136,33 @@ async function confirm(page: Page, button: string, reason: string): Promise<void
     await typeToConfirm(sheet);
   }
   await sheet.getByRole("button", { name: button }).click();
-  await expect(sheet).toBeHidden({ timeout: 60_000 });
+  // What goes to another admin stays open to say so, until it's dismissed.
+  const done = page.getByRole("dialog").getByRole("button", { name: "Done" });
+  await expect(sheet.or(done).first())
+    .toBeHidden({ timeout: 5_000 })
+    .catch(async () => {
+      if (await done.isVisible()) {
+        await done.click();
+      }
+    });
+  await expect(page.getByRole("dialog")).toHaveCount(0, { timeout: 60_000 });
 }
 
-/** A second admin approves what must not rest on one person, from their own screen. */
-async function approved(browser: Browser, words: string | RegExp): Promise<void> {
-  const { page } = await as(browser, approver!);
+/** A second admin approves what must not rest on one person, from their own screen: the request asked for with `reason`. */
+async function approved(browser: Browser, reason: string): Promise<void> {
+  const admin = await as(browser, approver!);
+  // A jump of the clock has ended the session they had.
+  if (admin.signedInAt !== offset()) {
+    await again(admin);
+  }
+  const { page } = admin;
+  // From another screen, so the list is read afresh: a second request finds them on Approvals already.
+  await go(page, "Control room");
   await go(page, "Approvals");
   const request = page
     .getByRole("table", { name: "Approval requests" })
     .getByRole("row")
-    .filter({ hasText: words })
+    .filter({ hasText: reason })
     .first();
   await expect(request).toBeVisible();
   await request.getByRole("button", { name: /^Approve/ }).click();
@@ -187,6 +214,7 @@ test("Trust & Safety: linked accounts, the ladder, and an appeal another admin d
   browser,
 }) => {
   test.setTimeout(480_000);
+  await approverReady(browser);
   // Two people on one browser and address, one after the other: what links them.
   for (const who of [person, other]) {
     const context = await browser.newContext();
@@ -261,15 +289,22 @@ test("Trust & Safety: linked accounts, the ladder, and an appeal another admin d
 
 test("Operations: a rollout, widened with approval and paused, and maintenance mode", async ({ browser }) => {
   test.setTimeout(480_000);
+  await approverReady(browser);
   const { page } = await as(browser, operations!);
   await go(page, "Fleet");
   const rollout = page.getByRole("table", { name: "Rollouts" }).getByRole("row").filter({ hasText: release });
   await expect(rollout).toBeVisible();
+  const share = rollout.getByText(/^\d+%$/).first();
+  const before = await share.innerText();
   await rollout.getByRole("button", { name: /^(Run again|Widen)/ }).click();
   await confirm(page, "Ask to widen", "The first hosts look healthy, so a wider share");
-  await approved(browser, /rollout/i);
-  await go(page, "Fleet");
-  await expect(rollout.getByRole("button", { name: /^Pause/ })).toBeVisible({ timeout: 60_000 });
+  await approved(browser, "The first hosts look healthy, so a wider share");
+  // Once the approval has run, the screen read again, from another: the widened rollout, at its new version.
+  await expect(async () => {
+    await go(page, "Control room");
+    await go(page, "Fleet");
+    await expect(share).not.toHaveText(before, { timeout: 2_000 });
+  }).toPass({ timeout: 60_000 });
   await rollout.getByRole("button", { name: /^Pause/ }).click();
   await confirm(page, "Pause now", "Holding it here over the weekend");
 
@@ -286,7 +321,7 @@ test("Operations: a rollout, widened with approval and paused, and maintenance m
   expect(status.maintenance).toBe(true);
   await flag.getByRole("button", { name: "End maintenance" }).click();
   await confirm(page, "Ask to run again", "The work is finished");
-  await approved(browser, /maintenance/i);
+  await approved(browser, "The work is finished");
   await expect
     .poll(
       async () =>
@@ -319,6 +354,7 @@ test("Finance, at the start of next month: reconciliation, a payout batch and th
   browser,
 }) => {
   test.setTimeout(600_000);
+  await approverReady(browser);
   const admin = await as(browser, finance!);
   const { page } = admin;
   const [year, monthNumber] = month.split("-").map(Number) as [number, number];
@@ -336,20 +372,19 @@ test("Finance, at the start of next month: reconciliation, a payout batch and th
   await go(page, "Payouts");
   await page.getByRole("button", { name: "Prepare a batch now" }).click();
   await confirm(page, "Prepare it", "This week's payouts");
-  await page
-    .getByRole("link", { name: /^(Open|Preview|See)/ })
-    .first()
-    .click();
+  await page.getByRole("link", { name: "Review and release" }).first().click();
   await page.getByRole("button", { name: /^Release/ }).click();
   await confirm(page, "Ask to release", "I checked the preview against the ledger");
-  await approved(browser, /payout/i);
+  await approved(browser, "I checked the preview against the ledger");
 
   await go(page, "Tax");
   await page.getByLabel("Month (YYYY-MM)").fill(month);
   await page.getByRole("button", { name: "Ask for the month's CA pack" }).click();
-  await confirm(page, "Ask for it", `The CA's files for ${month}`);
-  await approved(browser, /tax|pack/i);
+  await confirm(page, "Ask for approval", `The CA's files for ${month}`);
+  await approved(browser, `The CA's files for ${month}`);
   await go(page, "Approvals");
+  // What they asked for, once approved, is among their own requests.
+  await page.getByLabel("Show", { exact: true }).selectOption("mine");
   const download = page.waitForEvent("download", { timeout: 60_000 });
   await page
     .getByRole("button", { name: /^Fetch the file/ })
@@ -360,6 +395,7 @@ test("Finance, at the start of next month: reconciliation, a payout batch and th
 
 test("Owner: an approval, a kill switch, and closing the month the money moved in", async ({ browser }) => {
   test.setTimeout(600_000);
+  await approverReady(browser);
   const admin = await as(browser, owner!);
   const { page } = admin;
   await page.keyboard.press("g");
@@ -376,7 +412,7 @@ test("Owner: an approval, a kill switch, and closing the month the money moved i
   await confirm(page, "Pause now", "We're seeing a wave of bad sign-ups");
   await flag.getByRole("button", { name: "Run again" }).click();
   await confirm(page, "Ask to run again", "It has passed");
-  await approved(browser, /signups/);
+  await approved(browser, "It has passed");
   await expect(flag.getByRole("button", { name: "Pause" })).toBeVisible({ timeout: 60_000 });
 
   // The month, once its checklist holds.
@@ -392,10 +428,14 @@ test("Owner: an approval, a kill switch, and closing the month the money moved i
     timeout: 60_000,
   });
   await row.getByRole("button", { name: "Close", exact: true }).click();
-  await confirm(page, "Ask to close it", `Everything for ${month} is reconciled`);
-  await approved(browser, /period|close/i);
-  await go(page, "Months");
-  await expect(row.getByRole("button", { name: "Reopen" })).toBeVisible({ timeout: 60_000 });
+  await confirm(page, "Ask to close", `Everything for ${month} is reconciled`);
+  await approved(browser, `Everything for ${month} is reconciled`);
+  // Once the approval has run: the screen read again, from another, as a person coming back to it.
+  await expect(async () => {
+    await go(page, "Control room");
+    await go(page, "Months");
+    await expect(row.getByRole("button", { name: "Reopen" })).toBeVisible({ timeout: 2_000 });
+  }).toPass({ timeout: 60_000 });
 });
 
 test("Trust & Safety, six months on: the strike has stopped counting", async ({ browser }) => {
