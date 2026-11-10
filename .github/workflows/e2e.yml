@@ -31,15 +31,19 @@ jobs:
   shards:
     name: e2e ${{ matrix.shard }}
     runs-on: ubuntu-24.04
-    # The payouts shard goes on to the role journeys, which wait out each factor's 30-second step.
-    timeout-minutes: ${{ matrix.shard == 'payouts' && 70 || 35 }}
+    timeout-minutes: 35
     strategy:
       fail-fast: false
       matrix:
         include:
           - { shard: sessions, parts: "sessions cli queues" }
           - { shard: people, parts: "hosting account privacy payments admin" }
-          - { shard: payouts, parts: "payouts roles" }
+          - { shard: payouts, parts: "payouts" }
+          # The role journeys (web/e2e/admin-roles.spec.ts), a stack each: every factor waits out a 30-second step.
+          - { shard: roles-desk, parts: "roles-desk" }
+          - { shard: roles-safety, parts: "roles-safety" }
+          - { shard: roles-ops, parts: "roles-ops" }
+          - { shard: roles-money, parts: "roles-money" }
           - { shard: start, parts: "" }
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
