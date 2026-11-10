@@ -15,7 +15,7 @@ import { AddTile, LaptopPitch } from "./laptop/LaptopHosting";
 import { MachineTile } from "./laptop/MachineTile";
 import { useAfterPaint } from "@/lib/after-first-screen";
 import { AtAGlance } from "./laptop/AtAGlance";
-import { HelpTile } from "./laptop/HomeCards";
+import { DemandTile, HelpTile, ScoreTile } from "./laptop/HomeCards";
 import { MachineRow } from "./MachineRow";
 
 /**
@@ -72,6 +72,8 @@ export function Laptops() {
               <AtAGlance machines={machines} enabled={painted} />
             </div>
             <HelpTile />
+            <DemandTile host={machines[0]} enabled={painted} className="xl:col-span-2 xl:h-host-panel" />
+            <ScoreTile host={machines[0]} className="xl:h-host-panel" />
           </div>
         )}
       </div>

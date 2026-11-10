@@ -127,8 +127,9 @@ export function HostHelp() {
       <PageHeading>Help</PageHeading>
       <div className="grid items-stretch gap-4 xl:grid-cols-3">
         {tiles}
-        <WhatEachNeeds machines={hosts.data?.hosts} />
+        {/* The questions are fixed; the laptops' list is as long as they are, so it comes last. */}
         <Questions />
+        <WhatEachNeeds machines={hosts.data?.hosts} />
       </div>
     </div>
   );

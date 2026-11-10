@@ -65,13 +65,13 @@ export function EarningsHero({
           )}
         </span>
         <dl className="grid grid-cols-2 gap-2 text-small">
-          <div className="flex min-h-20 flex-col justify-center rounded-control bg-on-night/10 px-3 py-2">
+          <div className="flex min-h-20 flex-col justify-start rounded-control bg-on-night/10 px-3 py-2">
             <dt className="text-on-night-2">Pending</dt>
             <dd className="font-semibold tabular">
               {summary ? <Money paise={summary.pendingPaise} /> : "…"}
             </dd>
           </div>
-          <div className="flex min-h-20 flex-col justify-center rounded-control bg-on-night/10 px-3 py-2">
+          <div className="flex min-h-20 flex-col justify-start rounded-control bg-on-night/10 px-3 py-2">
             <dt className="text-on-night-2">Next payout</dt>
             <dd className="font-semibold tabular">
               {summary
@@ -102,17 +102,22 @@ const hourLabel = (hour: number) =>
  * 28 days, from the platform's own bookings and the ones that found no host; and what similar laptops ask, from its
  * price band. With too few bookings it says so rather than draw a pattern from noise.
  */
-export function DemandTile({ host, enabled }: { host: Host | undefined; enabled: boolean }) {
+export function DemandTile({
+  host,
+  enabled,
+  className = "md:col-span-6 xl:col-span-6 xl:h-host-panel",
+}: {
+  host: Host | undefined;
+  enabled: boolean;
+  /** Its place in the grid: the home's by default. */
+  className?: string;
+}) {
   const vram = host?.gpus[0]?.vramMb;
   const demand = useDemand(vram, enabled);
   const band = usePriceBand(host?.id ?? "", enabled && host !== undefined);
   const busiest = demand.data?.hours.reduce((top, hour) => (hour.asked > top.asked ? hour : top));
   return (
-    <Tile
-      as="section"
-      aria-labelledby="demand-title"
-      className="flex flex-col gap-3 md:col-span-6 xl:col-span-6 xl:h-host-panel xl:p-7"
-    >
+    <Tile as="section" aria-labelledby="demand-title" className={cn("flex flex-col gap-3 xl:p-7", className)}>
       <SectionTitle id="demand-title">Demand for your GPU</SectionTitle>
       {host === undefined ? (
         <p className="text-small text-text-2">Link a laptop, and when renters want its GPU shows here.</p>
@@ -151,13 +156,16 @@ export function DemandTile({ host, enabled }: { host: Host | undefined; enabled:
 }
 
 /** The host score, plainly (ADR 0058): the first laptop's word for it, and what would raise it. */
-export function ScoreTile({ host }: { host: Host | undefined }) {
+export function ScoreTile({
+  host,
+  className = "md:col-span-3 xl:col-span-3 xl:h-host-panel",
+}: {
+  host: Host | undefined;
+  /** Its place in the grid: the home's by default. */
+  className?: string;
+}) {
   return (
-    <Tile
-      as="section"
-      aria-labelledby="score-title"
-      className="flex flex-col gap-2 md:col-span-3 xl:col-span-3 xl:h-host-panel xl:p-7"
-    >
+    <Tile as="section" aria-labelledby="score-title" className={cn("flex flex-col gap-2 xl:p-7", className)}>
       <SectionTitle id="score-title">Host score</SectionTitle>
       {host ? (
         <>
