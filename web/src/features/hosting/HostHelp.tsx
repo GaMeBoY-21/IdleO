@@ -13,6 +13,7 @@ import { FIT_FRAME } from "@/components/shell/Layout";
 import { PageHeading } from "@/components/ui/Heading";
 import { cn } from "@/lib/cn";
 import { useWide } from "@/lib/media";
+import { HOST_QUESTIONS } from "@/site/host-questions";
 import { HELP_VIRTUALIZATION } from "@/site/paths";
 import { useHosts } from "@/api/hosting";
 import { DownloadButton } from "./AddMachine";
@@ -26,6 +27,25 @@ const TROUBLES = [
   { href: siteLink("/docs/hosting/"), label: "The host guide: what runs, what it costs you, what you earn" },
   { href: "/account/help/", label: "Write to us, and read our answers" },
 ] as const;
+
+/** The questions hosts ask first, the earn page's own list, each opening in place. */
+function Questions() {
+  return (
+    <Tile as="section" aria-labelledby="questions-title" className="flex flex-col gap-1 xl:col-span-3 xl:p-7">
+      <SectionTitle id="questions-title">Questions hosts ask</SectionTitle>
+      <div className="grid gap-x-6 xl:grid-cols-2">
+        {HOST_QUESTIONS.map((item) => (
+          <details key={item.question} className="border-b border-line py-3">
+            <summary className="min-h-touch cursor-pointer content-center text-body font-semibold">
+              {item.question}
+            </summary>
+            <p className="mt-1 text-small text-text-2">{item.answer}</p>
+          </details>
+        ))}
+      </div>
+    </Tile>
+  );
+}
 
 /**
  * The host site's Help tab (ADR 0058): the Windows app's download, what to do when something's wrong, and the latest
@@ -108,6 +128,7 @@ export function HostHelp() {
       <div className="grid items-stretch gap-4 xl:grid-cols-3">
         {tiles}
         <WhatEachNeeds machines={hosts.data?.hosts} />
+        <Questions />
       </div>
     </div>
   );

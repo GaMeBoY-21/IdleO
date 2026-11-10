@@ -51,6 +51,7 @@ export function HostPayouts() {
   return (
     <Page title="Payouts">
       <PayoutsTile enabled={painted} />
+      <WhereTile enabled={painted} />
       <StatementTile enabled={painted} />
       {/* Last: as long as the payouts are, so it arriving moves nothing above it. */}
       <PayoutHistory enabled={painted} />

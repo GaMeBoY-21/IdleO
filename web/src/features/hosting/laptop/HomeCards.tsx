@@ -65,13 +65,13 @@ export function EarningsHero({
           )}
         </span>
         <dl className="grid grid-cols-2 gap-2 text-small">
-          <div className="flex min-h-14 flex-col justify-center rounded-control bg-on-night/10 px-3 py-2">
+          <div className="flex min-h-20 flex-col justify-center rounded-control bg-on-night/10 px-3 py-2">
             <dt className="text-on-night-2">Pending</dt>
             <dd className="font-semibold tabular">
               {summary ? <Money paise={summary.pendingPaise} /> : "…"}
             </dd>
           </div>
-          <div className="flex min-h-14 flex-col justify-center rounded-control bg-on-night/10 px-3 py-2">
+          <div className="flex min-h-20 flex-col justify-center rounded-control bg-on-night/10 px-3 py-2">
             <dt className="text-on-night-2">Next payout</dt>
             <dd className="font-semibold tabular">
               {summary
