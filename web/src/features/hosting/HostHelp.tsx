@@ -9,6 +9,10 @@ import { RelativeTime } from "@/components/ui/Time";
 import { useAfterPaint } from "@/lib/after-first-screen";
 import { siteLink } from "@/lib/site-links";
 import { useTitle } from "@/lib/title";
+import { FIT_FRAME } from "@/components/shell/Layout";
+import { PageHeading } from "@/components/ui/Heading";
+import { cn } from "@/lib/cn";
+import { useWide } from "@/lib/media";
 import { HELP_VIRTUALIZATION } from "@/site/paths";
 import { DownloadButton } from "./AddMachine";
 
@@ -30,8 +34,9 @@ export function HostHelp() {
   const painted = useAfterPaint();
   const inbox = useInbox(painted);
   const latest = itemsOf(inbox.data).slice(0, 3);
-  return (
-    <Page title="Help">
+  const wide = useWide();
+  const tiles = (
+    <>
       <Tile as="section" aria-labelledby="app-title" className="flex flex-col gap-3 md:p-6">
         <SectionTitle id="app-title">The Windows app</SectionTitle>
         <p className="text-small text-text-2">
@@ -88,6 +93,16 @@ export function HostHelp() {
           </div>
         )}
       </Tile>
-    </Page>
+    </>
+  );
+  if (!wide) {
+    return <Page title="Help">{tiles}</Page>;
+  }
+  // From 768 px the three side by side, each its own column (ADR 0058: full, and in the order a host needs them).
+  return (
+    <div className={cn(FIT_FRAME, "flex flex-col gap-6")}>
+      <PageHeading>Help</PageHeading>
+      <div className="grid items-stretch gap-4 xl:grid-cols-3">{tiles}</div>
+    </div>
   );
 }

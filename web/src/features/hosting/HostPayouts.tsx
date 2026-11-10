@@ -7,6 +7,10 @@ import { cn } from "@/lib/cn";
 import { useWide } from "@/lib/media";
 import { useTitle } from "@/lib/title";
 import { HOST_PATHS } from "@/sites/host/paths";
+import { usePayoutDetails } from "@/api/payouts";
+import { maskedPan } from "@/lib/payouts";
+import { SkeletonLine } from "@/components/ui/Skeleton";
+import { SectionTitle, Tile } from "@/components/ui/Tile";
 import { PayoutHistory, PayoutsTile, StatementTile } from "./Payouts";
 
 /**
@@ -30,6 +34,7 @@ export function HostPayouts() {
         <div className="grid items-start gap-4 xl:grid-cols-5">
           <div className="flex flex-col gap-4 xl:col-span-2">
             <PayoutsTile enabled={painted} />
+            <WhereTile enabled={painted} />
             <StatementTile enabled={painted} />
           </div>
           <div className="xl:col-span-3">
@@ -47,3 +52,51 @@ export function HostPayouts() {
     </Page>
   );
 }
+
+/** Where payouts go (ADR 0040): the PAN and the UPI ID on file, as Payout details shows them, and the way to change them. */
+function WhereTile({ enabled }: { enabled: boolean }) {
+  const details = usePayoutDetails(enabled).data;
+  const rows = details
+    ? [
+        {
+          label: "PAN",
+          value: details.pan
+            ? `${maskedPan(details.pan.last4)} · ${panWords(details.pan.state)}`
+            : "Not given yet",
+        },
+        { label: "UPI ID", value: details.inUse ? details.inUse.vpa : "None in use yet" },
+      ]
+    : null;
+  return (
+    <Tile as="section" aria-labelledby="where-title" className="flex flex-col gap-2 xl:p-7">
+      <SectionTitle
+        id="where-title"
+        action={
+          <Link href={HOST_PATHS.payoutDetails} className="text-small font-semibold underline">
+            Change
+          </Link>
+        }
+      >
+        Where payouts go
+      </SectionTitle>
+      <dl className="flex flex-col divide-y divide-line">
+        {(
+          rows ?? [
+            { label: "PAN", value: null },
+            { label: "UPI ID", value: null },
+          ]
+        ).map((row) => (
+          <div key={row.label} className="flex min-h-touch items-center justify-between gap-3">
+            <dt className="text-small text-text-2">{row.label}</dt>
+            <dd className="min-w-0 truncate text-body font-semibold">
+              {row.value ?? <SkeletonLine size="body" width="w-1/2" />}
+            </dd>
+          </div>
+        ))}
+      </dl>
+    </Tile>
+  );
+}
+
+const panWords = (state: string) =>
+  state === "verified" ? "verified" : state === "rejected" ? "not accepted" : "being checked";

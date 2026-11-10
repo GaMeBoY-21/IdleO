@@ -78,8 +78,8 @@ export function Summary({ summary }: { summary: PayoutSummary }) {
           </dd>
         </div>
       </dl>
-      {/* Two lines kept for what's said here, whichever it is, so nothing below moves. */}
-      <div className="flex min-h-9 flex-col gap-0.5 text-small">
+      {/* Four lines kept for what's said here, whichever it is and however it wraps on a phone, so nothing below moves. */}
+      <div className="flex min-h-20 flex-col gap-0.5 text-small">
         {blocked ? (
           <p className="font-semibold text-warn-fg">
             {blocked}{" "}
@@ -155,7 +155,7 @@ export function SummarySkeleton() {
           </div>
         ))}
       </dl>
-      <div className="flex min-h-9 flex-col gap-0.5 text-small">
+      <div className="flex min-h-20 flex-col gap-0.5 text-small">
         <SkeletonLine size="small" width="w-2/3" />
       </div>
       <div className="flex min-h-touch items-center">

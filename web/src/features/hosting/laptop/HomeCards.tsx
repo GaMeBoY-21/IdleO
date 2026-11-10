@@ -50,11 +50,11 @@ export function EarningsHero({
           )}
         </h2>
         {/* The figure and its line, the same height before they arrive and after. */}
-        <span className="flex min-h-21 flex-col gap-1">
+        <span className="flex min-h-24 flex-col gap-1">
           {owner ? (
             <>
               <Money paise={owner.weekPaise} className="block font-title text-timer-lg" />
-              <span className="text-small text-on-night-2 tabular">
+              <span className="truncate text-small text-on-night-2 tabular">
                 <Money paise={owner.totalPaise} /> in total · {formatMinutes(owner.minutesRentedThisWeek)}{" "}
                 rented
               </span>

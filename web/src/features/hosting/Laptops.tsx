@@ -11,7 +11,7 @@ import { useWide } from "@/lib/media";
 import { useTitle } from "@/lib/title";
 import { HOST_PATHS } from "@/sites/host/paths";
 import { AddLink, Pitch } from "./Hosting";
-import { LaptopPitch } from "./laptop/LaptopHosting";
+import { AddTile, LaptopPitch } from "./laptop/LaptopHosting";
 import { MachineTile } from "./laptop/MachineTile";
 import { MachineRow } from "./MachineRow";
 
@@ -48,7 +48,7 @@ export function Laptops() {
       <div className={cn(FIT_FRAME, "flex flex-col gap-6")}>
         <div className="flex flex-wrap items-end justify-between gap-4">
           <PageHeading>Laptops</PageHeading>
-          <Link href={HOST_PATHS.add} className={buttonClasses("primary", false, true)}>
+          <Link href={HOST_PATHS.add} className={buttonClasses("ghost", false, true)}>
             Add a laptop
           </Link>
         </div>
@@ -56,10 +56,10 @@ export function Laptops() {
         {failed || (
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {machines
-              ? machines.map((host) => (
-                  <MachineTile key={host.id} host={host} className="min-h-service-card" />
-                ))
-              : [0, 1, 2].map((key) => <Skeleton key={key} tile className="h-service-card" />)}
+              ? machines.map((host) => <MachineTile key={host.id} host={host} className="xl:h-host-panel" />)
+              : [0, 1].map((key) => <Skeleton key={key} tile className="h-service-card xl:h-host-panel" />)}
+            {/* Adding another is the grid's last tile: what it takes, and the one step. */}
+            <AddTile className="xl:h-host-panel" />
           </div>
         )}
       </div>
