@@ -294,7 +294,8 @@ test("Operations: a rollout, widened with approval and paused, and maintenance m
   await go(page, "Fleet");
   const rollout = page.getByRole("table", { name: "Rollouts" }).getByRole("row").filter({ hasText: release });
   await expect(rollout).toBeVisible();
-  const share = rollout.getByText(/^\d+%$/).first();
+  // Its state: a share like "5%", or "paused".
+  const share = rollout.getByRole("cell").nth(1);
   const before = await share.innerText();
   await rollout.getByRole("button", { name: /^(Run again|Widen)/ }).click();
   await confirm(page, "Ask to widen", "The first hosts look healthy, so a wider share");
