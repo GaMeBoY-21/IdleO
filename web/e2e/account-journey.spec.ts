@@ -1,4 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
+import { token } from "./journey-support";
+import { HOST_URL } from "./sites";
 import { API, expectAccessible, signIn, watchConsole } from "./support";
 
 /**
@@ -176,4 +178,48 @@ test("a command line's sign-in is approved in the browser, and it gets its key",
     (await request.get(`${API}/v1/me`, { headers: { Authorization: `Bearer ${key.key}` } })).status(),
   ).toBe(200);
   finish();
+});
+
+/**
+ * One account, both sites (ADR 0058), on the real stack: the same person signs in on the renter app and on the host
+ * site, each its own origin; both sides are open to them; their credit is the renter app's and their earnings the host
+ * site's, never one shown as the other; and the menu on each leads to the other.
+ */
+test("one person rents and hosts with one account, signing in on each site", async ({ page, request }) => {
+  expect(base, "E2E_WEB_USER").not.toBe("");
+  const finish = watchConsole(page);
+  await signIn(page, base, "/");
+  await expect(page.getByRole("heading", { name: "What do you want to run?" })).toBeAttached();
+  await signIn(page, base, "/", HOST_URL);
+  await expect(page.getByText("Earned this week")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Hosting isn't open for your account yet" })).toHaveCount(0);
+
+  const headers = { Authorization: `Bearer ${await token(request, base)}` };
+  const me = (await (await request.get(`${API}/v1/me`, { headers })).json()) as { unlocked: string[] };
+  expect(me.unlocked.sort()).toEqual(["hosting", "renting"]);
+  // Credit is the renter's, earnings the host's: separate figures from separate calls (the ledger's two sides).
+  const wallet = await request.get(`${API}/v1/wallet`, { headers });
+  const earnings = await request.get(`${API}/v1/earnings`, { headers });
+  expect(wallet.ok() && earnings.ok()).toBe(true);
+  expect(Object.keys((await wallet.json()) as object)).toContain("availablePaise");
+  expect(Object.keys((await earnings.json()) as object)).toContain("weekPaise");
+  finish();
+});
+
+/**
+ * The renter app's old hosting addresses (ADR 0058), on the real build: each a permanent redirect to the host site's,
+ * query and all, so emails, bookmarks and older Windows apps keep working.
+ */
+test("the old hosting addresses redirect to the host site, query and all", async ({ request }) => {
+  for (const [from, to] of [
+    ["/hosting/", "/"],
+    ["/hosting/machine/?id=01a1", "/laptop/?id=01a1"],
+    ["/hosting/earnings/", "/earnings/"],
+    ["/hosting/payout-details/", "/payout-details/"],
+    ["/link/0199f0a2-7c1e-7d3a-9b2f-3c4d5e6f7a8b/", "/link/0199f0a2-7c1e-7d3a-9b2f-3c4d5e6f7a8b/"],
+  ] as const) {
+    const answer = await request.get(from, { maxRedirects: 0 });
+    expect(answer.status(), from).toBe(301);
+    expect(answer.headers().location, from).toBe(`${HOST_URL}${to}`);
+  }
 });
