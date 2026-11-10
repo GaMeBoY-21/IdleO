@@ -91,6 +91,26 @@ export function reliabilityLowers(lowers: Host["reliability"]["lowers"]): string
   });
 }
 
+/**
+ * What would raise a machine's score (ADR 0058), plainly: the other side of each thing that lowers it, or, for a new
+ * one, what makes it rise at all.
+ */
+export function reliabilityRaisers(reliability: Host["reliability"]): string[] {
+  if (reliability.label === "new") {
+    return ["Finishing renters' sessions, and passing its self-test, raises it from New."];
+  }
+  const raisers = reliability.lowers.map((entry) =>
+    entry.kind === "sessions_lost"
+      ? "Keep it online and the app running through a session: each lost one counts for 30 days."
+      : entry.kind === "self_tests_failed"
+        ? "Fix what its last self-test found, then run it again from the laptop's page."
+        : "Sessions that finish without a report raise it again.",
+  );
+  return raisers.length > 0
+    ? raisers
+    : ["Nothing holds it down. Keeping it online when renters want it keeps it so."];
+}
+
 /** The temperature limit's range, as the API takes it. */
 export const TEMP_MIN = 60;
 export const TEMP_MAX = 95;

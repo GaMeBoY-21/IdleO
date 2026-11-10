@@ -527,3 +527,36 @@ export const hostLink: HostLink = {
 };
 /** The same link once its owner approved it: the machine it made is `hostNew`, pending. */
 export const hostLinkApproved: HostLink = { ...hostLink, state: "approved", hostId: hostNew.id };
+
+/** GET /v1/demand (ADR 0058): bookings an 8 GB GPU could run, by hour in India, the evening busiest; totals add up. */
+const DEMAND_ASKED = [0, 0, 0, 0, 0, 0, 0, 1, 1, 2, 2, 2, 3, 2, 2, 2, 3, 4, 6, 8, 9, 7, 4, 1];
+const DEMAND_UNMET = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 2, 3, 2, 1, 0];
+export const demand = {
+  vramMb: 8188,
+  days: 28,
+  asked: DEMAND_ASKED.reduce((sum, n) => sum + n, 0),
+  served: DEMAND_ASKED.reduce((sum, n) => sum + n, 0) - DEMAND_UNMET.reduce((sum, n) => sum + n, 0),
+  unmet: DEMAND_UNMET.reduce((sum, n) => sum + n, 0),
+  enough: true,
+  hours: DEMAND_ASKED.map((asked, hour) => ({
+    hour,
+    asked,
+    served: asked - DEMAND_UNMET[hour]!,
+    unmet: DEMAND_UNMET[hour]!,
+  })),
+};
+
+/** Too few bookings to show a pattern. */
+export const demandThin = {
+  ...demand,
+  asked: 3,
+  served: 3,
+  unmet: 0,
+  enough: false,
+  hours: demand.hours.map((hour) => ({
+    ...hour,
+    asked: hour.hour === 20 ? 3 : 0,
+    served: hour.hour === 20 ? 3 : 0,
+    unmet: 0,
+  })),
+};

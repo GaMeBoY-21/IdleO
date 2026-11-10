@@ -16,6 +16,7 @@ const RUNS = 3;
 // that it is a public page and not the app's Home.
 const PAGES = [
   "/?site",
+  "/rent/",
   "/pricing/",
   "/gpus/",
   "/earn/",

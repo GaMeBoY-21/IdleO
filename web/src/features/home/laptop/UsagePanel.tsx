@@ -23,7 +23,14 @@ export function UsagePanel({ enabled }: { enabled: boolean }) {
         This month
       </h2>
       <div className="flex min-h-14 flex-col justify-center">
-        {month ? (
+        {usage.isError ? (
+          <p className="text-small text-text-2">
+            Couldn&apos;t load this month&apos;s use.{" "}
+            <button type="button" className="font-semibold underline" onClick={() => void usage.refetch()}>
+              Try again
+            </button>
+          </p>
+        ) : month ? (
           <p className="flex flex-wrap items-baseline gap-x-3 tabular">
             <span className="font-title text-display-figure">
               <Money paise={month.spentPaise} />
@@ -34,7 +41,12 @@ export function UsagePanel({ enabled }: { enabled: boolean }) {
           <Skeleton className="h-12 w-40" />
         )}
       </div>
-      {month ? (
+      {month && month.spentPaise === 0 ? (
+        // As tall as the bars, so a month with nothing yet moves nothing.
+        <p className="flex h-18 items-center text-small text-text-2">
+          Nothing yet this month. A first session shows here, a bar a day.
+        </p>
+      ) : month ? (
         <Bars
           label="Spent each day this month"
           tone="panel"
@@ -48,7 +60,7 @@ export function UsagePanel({ enabled }: { enabled: boolean }) {
           }))}
         />
       ) : (
-        <BarsSkeleton count={30} tone="panel" />
+        <div className="h-18">{!usage.isError && <BarsSkeleton count={30} tone="panel" />}</div>
       )}
     </Tile>
   );

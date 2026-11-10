@@ -18,6 +18,7 @@ export function hostingApi(): Record<string, Answer> {
     // No release until a screen says otherwise: the Download button is "coming soon".
     "/v1/agent-releases/latest": { status: 404, problem: "no-agent-release" },
     "/v1/earnings": { json: hosting.earnings },
+    "/v1/demand": { json: hosting.demand },
     // Payouts (ADR 0040): the summary, the history and where they go.
     "/v1/payouts/summary": { json: payouts.summary },
     "/v1/payouts": { json: { payouts: payouts.payouts, nextCursor: null } },

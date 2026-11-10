@@ -5,6 +5,8 @@
  */
 export const LANDING = "/";
 export const PRICING = "/pricing/";
+/** The renter's own page (ADR 0058): how it works, the live prices, the sandbox, the questions, one way in. */
+export const RENT = "/rent/";
 export const GPUS = "/gpus/";
 export const EARN = "/earn/";
 export const DOCS = "/docs/";

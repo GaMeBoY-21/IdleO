@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import * as data from "./fixtures";
+import * as publicData from "./fixtures-public";
 import * as credit from "./fixtures-credit";
 import { capture, expectAccessible, fakeApi, onPhone, signIn, type Answer } from "./support";
 
@@ -14,6 +15,9 @@ const signedIn = (overrides: Record<string, Answer> = {}): Record<string, Answer
   "/v1/templates": { json: data.templates },
   "/v1/wallet": { json: data.asha.wallet },
   "/v1/sessions": { json: data.sessionsPage(data.asha.sessions) },
+  // Home's month and the typical prices its services' costs come from (ADR 0058).
+  "/v1/usage": { json: data.usageOf(data.asha.sessions) },
+  "/v1/public/availability": { json: publicData.availability() },
   // The Credit page's money-in tiles (ADR 0039; their own states are credit-screens.spec.ts's).
   "/v1/wallet/billing-details": { json: credit.billingDetails },
   "/v1/wallet/invoices": { json: credit.invoices },

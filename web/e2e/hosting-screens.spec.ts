@@ -44,11 +44,19 @@ test.describe("the Hosting tab", () => {
     await expect(page.getByText("Earned this week")).toBeVisible();
     if (onPhone(info)) {
       await expect(page.getByText("in total · payouts start with the paid pilot")).toBeVisible();
+      await expect(page.getByRole("list", { name: "Earned each day, the last 7 days" })).toBeVisible();
     } else {
+      // The laptop's home (ADR 0058): pending, the next payout, 8 weeks, the demand, the score and the payouts.
       await expect(page.getByText("in total ·")).toBeVisible();
-      await expect(page.getByText("Weekly UPI payouts start with the paid pilot.")).toBeVisible();
+      await expect(page.getByText("Next payout")).toBeVisible();
+      await expect(page.getByRole("list", { name: "Earned each week, the last 8 weeks" })).toBeVisible();
+      await expect(page.getByRole("region", { name: "Demand for your GPU" })).toContainText(
+        `asked for a GPU like this ${hosting.demand.asked} times, most around 8 pm; ${hosting.demand.unmet} found no host free`,
+      );
+      await expect(page.getByRole("region", { name: "Host score" })).toBeVisible();
+      await expect(page.getByRole("region", { name: "Payouts" })).toBeVisible();
+      await expect(page.getByRole("region", { name: "Help" })).toBeVisible();
     }
-    await expect(page.getByRole("list", { name: "Earned each day, the last 7 days" })).toBeVisible();
     const rog = page.getByRole("link", { name: /Nikki's ROG Strix/ });
     await expect(rog).toContainText(
       onPhone(info) ? "Running a session · earning ₹2.59" : "Running a session",
@@ -520,8 +528,7 @@ test.describe("earnings", () => {
     await expect(
       page.getByText("Paid to your UPI ID every Monday, 7 days after each session."),
     ).toBeVisible();
-    await expect(page.getByRole("region", { name: "Payouts" })).toContainText("Next payout");
-    await expect(page.getByRole("region", { name: "Payout history" })).toContainText("Didn't go through");
+    await expect(page.getByRole("list", { name: "Earned each week, the last 8 weeks" })).toBeVisible();
     await expect(page.getByText("Hours rented")).toBeVisible();
     await expect(page.getByText("Given back for lost time")).toBeVisible();
     await expect(page.getByRole("list", { name: "Each machine" })).toContainText("Old laptop (removed)");
@@ -567,8 +574,19 @@ test.describe("earnings", () => {
 });
 
 test.describe("payouts", () => {
+  test("their own tab: available, pending, the next payout, every payout and the statement", async ({
+    page,
+  }, info) => {
+    await open(page, "/payouts/");
+    await expect(page.getByRole("heading", { level: 1, name: "Payouts" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Payouts" })).toContainText("Next payout");
+    await expect(page.getByRole("region", { name: "Payout history" })).toContainText("Didn't go through");
+    await expectAccessible(page);
+    await capture(page, info, "payouts");
+  });
+
   test("say why a host can't be paid yet, and where to fix it", async ({ page }, info) => {
-    await open(page, "/earnings/", { "/v1/payouts/summary": { json: payouts.summaryNoPan } });
+    await open(page, "/payouts/", { "/v1/payouts/summary": { json: payouts.summaryNoPan } });
     await expect(page.getByText("Add your PAN and a UPI ID to be paid.")).toBeVisible();
     await expectAccessible(page);
     await capture(page, info, "earnings-payouts-blocked");

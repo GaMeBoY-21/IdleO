@@ -1371,3 +1371,37 @@ export const newMessage = (): InboxItem => ({
   site: "app",
   read: false,
 });
+
+/**
+ * GET /v1/usage (ADR 0058): this month's use, from the sessions' own charges, each on the day in India it ended, its
+ * minutes from start to end; the month's figures are the days' sums.
+ */
+export const usageOf = (
+  sessions: { chargedPaise: number; startedAt?: string | null; endedAt?: string | null }[],
+) => {
+  const IST = 5.5 * 60 * 60_000;
+  const day = (at: string) => new Date(Date.parse(at) + IST).toISOString().slice(0, 10);
+  const today = day(NOW.toISOString());
+  const days = Array.from({ length: Number(today.slice(8, 10)) }, (_, index) => {
+    const date = `${today.slice(0, 8)}${String(index + 1).padStart(2, "0")}`;
+    const ended = sessions.filter((session) => session.endedAt && day(session.endedAt) === date);
+    return {
+      date,
+      spentPaise: ended.reduce((sum, session) => sum + session.chargedPaise, 0),
+      minutes: ended.reduce(
+        (sum, session) =>
+          sum +
+          (session.startedAt
+            ? Math.round((Date.parse(session.endedAt!) - Date.parse(session.startedAt)) / 60_000)
+            : 0),
+        0,
+      ),
+    };
+  });
+  return {
+    month: today.slice(0, 7),
+    spentPaise: days.reduce((sum, d) => sum + d.spentPaise, 0),
+    minutes: days.reduce((sum, d) => sum + d.minutes, 0),
+    days,
+  };
+};

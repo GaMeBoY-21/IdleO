@@ -72,9 +72,30 @@ describe("the public pages", () => {
     }
   });
 
-  it("only the home page, pricing, earn, contact, privacy and the API reference (old schema links) have anything live", () => {
+  it("only the home page, rent, pricing, earn, contact, privacy and the API reference (old schema links) have anything live", () => {
     const live = all.filter(({ page }) => page.islands.length > 0).map(({ page }) => page.path);
-    expect(live.sort()).toEqual(["/", "/contact/", "/docs/api/", "/earn/", "/pricing/", "/privacy/"]);
+    expect(live.sort()).toEqual([
+      "/",
+      "/contact/",
+      "/docs/api/",
+      "/earn/",
+      "/pricing/",
+      "/privacy/",
+      "/rent/",
+    ]);
+  });
+
+  it("give two clear paths from the front door, and one button each from the rent and earn pages (ADR 0058)", () => {
+    const html = (path: string) => all.find(({ page }) => page.path === path)!.html;
+    expect(html("/")).toContain('href="/rent/"');
+    expect(html("/")).toContain('href="/earn/"');
+    expect(text(html("/rent/"))).toContain("How it works");
+    expect(text(html("/rent/"))).toContain("Questions");
+    const main = (path: string) =>
+      html(path).slice(html(path).indexOf("<main"), html(path).indexOf("</main>"));
+    expect(main("/rent/").match(new RegExp(`href="${APP}/sign-in/\\?start=1"`, "g"))).toHaveLength(1);
+    expect(text(html("/earn/"))).toContain("How it works");
+    expect(text(html("/earn/"))).toContain("Questions");
   });
 
   it("never say we supply models, images or transcription, and name no made-up person or number", () => {

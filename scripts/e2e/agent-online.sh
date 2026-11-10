@@ -592,7 +592,7 @@ site_url="http://localhost:$site_port"
 host_url="http://localhost:$host_port"
 # Playwright, with this stack's addresses (web/playwright.config.ts).
 web_test() {
-  (cd web && WEB_URL="$web_url" HOST_URL="$host_url" SITE_URL="$site_url" API_URL="$api" SIGN_IN_URL="$sign_in" FIREBASE_WEB_URL="http://localhost:$firebase_web_port" \
+  (cd web && E2E_FULL_REPORT="$out/web-full.json" WEB_URL="$web_url" HOST_URL="$host_url" SITE_URL="$site_url" API_URL="$api" SIGN_IN_URL="$sign_in" FIREBASE_WEB_URL="http://localhost:$firebase_web_port" \
     pnpm exec playwright test "$@")
 }
 

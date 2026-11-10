@@ -10,6 +10,7 @@ import { Gpus } from "./pages/Gpus";
 import { Landing } from "./pages/Landing";
 import { Placeholder } from "./pages/Placeholder";
 import { Pricing } from "./pages/Pricing";
+import { Rent } from "./pages/Rent";
 import { Contact, Grievance } from "./pages/Contact";
 import {
   API_OPERATIONS,
@@ -19,6 +20,7 @@ import {
   HELP_VIRTUALIZATION,
   LANDING,
   PRICING,
+  RENT,
   PRIVACY,
   TERMS,
 } from "./paths";
@@ -46,6 +48,14 @@ export function pages(context: SiteContext): PageDef[] {
       description:
         "What a GPU costs per hour by GPU memory, how billing works by the minute, and two typical examples.",
       body: <Pricing context={context} />,
+      islands: ["pricing"],
+    },
+    {
+      path: RENT,
+      title: `Rent a GPU · ${brand.name}`,
+      description:
+        "How renting a GPU works, the GPUs online and what they cost right now, how the sandbox keeps your job apart, and the questions people ask first.",
+      body: <Rent context={context} />,
       islands: ["pricing"],
     },
     {

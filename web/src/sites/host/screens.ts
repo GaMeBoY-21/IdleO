@@ -8,10 +8,13 @@ import { HOST_PATHS } from "./paths.ts";
 export const SCREENS: Record<string, string | null> = {
   ...SHARED_SCREEN_MODULES,
   [HOST_PATHS.home]: "src/features/hosting/Hosting.tsx",
+  [HOST_PATHS.laptops]: "src/features/hosting/Laptops.tsx",
   [HOST_PATHS.laptop]: "src/features/hosting/Machine.tsx",
   [HOST_PATHS.price]: "src/features/hosting/Price.tsx",
   [HOST_PATHS.sessions]: "src/features/hosting/HostSessions.tsx",
   [HOST_PATHS.earnings]: "src/features/hosting/Earnings.tsx",
+  [HOST_PATHS.payouts]: "src/features/hosting/HostPayouts.tsx",
+  [HOST_PATHS.help]: "src/features/hosting/HostHelp.tsx",
   [HOST_PATHS.payoutDetails]: "src/features/hosting/PayoutDetails.tsx",
   [HOST_PATHS.add]: "src/features/hosting/AddMachine.tsx",
   // A link has its id in the address, /link/<id>/; the host answers every such address with this page (scripts/serve.ts).

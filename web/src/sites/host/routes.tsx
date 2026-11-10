@@ -9,10 +9,13 @@ const link = screen(() => import("@/features/hosting/LinkApproval").then((m) => 
 
 const screens = {
   [HOST_PATHS.home]: screen(() => import("@/features/hosting/Hosting").then((m) => m.Hosting)),
+  [HOST_PATHS.laptops]: screen(() => import("@/features/hosting/Laptops").then((m) => m.Laptops)),
   [HOST_PATHS.laptop]: screen(() => import("@/features/hosting/Machine").then((m) => m.Machine)),
   [HOST_PATHS.price]: screen(() => import("@/features/hosting/Price").then((m) => m.Price)),
   [HOST_PATHS.sessions]: screen(() => import("@/features/hosting/HostSessions").then((m) => m.HostSessions)),
   [HOST_PATHS.earnings]: screen(() => import("@/features/hosting/Earnings").then((m) => m.Earnings)),
+  [HOST_PATHS.payouts]: screen(() => import("@/features/hosting/HostPayouts").then((m) => m.HostPayouts)),
+  [HOST_PATHS.help]: screen(() => import("@/features/hosting/HostHelp").then((m) => m.HostHelp)),
   [HOST_PATHS.payoutDetails]: screen(() =>
     import("@/features/hosting/PayoutDetails").then((m) => m.PayoutDetails),
   ),

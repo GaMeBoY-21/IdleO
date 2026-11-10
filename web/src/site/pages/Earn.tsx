@@ -36,6 +36,49 @@ const SAFETY = [
   },
 ] as const;
 
+/** How hosting works, in four steps (ADR 0058). */
+const HOW = [
+  {
+    title: "Install the Windows app",
+    text: "It checks the laptop can host: Windows, the RTX card, the sandbox.",
+  },
+  {
+    title: "Link the laptop",
+    text: "The app opens a page on the host site, where you approve it. No code to type.",
+  },
+  {
+    title: "Set your price",
+    text: "You choose what an hour costs. Pause it, or let it pause itself, when you play.",
+  },
+  {
+    title: "Earn by the minute",
+    text: "Every minute a renter's job runs counts, and you see it as it does.",
+  },
+] as const;
+
+/** What a host asks first, answered plainly. */
+const FAQ = [
+  {
+    question: "What can a renter's job see on my laptop?",
+    answer:
+      "Its own scratch space, and nothing else: none of your folders, no administrator rights, no way onto your home network. Hosting opens once our safety tests on real laptops pass.",
+  },
+  {
+    question: "What will I earn?",
+    answer: `You keep ${100 - COMMISSION_PERCENT}% of what renters pay for the minutes your laptop ran their jobs. How much it's rented depends on demand, which may be low at first; the calculator on this page is arithmetic on what you choose.`,
+  },
+  {
+    question: "Can I still play on it?",
+    answer:
+      "Yes. The app will pause the moment you use the laptop or start a game, and a job running then stops after saving a checkpoint.",
+  },
+  {
+    question: "What about tax?",
+    answer:
+      "Payouts, once they start with the paid pilot, carry the tax deducted at source the law asks for, shown on every payout; the year's statement downloads from the host site.",
+  },
+] as const;
+
 const REQUIREMENTS = [
   "Windows 10 or 11",
   "An NVIDIA RTX graphics card",
@@ -94,6 +137,23 @@ export function Earn({ apiUrl, links }: { apiUrl: string | null; links: EntryLin
         </div>
       </section>
 
+      <section className={`${column} pb-10 md:pb-14`} aria-labelledby="how">
+        <h2 id="how" className={sectionTitle}>
+          How it works
+        </h2>
+        <ol className="mt-4 grid gap-2.5 md:grid-cols-4 md:gap-3.5">
+          {HOW.map((step, index) => (
+            <li key={step.title} className={`${tile} flex flex-col gap-2`}>
+              <span className="font-display text-display-number">
+                <span className="sr-only">Step </span>
+                {index + 1}
+              </span>
+              <h3 className="text-option font-semibold">{step.title}</h3>
+              <p className={muted}>{step.text}</p>
+            </li>
+          ))}
+        </ol>
+      </section>
       <section className={`${column} pb-10 md:pb-14`} aria-labelledby="safety">
         <h2 id="safety" className={sectionTitle}>
           How hosting will keep you safe
@@ -131,6 +191,17 @@ export function Earn({ apiUrl, links }: { apiUrl: string | null; links: EntryLin
         </ul>
       </section>
 
+      <section className={`${column} flex flex-col gap-3 pb-10 md:pb-14`} aria-labelledby="faq">
+        <h2 id="faq" className={sectionTitle}>
+          Questions
+        </h2>
+        {FAQ.map((item) => (
+          <details key={item.question} className={tile}>
+            <summary className="cursor-pointer text-option font-semibold">{item.question}</summary>
+            <p className={`${muted} mt-3`}>{item.answer}</p>
+          </details>
+        ))}
+      </section>
       <section
         className={`${column} pb-14 md:pb-20`}
         aria-labelledby="calculator"
