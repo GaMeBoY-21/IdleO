@@ -15,7 +15,7 @@ export function LaptopHomeSkeleton() {
         <Skeleton tile className="h-service-card" />
         <Skeleton tile className="h-service-card" />
       </div>
-      <Skeleton tile className="h-credit-row" />
+      <Skeleton tile className="h-credit-row xl:h-home-panel" />
       <Skeleton tile className="h-recent" />
     </div>
   );

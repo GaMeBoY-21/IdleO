@@ -87,7 +87,7 @@ const screens = [
   { name: "earnings", path: "/earnings/", site: HOST_URL, ready: () => "Given back for lost time" },
   // The payouts' tiles arrive after the paint, each drawn first at its own height (ADR 0040).
   { name: "payouts", path: "/payouts/", site: HOST_URL, ready: () => "Didn't go through" },
-  { name: "laptops", path: "/laptops/", site: HOST_URL, ready: () => "Add a laptop" },
+  { name: "laptops", path: "/laptops/", site: HOST_URL, ready: () => "Nikki's ROG Strix" },
   { name: "host help", path: "/help/", site: HOST_URL, ready: () => "The Windows app" },
   { name: "payout details", path: "/payout-details/", site: HOST_URL, ready: () => "Payouts go here" },
   { name: "account", path: "/account/", ready: () => "New device sign-in" },

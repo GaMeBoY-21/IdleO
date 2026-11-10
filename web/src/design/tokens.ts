@@ -390,6 +390,11 @@ export const spacing = {
   /** The live session's training-loss chart. */
   loss: 200,
   "credit-row": 216,
+  /** The renter's Home from 1200 px (ADR 0058): its row of the credit, the GPUs online and this month, one height
+   * before their figures arrive and after, so nothing under them moves. */
+  "home-panel": 256,
+  /** The host's home from 1200 px: its row of the demand, the score and the last payouts, the same way. */
+  "host-panel": 320,
   recent: 320,
   /** The hero card's chart on the website. */
   "hero-chart": 168,

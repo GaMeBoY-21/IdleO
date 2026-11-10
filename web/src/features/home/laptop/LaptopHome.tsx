@@ -63,7 +63,7 @@ export function LaptopHome({
         </Link>
       </div>
       <ServicesTile services={services} catalog={catalog} dropping={dropping} prices={prices.data?.classes} />
-      <div className="grid gap-4 xl:grid-cols-3">
+      <div className="grid gap-4 xl:h-home-panel xl:grid-cols-3">
         <CreditPanel wallet={wallet} enabled={painted} />
         <FreeGpus enabled={painted} />
         <UsagePanel enabled={painted} />

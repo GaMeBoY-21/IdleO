@@ -48,7 +48,7 @@ test.describe("the Hosting tab", () => {
     } else {
       // The laptop's home (ADR 0058): pending, the next payout, 8 weeks, the demand, the score and the payouts.
       await expect(page.getByText("in total ·")).toBeVisible();
-      await expect(page.getByText("Next payout")).toBeVisible();
+      await expect(page.getByText("Next payout", { exact: true }).first()).toBeVisible();
       await expect(page.getByRole("list", { name: "Earned each week, the last 8 weeks" })).toBeVisible();
       await expect(page.getByRole("region", { name: "Demand for your GPU" })).toContainText(
         `asked for a GPU like this ${hosting.demand.asked} times, most around 8 pm; ${hosting.demand.unmet} found no host free`,

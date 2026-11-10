@@ -39,7 +39,8 @@ export function EarningsHero({
       className="grid gap-6 md:col-span-6 md:grid-cols-2 xl:col-span-8 xl:grid-cols-5 xl:gap-8 xl:py-7"
     >
       <div className="flex flex-col gap-4 xl:col-span-2">
-        <h2 id="week-title" className="text-caption text-on-night-2">
+        {/* Two lines kept, so the note on figures from an earlier visit coming and going moves nothing. */}
+        <h2 id="week-title" className="min-h-9 text-caption text-on-night-2">
           Earned this week, all laptops
           {restoredAt !== null && (
             <>
@@ -48,17 +49,20 @@ export function EarningsHero({
             </>
           )}
         </h2>
-        {owner ? (
-          <span className="flex flex-col gap-1">
-            <Money paise={owner.weekPaise} className="block font-title text-timer-lg" />
-            <span className="text-small text-on-night-2 tabular">
-              <Money paise={owner.totalPaise} /> in total · {formatMinutes(owner.minutesRentedThisWeek)}{" "}
-              rented
-            </span>
-          </span>
-        ) : (
-          <Skeleton className="skeleton-dark h-16 w-48" />
-        )}
+        {/* The figure and its line, the same height before they arrive and after. */}
+        <span className="flex min-h-21 flex-col gap-1">
+          {owner ? (
+            <>
+              <Money paise={owner.weekPaise} className="block font-title text-timer-lg" />
+              <span className="text-small text-on-night-2 tabular">
+                <Money paise={owner.totalPaise} /> in total · {formatMinutes(owner.minutesRentedThisWeek)}{" "}
+                rented
+              </span>
+            </>
+          ) : (
+            <Skeleton className="skeleton-dark h-15 w-48" />
+          )}
+        </span>
         <dl className="grid grid-cols-2 gap-2 text-small">
           <div className="flex min-h-14 flex-col justify-center rounded-control bg-on-night/10 px-3 py-2">
             <dt className="text-on-night-2">Pending</dt>
@@ -106,7 +110,7 @@ export function DemandTile({ host, enabled }: { host: Host | undefined; enabled:
     <Tile
       as="section"
       aria-labelledby="demand-title"
-      className="flex flex-col gap-3 md:col-span-6 xl:col-span-6 xl:p-7"
+      className="flex flex-col gap-3 md:col-span-6 xl:col-span-6 xl:h-host-panel xl:p-7"
     >
       <SectionTitle id="demand-title">Demand for your GPU</SectionTitle>
       {host === undefined ? (
@@ -151,7 +155,7 @@ export function ScoreTile({ host }: { host: Host | undefined }) {
     <Tile
       as="section"
       aria-labelledby="score-title"
-      className="flex flex-col gap-2 md:col-span-3 xl:col-span-3 xl:p-7"
+      className="flex flex-col gap-2 md:col-span-3 xl:col-span-3 xl:h-host-panel xl:p-7"
     >
       <SectionTitle id="score-title">Host score</SectionTitle>
       {host ? (
@@ -183,7 +187,7 @@ export function RecentPayoutsTile({ enabled }: { enabled: boolean }) {
     <Tile
       as="section"
       aria-labelledby="recent-payouts-title"
-      className="flex flex-col gap-1 md:col-span-3 xl:col-span-3 xl:p-7"
+      className="flex flex-col gap-1 md:col-span-3 xl:col-span-3 xl:h-host-panel xl:p-7"
     >
       <SectionTitle
         id="recent-payouts-title"

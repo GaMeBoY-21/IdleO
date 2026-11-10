@@ -49,10 +49,10 @@ test("gives a PAN, checks a UPI ID with the bank's name for it, and uses it", as
 
 test("shows the payout paid, the refund recovered, and the year's statement", async ({ page }) => {
   test.skip(step !== "paid");
-  await signIn(page, who, "/earnings/");
+  // Payouts have their own tab on the host site (ADR 0058); the refund recovered is a line of the earnings.
+  await signIn(page, who, "/payouts/");
   const history = page.getByRole("region", { name: "Payout history" });
   await expect(history).toContainText("Paid", { timeout: 15_000 });
-  await expect(page.getByText(/^Recovered: refund for session [0-9a-f]{8} on /).first()).toBeVisible();
   await expectAccessible(page);
   const [download] = await Promise.all([
     page.waitForEvent("download"),
@@ -63,6 +63,8 @@ test("shows the payout paid, the refund recovered, and the year's statement", as
       .subarray(0, 5)
       .toString(),
   ).toBe("%PDF-");
+  await page.goto("/earnings/");
+  await expect(page.getByText(/^Recovered: refund for session [0-9a-f]{8} on /).first()).toBeVisible();
 });
 
 test("changing the UPI ID holds payouts, and the screen says so", async ({ page }) => {
