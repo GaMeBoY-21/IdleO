@@ -47,12 +47,12 @@ test("the host site, for an account that can only rent, says so and takes a code
   await expect(
     page.getByRole("heading", { level: 1, name: "Hosting isn't open for your account yet" }),
   ).toBeVisible();
-  await expect(page.getByLabel("Invite code")).toBeVisible();
+  await expect(page.getByRole("textbox", { name: "Invite code" })).toBeVisible();
   await expect(page.getByRole("link", { name: "rent a gpu" })).toHaveAttribute("href", /\/$/);
   await expectAccessible(page);
   await capture(page, info, "hosting-locked");
 
-  await page.getByLabel("Invite code").fill("IDLE7K2Q9XMD");
+  await page.getByRole("textbox", { name: "Invite code" }).fill("IDLE7K2Q9XMD");
   await page.getByRole("button", { name: "Unlock hosting" }).click();
   await expect(page.getByRole("heading", { name: "Hosting isn't open for your account yet" })).toHaveCount(0);
 });
@@ -75,7 +75,7 @@ test("the renter app, for an account that can only host, says so the other way r
 
 test("a short code is caught before it's sent", async ({ page }) => {
   await unlockOn(page, HOST_URL, ["renting"]);
-  await page.getByLabel("Invite code").fill("IDLE7K");
+  await page.getByRole("textbox", { name: "Invite code" }).fill("IDLE7K");
   await page.getByRole("button", { name: "Unlock hosting" }).click();
   await expect(page.getByText("Enter all 8 letters and numbers of your code.")).toBeVisible();
 });

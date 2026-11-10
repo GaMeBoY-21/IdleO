@@ -1,4 +1,5 @@
-import { useHosts, useSelfTest } from "@/api/hosting";
+import type { UseQueryResult } from "@tanstack/react-query";
+import { useSelfTest, type HostList } from "@/api/hosting";
 import { usePayoutDetails } from "@/api/payouts";
 import { useCachedMe } from "@/api/queries";
 import { Checklist, type Step } from "@/components/ui/Checklist";
@@ -7,11 +8,11 @@ import { HOST_PATHS, pricePath } from "@/sites/host/paths";
 /**
  * A new host's first run (ADR 0058): the Terms, the Windows app, linking the laptop, its self-test, payout details and
  * its price. Shown on the host site's home until every step is done, each read from what the account already has.
- * Hosting has no terms of its own yet: the Terms and the privacy notice are the ones a host accepts.
+ * Hosting has no terms of its own yet: the Terms and the privacy notice are the ones a host accepts. It reads the home's
+ * own query for the laptops (`hosts`): a second watcher of it would start it again while it's failing.
  */
-export function FirstRun({ enabled }: { enabled: boolean }) {
+export function FirstRun({ hosts, enabled }: { hosts: UseQueryResult<HostList>; enabled: boolean }) {
   const me = useCachedMe();
-  const hosts = useHosts(enabled);
   const first = hosts.data?.hosts[0];
   const selfTest = useSelfTest(first?.id ?? "", enabled && first !== undefined);
   const payouts = usePayoutDetails(enabled);

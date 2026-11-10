@@ -51,9 +51,11 @@ class InviteCommands {
                 var codes = invites.create((int) count, note, expiry, unlocks, AuditTrail.Actor.operator(operator))
                         .codes();
                 out.println("made " + codes.size() + " invite code" + (codes.size() == 1 ? "" : "s") + " for \"" + note
-                        + "\", unlocking "
-                        + (unlocks == InviteService.Unlocks.BOTH ? "renting and hosting" : unlocks.code())
+                        + "\""
                         + expiry.map(d -> ", each valid for " + describe(d)).orElse(", with no expiry"));
+                out.println("Each unlocks "
+                        + (unlocks == InviteService.Unlocks.BOTH ? "renting and hosting" : unlocks.code() + " only")
+                        + " (ADR 0058).");
                 out.println("They are shown only now; only their hashes are kept. Each works once.");
                 codes.forEach(code -> out.println("  " + code));
             }
