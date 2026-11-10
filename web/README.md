@@ -8,10 +8,10 @@ The web app's sites (ADR 0058), one workspace built once per site: the renter ap
 
 | Host site path | Screen |
 | --- | --- |
-| `/` | Home: this week's earnings, the laptops and their states, Add a laptop |
-| `/laptop/?id=…`, `/laptop/price/?id=…`, `/sessions/?id=…` | One laptop; its price and limits; the sessions it ran |
-| `/earnings/`, `/payout-details/` | Earnings and payouts; the PAN and UPI ID payouts go to |
-| `/add/`, `/link/<id>/` | Adding a laptop; approving its link |
+| `/` | Home: the earnings (this week, pending, the next payout, 8 weeks), each laptop, the demand for its GPU, its score, the last payouts, a new host's checklist, Help |
+| `/laptops/`, `/laptop/?id=…`, `/laptop/price/?id=…`, `/sessions/?id=…` | Every laptop; one laptop; its price and limits; the sessions it ran |
+| `/earnings/`, `/payouts/`, `/payout-details/` | Earnings and 8 weeks of them; payouts, their TDS and the statement; the PAN and UPI ID payouts go to |
+| `/add/`, `/link/<id>/`, `/help/` | Adding a laptop; approving its link; the Windows app, troubleshooting and the notices |
 
 ## The screens
 

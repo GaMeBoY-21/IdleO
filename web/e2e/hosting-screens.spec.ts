@@ -765,3 +765,38 @@ test.describe("linking a laptop", () => {
     await capture(page, info, "link-error");
   });
 });
+
+test.describe("the host site's other tabs (ADR 0058)", () => {
+  test("Laptops: every laptop and Add a laptop", async ({ page }, info) => {
+    await open(page, "/laptops/");
+    await expect(page.getByRole("heading", { level: 1, name: "Laptops" })).toBeVisible();
+    await expect(page.getByRole("link", { name: /Nikki's ROG Strix/ })).toBeVisible();
+    await expect(page.getByRole("link", { name: /Home desktop/ })).toContainText("Paused until 6 pm");
+    await expect(
+      page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Laptops" }),
+    ).toHaveAttribute("aria-current", "page");
+    await expectAccessible(page);
+    await capture(page, info, "laptops");
+  });
+
+  test("Laptops, with none: what hosting is, and the one step to start", async ({ page }, info) => {
+    await open(page, "/laptops/", { "/v1/hosts": { json: hosting.noHosts } });
+    await expect(page.getByRole("link", { name: /Add a machine/ }).first()).toBeVisible();
+    await expectAccessible(page);
+    await capture(page, info, "laptops-empty");
+  });
+
+  test("Help: the Windows app, what to do when something's wrong, and the notices", async ({
+    page,
+  }, info) => {
+    await open(page, "/help/");
+    await expect(page.getByRole("region", { name: "The Windows app" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "The app says virtualization is off" })).toHaveAttribute(
+      "href",
+      /\/help\/virtualization\/other\/$/,
+    );
+    await expect(page.getByRole("region", { name: "Notices" })).toBeVisible();
+    await expectAccessible(page);
+    await capture(page, info, "host-help");
+  });
+});
