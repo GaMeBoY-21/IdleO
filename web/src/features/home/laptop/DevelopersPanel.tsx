@@ -24,7 +24,8 @@ export function DevelopersPanel() {
         <code className="font-mono">idleo login</code>. The Python SDK:{" "}
         <code className="font-mono">pip install ./sdk/python</code>.
       </p>
-      <pre className="overflow-x-auto rounded-control bg-panel-2 p-3 font-mono text-caption">
+      {/* Wrapped, never scrolled sideways: nothing in it is out of reach of a keyboard. */}
+      <pre className="rounded-control bg-panel-2 p-3 font-mono text-caption break-words whitespace-pre-wrap">
         <code>{SDK_SNIPPET}</code>
       </pre>
       <div className="flex flex-wrap items-center gap-3">

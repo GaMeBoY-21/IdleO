@@ -290,9 +290,10 @@ test("earns from a session, and the Hosting tab, earnings and sessions it ran ag
   await page.goto("/");
   await expect(page.getByText("₹0.02").first()).toBeVisible();
   await expect(page.getByText(/in total ·/)).toContainText("₹0.02");
-  await expect(page.getByText(/Weekly UPI payouts start with the paid pilot/)).toBeVisible();
+  // The host's home (ADR 0058): the next payout beside the week, and the way to every earning.
+  await expect(page.getByText("Next payout", { exact: true })).toBeVisible();
   await expectAccessible(page);
-  await page.getByRole("link", { name: /^All/ }).click();
+  await page.getByRole("link", { name: /^Earnings, all laptops/ }).click();
   await expect(page.getByRole("main")).toContainText("Journey laptop");
   await expect(page.getByRole("main")).toContainText("+₹0.02");
   await expect(page.getByRole("main")).toContainText("3 min");

@@ -136,6 +136,8 @@ export function Summary({ summary }: { summary: PayoutSummary }) {
 }
 
 export function SummarySkeleton() {
+  // The year the loaded tile will name, once, for its label.
+  const [year] = useState(() => financialYear(Date.now()));
   // The loaded tile's own structure, its figures waiting: the same title row, labels and lines, so the same height.
   return (
     <Tile className="flex flex-col gap-4 xl:p-7" role="status" aria-label="Loading your payouts">
@@ -143,7 +145,8 @@ export function SummarySkeleton() {
         <SectionTitle>Payouts</SectionTitle>
       </div>
       <dl className="grid grid-cols-2 gap-2">
-        {["Available", "Pending", "Next payout", "Tax deducted"].map((label) => (
+        {/* The loaded labels, the year's too, so one that wraps on a phone wraps here as well. */}
+        {["Available", "Pending", "Next payout", `Tax deducted ${year}`].map((label) => (
           <div key={label} className={FIGURE}>
             <dt className="text-small text-text-2">{label}</dt>
             <dd className="text-option font-semibold">

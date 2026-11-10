@@ -32,9 +32,10 @@ const renter = (): Record<string, Answer> => ({
   "/v1/wallet/refund-requests": { json: credit.noRefunds },
 });
 
-const PAGES: { site: "app" | "host"; path: string; name: string; ready: string }[] = [
+/** `asserted: false`: measured and reported, not held to the bar (Book is a short chooser by design, ADR 0058). */
+const PAGES: { site: "app" | "host"; path: string; name: string; ready: string; asserted?: false }[] = [
   { site: "app", path: "/", name: "renter home", ready: "What do you want to run?" },
-  { site: "app", path: "/book/", name: "book", ready: "Fine-tune a model" },
+  { site: "app", path: "/book/", name: "book", ready: "Fine-tune a model", asserted: false },
   { site: "app", path: "/sessions/", name: "sessions", ready: "Sessions" },
   { site: "app", path: "/files/", name: "files", ready: "My files" },
   { site: "app", path: "/credit/", name: "credit", ready: "Credit" },
@@ -89,8 +90,6 @@ async function fullness(page: Page): Promise<number> {
 
 const figures: Record<string, number> = {};
 
-test.describe.configure({ mode: "serial" });
-
 for (const screen of PAGES) {
   test(`${screen.name} is full at 1440 x 900`, async ({ page }, info) => {
     test.skip(info.project.name !== "screens-laptop-light", "measured once, at the laptop's size");
@@ -107,10 +106,12 @@ for (const screen of PAGES) {
     console.log(
       `full: ${screen.site} ${screen.path} (${screen.name}) ${Math.round(share * 100)}% of the first screen`,
     );
-    expect(
-      share,
-      `${screen.name}: ${Math.round(share * 100)}% of the first screen is content`,
-    ).toBeGreaterThanOrEqual(LEAST);
+    if (screen.asserted !== false) {
+      expect(
+        share,
+        `${screen.name}: ${Math.round(share * 100)}% of the first screen is content`,
+      ).toBeGreaterThanOrEqual(LEAST);
+    }
   });
 }
 
