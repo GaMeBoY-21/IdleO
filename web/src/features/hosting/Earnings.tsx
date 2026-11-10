@@ -1,3 +1,4 @@
+import { Link } from "wouter";
 import { useEarnings, useHosts, type EarningsEntry, type OwnerEarnings } from "@/api/hosting";
 import { Page } from "@/components/shell/AppShell";
 import { HostFlow } from "@/components/shell/HostFlow";
@@ -11,8 +12,7 @@ import { cn } from "@/lib/cn";
 import { formatMinutes } from "@/lib/hosting";
 import { useWide } from "@/lib/media";
 import { useTitle } from "@/lib/title";
-import { useAfterPaint } from "@/lib/after-first-screen";
-import { PayoutHistory, PayoutsTile, StatementTile } from "./Payouts";
+import { WeeksBars } from "./WeekBars";
 import { HOST_PATHS } from "@/sites/host/paths";
 
 const PAYOUT_NOTE = "Paid to your UPI ID every Monday, 7 days after each session.";
@@ -34,7 +34,6 @@ export function Earnings() {
   const entries = earnings.data?.pages.flatMap((page) => page.history.entries);
   const since = staleSince(earnings);
   const wide = useWide();
-  const painted = useAfterPaint();
   const next = {
     has: earnings.hasNextPage,
     busy: earnings.isFetchingNextPage,
@@ -52,8 +51,7 @@ export function Earnings() {
       >
         <h1 className="sr-only">Earnings</h1>
         {since !== null && <StaleNotice updatedAt={since} />}
-        <PayoutsTile enabled={painted} />
-        <StatementTile enabled={painted} />
+        {owner && <WeeksTile owner={owner} />}
         {owner && entries ? (
           <History entries={entries} next={next} />
         ) : earnings.isError ? (
@@ -66,7 +64,6 @@ export function Earnings() {
         ) : (
           <HistorySkeleton />
         )}
-        <PayoutHistory enabled={painted} />
       </HostFlow>
     );
   }
@@ -77,10 +74,8 @@ export function Earnings() {
       {owner && entries ? (
         <>
           <Totals owner={owner} />
-          <PayoutsTile enabled={painted} />
-          <StatementTile enabled={painted} />
+          <WeeksTile owner={owner} />
           <History entries={entries} next={next} />
-          <PayoutHistory enabled={painted} />
         </>
       ) : earnings.isError ? (
         <ErrorState
@@ -93,6 +88,25 @@ export function Earnings() {
         <EarningsSkeleton />
       )}
     </Page>
+  );
+}
+
+/** The last 8 weeks as bars, and where the payouts are. */
+function WeeksTile({ owner }: { owner: OwnerEarnings }) {
+  return (
+    <Tile as="section" aria-labelledby="weeks-title" className="flex flex-col gap-3 xl:p-7">
+      <SectionTitle
+        id="weeks-title"
+        action={
+          <Link href={HOST_PATHS.payouts} className="text-small font-semibold underline">
+            Payouts
+          </Link>
+        }
+      >
+        The last 8 weeks
+      </SectionTitle>
+      <WeeksBars weeks={owner.weeks} tone="panel" />
+    </Tile>
   );
 }
 

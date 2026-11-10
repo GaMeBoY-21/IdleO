@@ -2,7 +2,7 @@ import { brand } from "@/brand/brand";
 import { COMMISSION_PERCENT } from "@/lib/hosting";
 import type { SiteContext } from "../context";
 import { GPU_CLASSES } from "../gpus";
-import { EARN, PRICING } from "../paths";
+import { EARN, RENT } from "../paths";
 import {
   band,
   bandTitle,
@@ -123,11 +123,11 @@ export function Landing({ context }: { context: SiteContext }) {
             rupees for the minutes it ran. We provide the GPU. You bring your own model, data and code.
           </p>
           <div className="flex flex-wrap gap-3">
-            <a href={context.links.getStarted} className={`${primaryButton} ${largeButton}`}>
-              Get started
+            <a href={RENT} className={`${primaryButton} ${largeButton}`}>
+              Rent a GPU
             </a>
-            <a href={PRICING} className={`${ghostButton} ${largeButton}`}>
-              See the prices
+            <a href={EARN} className={`${ghostButton} ${largeButton}`}>
+              Earn with your laptop
             </a>
           </div>
           <p className="text-small text-text-3">{brand.name} is invite-only while it&apos;s in its pilot.</p>
@@ -184,28 +184,7 @@ export function Landing({ context }: { context: SiteContext }) {
         </div>
       </div>
 
-      <section className={`${column} flex flex-col gap-10 pt-20 pb-6 md:pt-28`} aria-labelledby="steps">
-        <h2 id="steps" className={`${bandTitle} max-w-form`}>
-          How it works
-        </h2>
-        <ol className="grid gap-5 md:grid-cols-3">
-          {STEPS.map((step, index) => (
-            <li
-              key={step.title}
-              className={`${step.surface} flex min-h-step flex-col justify-between gap-8 rounded-feature p-8 text-ink`}
-            >
-              <p className="font-display text-display-number">
-                <span className="sr-only">Step </span>
-                {index + 1}
-              </p>
-              <div>
-                <h3 className="text-figure font-bold">{step.title}</h3>
-                <p className="mt-2 text-body">{step.text}</p>
-              </div>
-            </li>
-          ))}
-        </ol>
-      </section>
+      <HowItWorks />
 
       <section className={`${column} ${band}`} aria-labelledby="run">
         <h2 id="run" className={`${bandTitle} max-w-form`}>
@@ -275,24 +254,7 @@ export function Landing({ context }: { context: SiteContext }) {
         </div>
       </section>
 
-      <section className={`${column} ${band}`} aria-labelledby="sealed">
-        <div className="scope-night flex flex-col gap-9 rounded-hero bg-black px-6 py-12 text-on-night md:px-11 md:py-14">
-          <h2 id="sealed" className={`${sectionHeading} max-w-form text-on-night`}>
-            Sealed, on both sides.
-          </h2>
-          <ul className="grid gap-7 md:grid-cols-3">
-            {SEALED.map((item) => (
-              <li key={item.title} className="flex flex-col gap-2.5">
-                <h3 className="text-section">{item.title}</h3>
-                <p className="text-body text-on-night-2">{item.text}</p>
-              </li>
-            ))}
-          </ul>
-          <p className="text-small text-on-night-3">
-            A host owns the laptop. Don&apos;t send truly secret data to community hosts.
-          </p>
-        </div>
-      </section>
+      <Sealed />
 
       <section
         className={`${column} flex flex-col gap-7 py-10 md:py-16`}
@@ -375,17 +337,7 @@ export function Landing({ context }: { context: SiteContext }) {
         </noscript>
       </section>
 
-      <section className={`${column} flex flex-col gap-3.5 pb-16`} aria-labelledby="questions">
-        <h2 id="questions" className={`${sectionHeading} mb-3.5`}>
-          Questions
-        </h2>
-        {QUESTIONS.map((item) => (
-          <details key={item.question} className="rounded-inner border border-edge bg-panel px-7 py-6">
-            <summary className="cursor-pointer text-option font-semibold">{item.question}</summary>
-            <p className="mt-3.5 text-body text-text-2">{item.answer}</p>
-          </details>
-        ))}
-      </section>
+      <Questions />
 
       <section className={`${column} pb-24`}>
         <div className="flex flex-wrap items-center justify-between gap-7 rounded-hero bg-ion-deep px-6 py-12 text-on-ion-deep md:px-11 md:py-16">
@@ -398,5 +350,74 @@ export function Landing({ context }: { context: SiteContext }) {
         </div>
       </section>
     </>
+  );
+}
+
+/** How renting works, in three steps: the landing page's and the rent page's (ADR 0058). */
+export function HowItWorks() {
+  return (
+    <section className={`${column} flex flex-col gap-10 pt-20 pb-6 md:pt-28`} aria-labelledby="steps">
+      <h2 id="steps" className={`${bandTitle} max-w-form`}>
+        How it works
+      </h2>
+      <ol className="grid gap-5 md:grid-cols-3">
+        {STEPS.map((step, index) => (
+          <li
+            key={step.title}
+            className={`${step.surface} flex min-h-step flex-col justify-between gap-8 rounded-feature p-8 text-ink`}
+          >
+            <p className="font-display text-display-number">
+              <span className="sr-only">Step </span>
+              {index + 1}
+            </p>
+            <div>
+              <h3 className="text-figure font-bold">{step.title}</h3>
+              <p className="mt-2 text-body">{step.text}</p>
+            </div>
+          </li>
+        ))}
+      </ol>
+    </section>
+  );
+}
+
+/** The sandbox and what it keeps apart, on both sides, plainly. */
+export function Sealed() {
+  return (
+    <section className={`${column} ${band}`} aria-labelledby="sealed">
+      <div className="scope-night flex flex-col gap-9 rounded-hero bg-black px-6 py-12 text-on-night md:px-11 md:py-14">
+        <h2 id="sealed" className={`${sectionHeading} max-w-form text-on-night`}>
+          Sealed, on both sides.
+        </h2>
+        <ul className="grid gap-7 md:grid-cols-3">
+          {SEALED.map((item) => (
+            <li key={item.title} className="flex flex-col gap-2.5">
+              <h3 className="text-section">{item.title}</h3>
+              <p className="text-body text-on-night-2">{item.text}</p>
+            </li>
+          ))}
+        </ul>
+        <p className="text-small text-on-night-3">
+          A host owns the laptop. Don&apos;t send truly secret data to community hosts.
+        </p>
+      </div>
+    </section>
+  );
+}
+
+/** The questions a renter asks first. */
+export function Questions() {
+  return (
+    <section className={`${column} flex flex-col gap-3.5 pb-16`} aria-labelledby="questions">
+      <h2 id="questions" className={`${sectionHeading} mb-3.5`}>
+        Questions
+      </h2>
+      {QUESTIONS.map((item) => (
+        <details key={item.question} className="rounded-inner border border-edge bg-panel px-7 py-6">
+          <summary className="cursor-pointer text-option font-semibold">{item.question}</summary>
+          <p className="mt-3.5 text-body text-text-2">{item.answer}</p>
+        </details>
+      ))}
+    </section>
   );
 }

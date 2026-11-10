@@ -1,19 +1,13 @@
-import type { InfiniteData, UseInfiniteQueryResult } from "@tanstack/react-query";
+import type { ReactNode } from "react";
 import { Plus } from "lucide-react";
 import type { Host, OwnerEarnings } from "@/api/hosting";
 import { FIT_FRAME, GRID } from "@/components/shell/Layout";
-import { Money } from "@/components/ui/Money";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Tile, TileLink } from "@/components/ui/Tile";
 import { cn } from "@/lib/cn";
-import { formatMinutes } from "@/lib/hosting";
-import { formatTime } from "@/lib/time";
-import { WeekBars } from "../WeekBars";
-import { LatestEarnings } from "./LatestEarnings";
+import { DemandTile, EarningsHero, HelpTile, RecentPayoutsTile, ScoreTile } from "./HomeCards";
 import { MachineTile } from "./MachineTile";
 import { HOST_PATHS } from "@/sites/host/paths";
-
-type EarningsQuery = UseInfiniteQueryResult<InfiniteData<OwnerEarnings>>;
 
 /** The apricot tile: what a machine needs, and that a one-time code links it. */
 export function AddTile({ className }: { className?: string }) {
@@ -63,91 +57,48 @@ export function LaptopPitch() {
 }
 
 /**
- * The Hosting tab from 768 px (web/DESIGN.md "Laptop layout"): the week, in the dark tile split in two
- * (the amount, and the seven days as bars), and "Add a machine" beside it; under them each machine as a tile (up to
- * two beside the latest earnings; with more, a grid of three a row and the earnings under it). Two equal rows that fill
- * the screen from 1200 px. Every figure is the server's, the earnings read again while a machine runs a session.
+ * The host site's home from 768 px (web/DESIGN.md "Laptop layout", ADR 0058's "full and simple"): the earnings in the
+ * dark tile (this week, pending, the next payout, 8 weeks of bars) and Add a laptop beside it; each laptop as a tile;
+ * then the demand for its GPU, its score and the last payouts; and a new host's checklist beside Help. Every figure is
+ * the server's; what isn't the first paint's is asked for once the screen has painted.
  */
 export function LaptopHosting({
   machines,
   owner,
-  earnings,
+  enabled,
   restoredAt,
+  checklist,
 }: {
   machines: Host[] | undefined;
   owner: OwnerEarnings | undefined;
-  earnings: EarningsQuery;
+  enabled: boolean;
   /** When figures restored from an earlier visit are from, until fresh ones arrive. */
   restoredAt: number | null;
+  /** The first run's checklist (FirstRun), drawn beside Help while it has steps left. */
+  checklist: ReactNode;
 }) {
-  const latest = earnings.data?.pages[0]?.history.entries ?? [];
-  const many = (machines?.length ?? 0) > 2;
+  const first = machines?.[0];
   return (
-    <div className={cn(FIT_FRAME, GRID, many ? "xl:auto-rows-auto" : "rows-even xl:fit-screen")}>
+    <div className={cn(FIT_FRAME, GRID, "xl:auto-rows-auto")}>
       <h1 className="sr-only">Hosting</h1>
-      <Tile
-        tone="night"
-        size="lg"
-        aria-labelledby="week-title"
-        className="grid gap-6 md:col-span-6 md:grid-cols-2 xl:col-span-8 xl:grid-cols-5 xl:gap-8 xl:py-7"
-      >
-        <h2 id="week-title" className="sr-only">
-          Your earnings
-        </h2>
-        <div className="flex flex-col justify-between gap-4 xl:col-span-2">
-          <span className="text-caption text-on-night-2">
-            Earned this week, all machines
-            {restoredAt !== null && (
-              <>
-                {" "}
-                · from <span className="tabular">{formatTime(restoredAt)}</span>, refreshing
-              </>
-            )}
-          </span>
-          {owner ? (
-            <span className="flex flex-col gap-1">
-              <Money paise={owner.weekPaise} className="block font-title text-timer-lg" />
-              <span className="text-small text-on-night-2 tabular">
-                <Money paise={owner.totalPaise} /> in total · {formatMinutes(owner.minutesRentedThisWeek)}{" "}
-                rented
-              </span>
-            </span>
-          ) : (
-            <Skeleton className="skeleton-dark h-16 w-48" />
-          )}
-          <span className="text-caption text-on-night-2">
-            Earnings are recorded now. Weekly UPI payouts start with the paid pilot.
-          </span>
-        </div>
-        <div className="flex flex-col justify-end xl:col-span-3">
-          {owner ? <WeekBars days={owner.days} tall /> : <Skeleton className="skeleton-dark h-chart" />}
-        </div>
-      </Tile>
+      <EarningsHero owner={owner} enabled={enabled} restoredAt={restoredAt} />
       <AddTile className="md:col-span-6 xl:col-span-4" />
       {machines === undefined ? (
         <>
           <span role="status" aria-label="Loading your machines" className="sr-only" />
-          <Skeleton tile className="md:col-span-3 xl:col-span-4" />
-          <Skeleton tile className="md:col-span-3 xl:col-span-4" />
-          <Skeleton tile className="md:col-span-6 xl:col-span-4" />
-        </>
-      ) : many ? (
-        <>
-          <div className="grid gap-4 md:col-span-6 md:grid-cols-2 xl:col-span-12 xl:grid-cols-3 2xl:gap-5">
-            {machines.map((host) => (
-              <MachineTile key={host.id} host={host} />
-            ))}
-          </div>
-          <LatestEarnings entries={latest} className="md:col-span-6 xl:col-span-12" />
+          <Skeleton tile className="h-service-card md:col-span-3 xl:col-span-4" />
+          <Skeleton tile className="h-service-card md:col-span-3 xl:col-span-4" />
         </>
       ) : (
-        <>
-          {machines.map((host) => (
-            <MachineTile key={host.id} host={host} className="md:col-span-3 xl:col-span-4" />
-          ))}
-          <LatestEarnings entries={latest} className="md:col-span-6 xl:col-span-4" />
-        </>
+        machines.map((host) => (
+          <MachineTile key={host.id} host={host} className="md:col-span-3 xl:col-span-4" />
+        ))
       )}
+      <DemandTile host={first} enabled={enabled} />
+      <ScoreTile host={first} />
+      <RecentPayoutsTile enabled={enabled} />
+      <div className="md:col-span-6 xl:col-span-8">{checklist}</div>
+      <HelpTile className="md:col-span-6 xl:col-span-4" />
     </div>
   );
 }

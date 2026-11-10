@@ -47,19 +47,21 @@ export function Hosting() {
           </div>
         )}
         {machines?.length === 0 ? (
-          <LaptopPitch />
+          <>
+            <LaptopPitch />
+            <div className="px-6 pb-8 xl:px-8 2xl:px-10">
+              <FirstRun hosts={hosts} enabled={painted} />
+            </div>
+          </>
         ) : (
           <LaptopHosting
             machines={machines}
             owner={owner}
-            earnings={earnings}
+            enabled={painted}
             restoredAt={restored ? earnings.dataUpdatedAt : null}
+            checklist={<FirstRun hosts={hosts} enabled={painted} />}
           />
         )}
-        {/* Last, so a checklist that arrives with its answers moves nothing above it. */}
-        <div className="px-6 pb-8 xl:px-8 2xl:px-10">
-          <FirstRun hosts={hosts} enabled={painted} />
-        </div>
       </>
     );
   }
@@ -145,7 +147,7 @@ export function Hosting() {
   );
 }
 
-function AddLink() {
+export function AddLink() {
   return (
     <Link href={HOST_PATHS.add} className={buttonClasses("ghost", true, true)}>
       <Plus aria-hidden="true" className="size-5" strokeWidth={2} />
@@ -155,7 +157,7 @@ function AddLink() {
 }
 
 /** With no machines: what hosting is, and the one step. */
-function Pitch() {
+export function Pitch() {
   return (
     <Tile aria-labelledby="pitch-title" className="flex flex-col gap-5 p-6">
       <h2 id="pitch-title" className="font-title text-display-feature">

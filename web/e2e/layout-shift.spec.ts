@@ -1,5 +1,6 @@
 import { expect, test, type Page, type Request } from "@playwright/test";
 import * as data from "./fixtures";
+import * as publicData from "./fixtures-public";
 import * as credit from "./fixtures-credit";
 import * as hosting from "./fixtures-hosting";
 import * as images from "./fixtures-images";
@@ -85,7 +86,9 @@ const screens = [
   },
   { name: "earnings", path: "/earnings/", site: HOST_URL, ready: () => "Given back for lost time" },
   // The payouts' tiles arrive after the paint, each drawn first at its own height (ADR 0040).
-  { name: "earnings, with payouts", path: "/earnings/", site: HOST_URL, ready: () => "Didn't go through" },
+  { name: "payouts", path: "/payouts/", site: HOST_URL, ready: () => "Didn't go through" },
+  { name: "laptops", path: "/laptops/", site: HOST_URL, ready: () => "Add a laptop" },
+  { name: "host help", path: "/help/", site: HOST_URL, ready: () => "The Windows app" },
   { name: "payout details", path: "/payout-details/", site: HOST_URL, ready: () => "Payouts go here" },
   { name: "account", path: "/account/", ready: () => "New device sign-in" },
   { name: "API keys", path: "/account/keys/", ready: () => "Dashboard" },
@@ -171,6 +174,9 @@ for (const screen of screens) {
       "/v1/templates": { json: data.templates },
       "/v1/wallet": { json: data.asha.wallet },
       "/v1/availability": { json: data.availability },
+      // The renter's home asks these once it has painted (ADR 0058).
+      "/v1/usage": { json: data.usageOf(data.asha.sessions) },
+      "/v1/public/availability": { json: publicData.availability() },
       "/v1/sessions": {
         json: data.sessionsPage(data.asha.sessions, {
           active: screen.path.includes("ended") ? false : undefined,

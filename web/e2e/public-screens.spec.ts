@@ -13,6 +13,7 @@ import { capture, expectAccessible, fakeApi, recordLayoutShifts, watchConsole } 
  */
 const PAGES = [
   "/",
+  "/rent/",
   "/pricing/",
   "/gpus/",
   "/earn/",
@@ -232,7 +233,7 @@ test.describe("pricing", () => {
     await expect(page.getByRole("button", { name: "Try again" })).toBeVisible();
   });
 
-  for (const path of ["/pricing/", "/earn/"]) {
+  for (const path of ["/rent/", "/pricing/", "/earn/"]) {
     test(`${path} doesn't move while its figures arrive`, async ({ page }) => {
       await fakeApi(page, { "/v1/public/availability": { json: availability(10_000) } }, { delayMs: 400 });
       const shifts = await recordLayoutShifts(page);

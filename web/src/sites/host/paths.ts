@@ -7,11 +7,14 @@
  */
 export const HOST_PATHS = {
   home: "/",
+  laptops: "/laptops/",
   laptop: "/laptop/",
   price: "/laptop/price/",
   sessions: "/sessions/",
   earnings: "/earnings/",
+  payouts: "/payouts/",
   payoutDetails: "/payout-details/",
+  help: "/help/",
   add: "/add/",
   /** A host link's approval: `/link/<id>/`. */
   link: "/link/",

@@ -332,3 +332,16 @@ export function useGpuPriceBand(gpu: { model: string; vramMb: number } | undefin
       !(error instanceof ApiError && error.status >= 400 && error.status < 500) && failures < 2,
   });
 }
+
+/**
+ * When renters want a GPU of this much memory (ADR 0058, `GET /v1/demand`): asked, served and unmet by hour in India
+ * over the last 28 days, and whether there were enough bookings to say anything.
+ */
+export function useDemand(vramMb: number | undefined, enabled = true) {
+  return useQuery({
+    queryKey: ["demand", vramMb],
+    enabled: enabled && vramMb !== undefined,
+    staleTime: 10 * 60_000,
+    queryFn: () => data(api.GET("/v1/demand", { params: { query: { vramMb: vramMb! } } })),
+  });
+}

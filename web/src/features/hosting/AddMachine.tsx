@@ -37,7 +37,7 @@ const BUTTON =
  * one; "Windows app: coming soon" while there isn't, never a download that isn't there. Every state is the button's
  * height and one line under it, so nothing moves when the answer comes.
  */
-function DownloadButton() {
+export function DownloadButton() {
   // The page paints with the button's skeleton first; the answer is asked for after that paint, so the request is not
   // on the way to the page's largest paint (Lighthouse counts each round trip before it).
   const painted = useAfterPaint();
