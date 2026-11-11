@@ -4,6 +4,10 @@ import * as data from "./fixtures";
 import * as admin from "./fixtures-admin";
 import { routes } from "./fixtures-admin-routes";
 import { codesShown, expectAccessible, fakeApi, onPhone, signIn, type Answer, watchConsole } from "./support";
+import { ADMIN_URL } from "./sites";
+
+// The console is the admin site's alone (ADR 0058): every address here is on it.
+test.use({ baseURL: ADMIN_URL });
 
 /**
  * The console's finish (ADR 0057): keyboard-first, the one table, bulk from any list, one look and its budgets, across

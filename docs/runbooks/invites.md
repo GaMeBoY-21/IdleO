@@ -17,7 +17,7 @@ OPERATOR=<handle> java -jar control-plane.jar --spring.profiles.active=prod,ops 
 - `--count`: 1 to 200 codes.
 - `--note`: who they are for, such as `hackathon` or `friend`. It's kept with each code and never shown to the person.
 - `--expires`: optional; a number of days or hours, like `30d` or `12h`. Without it a code never expires.
-- `--unlocks`: optional; which side of the account the code opens (ADR 0058): `renting` (the renter app), `hosting` (the host site) or `both`, the default. Someone with one side can enter a second code for the other: on the site they can't use yet, a page says so and takes it. A code that would unlock nothing new for them isn't used up.
+- `--unlocks`: optional; which side of the account the code opens (ADR 0058): `renting` (the renter app), `hosting` (the host site) or `both`, the default. Someone with one side can enter a second code for the other: on the site they can't use yet, a page says so and takes it. A code that would unlock nothing new for them isn't used up. The console's Invites screen makes codes of each kind too, and its list says what each unlocks.
 
 Locally, against the `scripts/e2e/agent-online.sh --keep-running` stack:
 

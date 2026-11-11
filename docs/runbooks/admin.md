@@ -1,6 +1,6 @@
 # The admin console
 
-The console at `/admin/` runs the pilot from a browser (ADR 0027): hosts, users, invites, credit, sessions, the review queue, reconciliation and the audit log. Every action asks why and is written to the audit log in the same transaction. Anyone who isn't an admin, with an admin session, sees the same "We can't find that page" as any wrong address.
+The console runs the pilot from a browser (ADR 0027), on the admin site of its own (ADR 0058): `https://admin.idleo.in/admin/`, locally http://localhost:3004/admin/. The renter app's old `/admin/` addresses redirect there, and the console's API answers no other site. It covers hosts, users, invites, credit, sessions, the review queue, reconciliation and the audit log. Every action asks why and is written to the audit log in the same transaction. Anyone who isn't an admin, with an admin session, sees the same "We can't find that page" as any wrong address.
 
 ## Make someone an admin
 
@@ -32,7 +32,7 @@ Both are in the audit log (`admin.grant`, `admin.revoke`), with your `OPERATOR` 
 
 ## First visit: set up the authenticator
 
-1. Sign in to the web app as usual, then open `/admin/`.
+1. Open the admin site (`https://admin.idleo.in/`, which leads to `/admin/`) and sign in as you do on the renter app: it's the same account, signed in on this site of its own.
 2. **Set up your authenticator:** scan the QR code with an authenticator app (Google Authenticator, 1Password, Authy…), or type the secret shown under it.
    - The secret is shown only on this page. Leaving and coming back makes a new one, and the old one stops working.
 3. Type the 6-digit code the app shows, and **Confirm**.

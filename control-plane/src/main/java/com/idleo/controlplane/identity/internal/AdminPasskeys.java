@@ -1,6 +1,7 @@
 package com.idleo.controlplane.identity.internal;
 
 import com.idleo.controlplane.IdGenerator;
+import com.idleo.controlplane.WebOrigins;
 import java.nio.ByteBuffer;
 import java.sql.Array;
 import java.sql.ResultSet;
@@ -21,8 +22,6 @@ import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
-import org.springframework.boot.context.properties.bind.Bindable;
-import org.springframework.boot.context.properties.bind.Binder;
 import org.springframework.core.env.Environment;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -91,9 +90,8 @@ class AdminPasskeys implements UserCredentialRepository, PublicKeyCredentialUser
                 .id(passkeys.rpId())
                 .name(passkeys.rpName())
                 .build();
-        var origins = Binder.get(environment)
-                .bind("web.allowed-origins", Bindable.listOf(String.class))
-                .orElse(List.of());
+        // A passkey is used on the admin site alone (ADR 0058): an assertion made on another site's page is refused.
+        var origins = WebOrigins.of(environment).admin();
         this.operations = new Webauthn4JRelyingPartyOperations(this, this, rp, Set.copyOf(origins));
         operations.setCustomizeCreationOptions(options -> options.authenticatorSelection(SELECTION));
         operations.setCustomizeRequestOptions(

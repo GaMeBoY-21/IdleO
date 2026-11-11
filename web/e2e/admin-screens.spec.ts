@@ -15,6 +15,10 @@ import {
   typeToConfirm,
   watchConsole,
 } from "./support";
+import { ADMIN_URL } from "./sites";
+
+// The console is the admin site's alone (ADR 0058): every address here is on it.
+test.use({ baseURL: ADMIN_URL });
 
 /**
  * The admin console (ADR 0027), every screen and its states, light and dark, phone and laptop: zero axe violations,
@@ -1004,20 +1008,29 @@ test.describe("the console", () => {
     expect(flagged).toEqual({ reason: "The host stopped it twice.", flagHost: true });
   });
 
-  test("makes invite codes and shows them once", async ({ page }, info) => {
+  test("makes invite codes of a kind and shows them once (ADR 0058)", async ({ page }, info) => {
+    let made: unknown = null;
     await open(page, "/admin/invites/", {
-      "/admin/v1/invites": (_call, request) =>
-        request.method() === "POST"
-          ? { json: { codes: ["IDLE-7K2Q-9XMD", "IDLE-3RTW-8HJN"], expiresAt: null }, status: 201 }
-          : { json: admin.invites },
+      "/admin/v1/invites": (_call, request) => {
+        if (request.method() === "POST") {
+          made = request.postDataJSON();
+          return { json: { codes: ["IDLE-7K2Q-9XMD", "IDLE-3RTW-8HJN"], expiresAt: null }, status: 201 };
+        }
+        return { json: admin.invites };
+      },
     });
-    await expect(page.getByRole("table", { name: "Invite codes" })).toContainText(admin.renter.email);
+    const table = page.getByRole("table", { name: "Invite codes" });
+    await expect(table).toContainText(admin.renter.email);
+    await expect(table).toContainText("Renting and hosting");
     await page.getByRole("button", { name: "Make invite codes" }).click();
     const sheet = page.getByRole("dialog", { name: "Make invite codes" });
+    await sheet.getByLabel("Unlocks").selectOption("hosting");
+    await expect(sheet).toContainText("unlocking hosting");
     await sheet.getByLabel("How many (1 to 200)").fill("2");
     await sheet.getByLabel("Reason").fill("Second pilot batch");
     await sheet.getByRole("button", { name: "Make the codes" }).click();
     await expect(page.getByRole("list", { name: "New invite codes" }).getByRole("listitem")).toHaveCount(2);
+    expect(made).toMatchObject({ count: 2, note: "Second pilot batch", unlocks: "hosting" });
     await expectAccessible(page);
     await capture(page, info, "admin-invites");
   });

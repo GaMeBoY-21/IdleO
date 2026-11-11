@@ -27,6 +27,7 @@ class ProductionSettingsGuardTests {
                         "identity.web-app-url=https://app.example.invalid",
                         "notifications.web-app-url=https://app.example.invalid",
                         "notifications.host-site-url=https://host.example.invalid",
+                        "notifications.admin-site-url=https://admin.example.invalid",
                         "hosts.link.web-app-url=https://host.example.invalid",
                         "notifications.email.from=IdleO <notifications@example.invalid>",
                         "spring.mail.host=smtp.example.invalid",
@@ -50,6 +51,7 @@ class ProductionSettingsGuardTests {
                         "backups.storage.access-key-id=reader",
                         "backups.storage.secret-access-key=" + PRODUCTION_KEY,
                         "identity.admin.passkeys.rp-id=idleo.example.invalid",
+                        "web.admin-origins=https://admin.idleo.example.invalid",
                         "identity.audit.offsite.endpoint=https://account.r2.example.invalid",
                         "identity.audit.offsite.bucket=idleo-audit",
                         "identity.audit.offsite.access-key-id=writer",
@@ -216,6 +218,8 @@ class ProductionSettingsGuardTests {
             {"notifications.web-app-url=http://localhost:3000", "notifications.web-app-url http://localhost:3000"},
             {"notifications.web-app-url=http://app.example.invalid", "notifications.web-app-url http://app"},
             {"notifications.host-site-url=http://localhost:3003", "notifications.host-site-url http://localhost:3003"},
+            {"notifications.admin-site-url=http://localhost:3004", "notifications.admin-site-url http://localhost:3004"
+            },
             {"notifications.email.from=IdleO <notifications@localhost>", "notifications.email.from"},
             {"spring.mail.host=localhost", "spring.mail.host is localhost, on this machine"},
             {"spring.mail.host=", "spring.mail.host is missing"},
@@ -393,6 +397,12 @@ class ProductionSettingsGuardTests {
     void prodRefusesToStartWithoutBackupsToWatch() {
         for (var setting : new String[][] {
             {"identity.admin.passkeys.rp-id=localhost", "identity.admin.passkeys.rp-id is localhost"},
+            {"web.admin-origins=", "web.admin-origins is missing"},
+            {"web.admin-origins=http://localhost:3004", "admin origin http://localhost:3004 is"},
+            {
+                "web.admin-origins=https://admin.elsewhere.example.invalid",
+                "admin origin https://admin.elsewhere.example.invalid isn't on the passkeys' domain"
+            },
             {"identity.approvals.cooling-money=5m", "identity.approvals.cooling-money is shorter"},
             {"identity.approvals.cooling-access=1h", "identity.approvals.cooling-access is shorter"},
             {"identity.approvals.refund-limit-paise=999999", "identity.approvals.refund-limit-paise is above"},

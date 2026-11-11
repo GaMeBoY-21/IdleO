@@ -1,6 +1,10 @@
 import { createHmac } from "node:crypto";
 import { expect, test } from "@playwright/test";
 import { signIn } from "./support";
+import { ADMIN_URL } from "./sites";
+
+// The console is the admin site's alone (ADR 0058): every address here is on it.
+test.use({ baseURL: ADMIN_URL });
 
 /**
  * The inbox against the real stack (ADR 0053), run with the admin journey by scripts/e2e/agent-online.sh, which has put a

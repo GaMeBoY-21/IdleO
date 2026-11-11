@@ -38,6 +38,7 @@ spec:
     - {{ $hosts.site }}
     - {{ $hosts.app }}
     - {{ $hosts.host }}
+    - {{ $hosts.admin }}
     - {{ $hosts.api }}
   privateKey:
     algorithm: ECDSA
@@ -70,7 +71,7 @@ metadata:
 spec:
   parentRefs:
     - { name: idleo, sectionName: http }
-  hostnames: [{{ $hosts.site | quote }}, {{ $hosts.app | quote }}, {{ $hosts.host | quote }}, {{ $hosts.api | quote }}]
+  hostnames: [{{ $hosts.site | quote }}, {{ $hosts.app | quote }}, {{ $hosts.host | quote }}, {{ $hosts.admin | quote }}, {{ $hosts.api | quote }}]
   rules:
     - filters:
         - type: RequestRedirect
@@ -142,4 +143,19 @@ spec:
   rules:
     - backendRefs:
         - { name: idleo-web, port: 8082 }
+---
+# The admin site (ADR 0058): the console, on an address of its own.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: idleo-admin
+  labels:
+    {{- include "idleo.labels" (list . "gateway") | nindent 4 }}
+spec:
+  parentRefs:
+    - { name: idleo, sectionName: https }
+  hostnames: [{{ $hosts.admin | quote }}]
+  rules:
+    - backendRefs:
+        - { name: idleo-web, port: 8083 }
 {{- end }}

@@ -13,6 +13,7 @@ class EmailContentTests {
     private final EmailContent content = new EmailContent(new NotificationProperties(
             URI.create("https://app.example.invalid/"),
             URI.create("https://host.example.invalid/"),
+            URI.create("https://admin.example.invalid/"),
             new NotificationProperties.Email("IdleO <notifications@mail.example.invalid>", null)));
 
     private static final UUID NOTIFICATION = UUID.fromString("0199f0a2-7c1e-7d3a-9b2f-3c4d5e6f7a8b");
@@ -41,6 +42,14 @@ class EmailContentTests {
         var earnings = new Message("₹187.00 is on its way to your UPI ID", "It left us.", "/earnings/").onHostSite();
         var email = content.of("host@example.com", NotificationKind.PAYOUT, earnings, NOTIFICATION);
         assertThat(email.text()).contains("Open it: https://host.example.invalid/earnings/");
+    }
+
+    /** The console is the admin site's alone (ADR 0058): an admin's notice leads there, as a host's to the host site. */
+    @Test
+    void aConsoleLinkIsOnTheAdminSite() {
+        var approval = new Message("An admin action ran", "Sign in to the console to read it.", "/admin/approvals/");
+        var email = content.of("owner@example.com", NotificationKind.ACCOUNT_AND_DATA, approval, NOTIFICATION);
+        assertThat(email.text()).contains("Open it: https://admin.example.invalid/admin/approvals/");
     }
 
     @Test
@@ -97,6 +106,7 @@ class EmailContentTests {
         var properties = new NotificationProperties(
                 URI.create("https://app.example.invalid/"),
                 URI.create("https://host.example.invalid/"),
+                URI.create("https://admin.example.invalid/"),
                 new NotificationProperties.Email("IdleO <notifications@mail.example.invalid>", null));
         var sender = new SmtpEmailSender(new JavaMailSenderImpl(), properties);
 

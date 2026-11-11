@@ -13,6 +13,8 @@ storage_port=9300
 mail_smtp_port=1225
 mail_web_port=8225
 web_port=3200
+# The console is the admin site's (ADR 0058), the one origin /admin/v1 answers.
+admin_port=3202
 compose_project=idleo-console-budgets
 operator_name=console-budgets
 log() { printf 'console-budgets: %s\n' "$*"; }
@@ -40,7 +42,7 @@ trap cleanup EXIT
 trap 'exit 130' INT TERM
 
 docker info >/dev/null 2>&1 || fail "Docker isn't running"
-for port in "$http_port" "$grpc_port" "$sign_in_port" "$storage_port" "$mail_smtp_port" "$mail_web_port" "$web_port"; do
+for port in "$http_port" "$grpc_port" "$sign_in_port" "$storage_port" "$mail_smtp_port" "$mail_web_port" "$web_port" "$admin_port"; do
   ! port_in_use "$port" || fail "port $port is already in use"
 done
 
@@ -64,17 +66,18 @@ token="$(stack_token "$user")"
 curl -sf -H "Authorization: Bearer $token" "$api/v1/me" >/dev/null || fail "the admin's account wasn't made"
 ops grant-admin "$user@example.com" --reason "'The console budgets'" --role owner || fail "grant-admin failed"
 
-log "building the web app"
+log "building the admin site"
 (cd web && pnpm install --frozen-lockfile) >"$out/web-build.log" 2>&1
-(cd web && IDLEO_SITE_URL="http://localhost:3201" IDLEO_APP_URL="http://localhost:$web_port" IDLEO_DEPLOYMENT=local \
+(cd web && IDLEO_WEB_SITES=admin IDLEO_SITE_URL="http://localhost:3201" IDLEO_APP_URL="http://localhost:$web_port" \
+  IDLEO_ADMIN_URL="http://localhost:$admin_port" IDLEO_DEPLOYMENT=local \
   VITE_API_URL="$api" VITE_STORAGE_URL="http://localhost:$storage_port" VITE_AUTH=oidc-mock VITE_OIDC_ISSUER="$sign_in" \
   VITE_OIDC_CLIENT_ID=idleo-local VITE_CHECKOUT_URL="http://localhost:$web_port/none.js" pnpm build) >>"$out/web-build.log" 2>&1 ||
   fail "the web build failed; see private/console-budgets/web-build.log"
-(cd web && PORT="$web_port" exec node scripts/serve.ts) >"$out/web-serve.log" 2>&1 &
+(cd web && IDLEO_DIST=dist-admin PORT="$admin_port" exec node scripts/serve.ts) >"$out/web-serve.log" 2>&1 &
 web_pid=$!
-until curl -sf "http://localhost:$web_port/sign-in/" >/dev/null; do sleep 0.2; done
+until curl -sf "http://localhost:$admin_port/sign-in/" >/dev/null; do sleep 0.2; done
 
 log "measuring every screen"
-(cd web && WEB_URL="http://localhost:$web_port" API_URL="$api" SIGN_IN_URL="$sign_in" SKIP_VISUAL=1 E2E_ADMIN_USER="$user" \
+(cd web && ADMIN_URL="http://localhost:$admin_port" API_URL="$api" SIGN_IN_URL="$sign_in" SKIP_VISUAL=1 E2E_ADMIN_USER="$user" \
   CONSOLE_BUDGETS_REPORT="$out/report.json" pnpm exec playwright test --project=console-budgets --reporter=line)
 log "PASS: every screen within its budgets; the figures are in private/console-budgets/report.json"

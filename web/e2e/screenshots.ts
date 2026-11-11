@@ -12,8 +12,8 @@
 //   SHOTS_DATE=2026-10-27 pnpm screenshots
 //
 // `app` and `admin` run the browser tests' screens (web/e2e/*-screens.spec.ts) with their fixtures, which take the pictures
-// as they pass: they need the web app built and served on :3000 and the local stack up (scripts/e2e/agent-online.sh
-// --keep-running), as the tests do. A screen whose test fails has no picture, and the run says so.
+// as they pass: they need the web app built and its sites served (the renter app on :3000, the admin site on :3004) and
+// the local stack up (scripts/e2e/agent-online.sh --keep-running), as the tests do. A screen whose test fails has no picture, and the run says so.
 import { spawn, spawnSync } from "node:child_process";
 import { mkdirSync, readdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";

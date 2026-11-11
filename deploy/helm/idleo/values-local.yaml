@@ -16,9 +16,12 @@ controlPlane:
     SPRING_MAIL_HOST: idleo-mail
     SPRING_MAIL_PORT: "1025"
     WEB_ALLOWEDORIGINS: https://app.idleo.localhost:8443,https://host.idleo.localhost:8443,https://idleo.localhost:8443
+    # The admin site's (ADR 0058), the only one that may call /admin/v1, where the console's passkeys are used.
+    WEB_ADMINORIGINS: https://admin.idleo.localhost:8443
     IDENTITY_WEB_APP_URL: https://app.idleo.localhost:8443
     NOTIFICATIONS_WEB_APP_URL: https://app.idleo.localhost:8443
     NOTIFICATIONS_HOST_SITE_URL: https://host.idleo.localhost:8443
+    NOTIFICATIONS_ADMIN_SITE_URL: https://admin.idleo.localhost:8443
     # A host link is approved on the host site (ADR 0058).
     HOSTS_LINK_WEB_APP_URL: https://host.idleo.localhost:8443
     # Anyone signing in is let in, as with ./start.sh: no invite step on this machine.
@@ -50,6 +53,7 @@ gateway:
     api: api.idleo.localhost
     app: app.idleo.localhost
     host: host.idleo.localhost
+    admin: admin.idleo.localhost
     site: idleo.localhost
 
 tls:

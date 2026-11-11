@@ -1,7 +1,8 @@
 # check=skip=SecretsUsedInArgOrEnv
-# The web image (ADR 0045, ADR 0058): the renter app (web/dist), the website (web/dist-website) and the host site
-# (web/dist-host), built here and served by nginx as one server block each, the app on 8080, the website on 8081 and the
-# host site on 8082, with each build's headers, redirects and rewrites (scripts/nginx-config.ts,
+# The web image (ADR 0045, ADR 0058): the renter app (web/dist), the website (web/dist-website), the host site
+# (web/dist-host) and the admin site (web/dist-admin), built here and served by nginx as one server block each, the app on
+# 8080, the website on 8081, the host site on 8082 and the admin site on 8083, with each build's headers, redirects and
+# rewrites (scripts/nginx-config.ts,
 # docs/runbooks/deployment.md). Production serves them from Cloudflare Pages; this image is
 # the local cluster's, and production's fallback. It runs as nginx's own unprivileged user (101) on a read-only root,
 # writing only to /tmp (a tmpfs in the chart).
@@ -18,6 +19,7 @@ ARG IDLEO_RELEASE=development
 ARG IDLEO_SITE_URL=https://idleo.localhost:8443
 ARG IDLEO_APP_URL=https://app.idleo.localhost:8443
 ARG IDLEO_HOST_URL=https://host.idleo.localhost:8443
+ARG IDLEO_ADMIN_URL=https://admin.idleo.localhost:8443
 ARG VITE_API_URL=https://api.idleo.localhost:8443
 ARG VITE_STORAGE_URL=http://storage.idleo.localhost:19100
 ARG VITE_AUTH=oidc-mock
@@ -41,13 +43,14 @@ RUN pnpm build && pnpm build:site \
     && mkdir -p /out/conf \
     && node scripts/nginx-config.ts dist 8080 > /out/conf/app.conf \
     && node scripts/nginx-config.ts dist-website 8081 > /out/conf/website.conf \
-    && node scripts/nginx-config.ts dist-host 8082 > /out/conf/host.conf
+    && node scripts/nginx-config.ts dist-host 8082 > /out/conf/host.conf \
+    && node scripts/nginx-config.ts dist-admin 8083 > /out/conf/admin.conf
 
 FROM nginxinc/nginx-unprivileged:1.31.7-alpine@sha256:b5047b9b76845eac124358373c6852377c52e4b05834a47647e955dd91cb8f1e
 ARG VERSION=development
 ARG REVISION=unknown
 LABEL org.opencontainers.image.title="idleo-web" \
-      org.opencontainers.image.description="IdleO's web app, host site and website, served by nginx" \
+      org.opencontainers.image.description="IdleO's web app, host site, admin site and website, served by nginx" \
       org.opencontainers.image.source="https://github.com/GaMeBoY-21/IdleO" \
       org.opencontainers.image.licenses="LicenseRef-IdleO-All-Rights-Reserved" \
       org.opencontainers.image.version="${VERSION}" \
@@ -61,5 +64,6 @@ COPY --from=build /out/conf/ /etc/nginx/conf.d/
 COPY --from=build /src/web/dist /usr/share/nginx/dist
 COPY --from=build /src/web/dist-website /usr/share/nginx/dist-website
 COPY --from=build /src/web/dist-host /usr/share/nginx/dist-host
-EXPOSE 8080 8081 8082
+COPY --from=build /src/web/dist-admin /usr/share/nginx/dist-admin
+EXPOSE 8080 8081 8082 8083
 HEALTHCHECK --interval=30s --timeout=3s CMD ["wget", "-q", "--spider", "http://127.0.0.1:8080/sign-in/"]

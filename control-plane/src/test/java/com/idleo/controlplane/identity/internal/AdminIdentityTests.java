@@ -232,6 +232,48 @@ class AdminIdentityTests {
                 .isEmpty();
     }
 
+    /** The console makes codes of each kind (ADR 0058): one that unlocks hosting gives an account hosting alone. */
+    @Test
+    void anAdminMakesCodesThatUnlockOneSideAndTheListSaysWhich() throws Exception {
+        var admin = TestAdmins.signIn(mvc, jdbc, clock);
+        var created = json.readTree(mvc.perform(admin.as(post("/admin/v1/invites"))
+                        .header("Idempotency-Key", UUID.randomUUID().toString())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"count\":1,\"note\":\"Hosts in Pune\",\"unlocks\":\"hosting\"}"))
+                .andExpect(status().isCreated())
+                .andReturn()
+                .getResponse()
+                .getContentAsString());
+        var code = created.get("codes").get(0).asString();
+        var host = TestUsers.signUp(mvc);
+        jdbc.update("update identity.users set status = 'waiting' where id = ?", host.id());
+        assertThat(invites.activate(host.id(), code)).isEqualTo(InviteService.Result.ACTIVATED);
+        assertThat(jdbc.queryForList("select side from identity.user_sides where user_id = ?", String.class, host.id()))
+                .containsExactly("hosting");
+
+        var hosting = read(get("/admin/v1/invites").param("unlocks", "hosting"), admin)
+                .get("invites");
+        assertThat(hosting).isNotEmpty();
+        hosting.forEach(invite -> assertThat(invite.get("unlocks").asString()).isEqualTo("hosting"));
+        // A code made without saying unlocks both, as every code did before sides were named.
+        mvc.perform(admin.as(post("/admin/v1/invites"))
+                        .header("Idempotency-Key", UUID.randomUUID().toString())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"count\":1,\"note\":\"Anyone at all\"}"))
+                .andExpect(status().isCreated());
+        assertThat(read(get("/admin/v1/invites").param("limit", "1"), admin)
+                        .get("invites")
+                        .get(0)
+                        .get("unlocks")
+                        .asString())
+                .isEqualTo("both");
+        mvc.perform(admin.as(post("/admin/v1/invites"))
+                        .header("Idempotency-Key", UUID.randomUUID().toString())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"count\":1,\"note\":\"Something else\",\"unlocks\":\"gaming\"}"))
+                .andExpect(status().isBadRequest());
+    }
+
     @Test
     void createInvitesStillWorksThroughTheSameService() {
         var out = new ByteArrayOutputStream();

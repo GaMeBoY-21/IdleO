@@ -10,8 +10,10 @@ import org.springframework.validation.annotation.Validated;
 
 /**
  * {@code notifications.web-app-url} ({@code NOTIFICATIONS_WEB_APP_URL}): the renter app, where an email's links go;
- * {@code notifications.host-site-url} ({@code NOTIFICATIONS_HOST_SITE_URL}): the host site, where a host's go (ADR
- * 0058); the prod profile refuses either if it is plain HTTP or on this machine. {@code notifications.email.from}
+ * {@code notifications.host-site-url} ({@code NOTIFICATIONS_HOST_SITE_URL}): the host site, where a host's go;
+ * {@code notifications.admin-site-url} ({@code NOTIFICATIONS_ADMIN_SITE_URL}): the admin site, where a link to the
+ * console goes, a path under {@value #CONSOLE} (ADR 0058); the prod profile refuses any if it is plain HTTP or on this
+ * machine. {@code notifications.email.from}
  * ({@code NOTIFICATIONS_EMAIL_FROM}): the sender's address, which the production provider must allow (ADR 0026,
  * docs/runbooks/email.md).
  */
@@ -20,7 +22,11 @@ import org.springframework.validation.annotation.Validated;
 record NotificationProperties(
         @NotNull URI webAppUrl,
         @NotNull URI hostSiteUrl,
+        @NotNull URI adminSiteUrl,
         @DefaultValue Email email) {
+
+    /** The console's addresses, on the admin site alone (ADR 0058): a link under it goes there, whoever it's for. */
+    static final String CONSOLE = "/admin/";
 
     /**
      * @param webhookSecret the signing secret of the provider's bounce and complaint webhook ({@code
@@ -40,9 +46,15 @@ record NotificationProperties(
         return join(webAppUrl, path);
     }
 
-    /** The address of a message's link, on its site (ADR 0058): {@code /earnings/} on the host site's. */
+    /**
+     * The address of a message's link, on its site (ADR 0058): {@code /earnings/} on the host site's, and a console path
+     * on the admin site's.
+     */
     String absolute(Message message) {
-        return join(message.site() == Message.Site.HOST ? hostSiteUrl : webAppUrl, message.link());
+        var site = message.link().startsWith(CONSOLE)
+                ? adminSiteUrl
+                : message.site() == Message.Site.HOST ? hostSiteUrl : webAppUrl;
+        return join(site, message.link());
     }
 
     private static String join(URI site, String path) {

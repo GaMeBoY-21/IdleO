@@ -1,49 +1,21 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Suspense } from "react";
 import { Link, Route, Switch, useLocation } from "wouter";
 import { Wordmark } from "@/brand/Wordmark";
 import { Button } from "@/components/ui/Button";
+import { Skeleton } from "@/components/ui/Skeleton";
 import { cn } from "@/lib/cn";
 import { ADMIN, adminApi, adminData, adminSession } from "./api";
-import { Approvals } from "./Approvals";
-import { Audit } from "./Audit";
-import { Dashboard } from "./Dashboard";
-import { Flags } from "./Flags";
-import { Fleet } from "./Fleet";
-import { Abuse } from "./Abuse";
-import { Chargebacks } from "./Chargebacks";
-import { Disputes } from "./Disputes";
-import { Notices } from "./Notices";
-import { Tickets } from "./Tickets";
+import { CONSOLE_SCREENS } from "./console-screens";
 import { Gate } from "./Gate";
 import { HelpButton, KeysProvider } from "./Keys";
 import { forgetRecent, PaletteButton, PaletteProvider } from "./Palette";
 import { NeedsPermission, useCan } from "./permissions";
-import { Hosts } from "./Hosts";
-import { Invites } from "./Invites";
-import { Invoices } from "./Invoices";
-import { Money } from "./Money";
-import { Ledger } from "./Ledger";
-import { Adjustments } from "./Adjustments";
-import { Months } from "./Months";
-import { MoneyReports } from "./MoneyReports";
-import { Settlements } from "./Settlements";
-import { Payments } from "./Payments";
-import { Payouts } from "./Payouts";
-import { Verification } from "./Verification";
-import { Clawbacks } from "./Clawbacks";
-import { Appeals } from "./Enforcement";
-import { Images } from "./Images";
-import { Inbox } from "./Inbox";
-import { Tax } from "./Tax";
-import { Refunds } from "./Refunds";
-import { Review } from "./Review";
-import { Security } from "./Security";
-import { Sessions } from "./Sessions";
-import { Users } from "./Users";
 
 /**
- * The admin console (ADR 0027): its own chunk, loaded only on an /admin/ address, so renters never download it. A
- * left navigation and dense tables, in the app's Night Shift tokens (and Day Shift, with the device).
+ * The admin console (ADR 0027), on the admin site alone (admin.idleo.in, ADR 0058): a left navigation and dense tables,
+ * in the app's Night Shift tokens (and Day Shift, with the device). Its frame is one chunk and each screen another
+ * (console-screens.ts).
  */
 export const ADMIN_SCREENS = [
   { href: "/admin/", label: "Control room", needs: "ops.dashboard.read" },
@@ -92,40 +64,20 @@ export function AdminConsole() {
       <PaletteProvider screens={ADMIN_SCREENS}>
         <KeysProvider>
           <Layout>
-            <Switch>
-              <Route path="/admin/">{guarded("/admin/", <Dashboard />)}</Route>
-              <Route path="/admin/users/">{guarded("/admin/users/", <Users />)}</Route>
-              <Route path="/admin/hosts/">{guarded("/admin/hosts/", <Hosts />)}</Route>
-              <Route path="/admin/fleet/">{guarded("/admin/fleet/", <Fleet />)}</Route>
-              <Route path="/admin/sessions/">{guarded("/admin/sessions/", <Sessions />)}</Route>
-              <Route path="/admin/review/">{guarded("/admin/review/", <Review />)}</Route>
-              <Route path="/admin/disputes/">{guarded("/admin/disputes/", <Disputes />)}</Route>
-              <Route path="/admin/abuse/">{guarded("/admin/abuse/", <Abuse />)}</Route>
-              <Route path="/admin/images/">{guarded("/admin/images/", <Images />)}</Route>
-              <Route path="/admin/tickets/">{guarded("/admin/tickets/", <Tickets />)}</Route>
-              <Route path="/admin/notices/">{guarded("/admin/notices/", <Notices />)}</Route>
-              <Route path="/admin/money/">{guarded("/admin/money/", <Money />)}</Route>
-              <Route path="/admin/ledger/">{guarded("/admin/ledger/", <Ledger />)}</Route>
-              <Route path="/admin/adjustments/">{guarded("/admin/adjustments/", <Adjustments />)}</Route>
-              <Route path="/admin/months/">{guarded("/admin/months/", <Months />)}</Route>
-              <Route path="/admin/money-reports/">{guarded("/admin/money-reports/", <MoneyReports />)}</Route>
-              <Route path="/admin/settlements/">{guarded("/admin/settlements/", <Settlements />)}</Route>
-              <Route path="/admin/payments/">{guarded("/admin/payments/", <Payments />)}</Route>
-              <Route path="/admin/refunds/">{guarded("/admin/refunds/", <Refunds />)}</Route>
-              <Route path="/admin/invoices/">{guarded("/admin/invoices/", <Invoices />)}</Route>
-              <Route path="/admin/chargebacks/">{guarded("/admin/chargebacks/", <Chargebacks />)}</Route>
-              <Route path="/admin/payouts/">{guarded("/admin/payouts/", <Payouts />)}</Route>
-              <Route path="/admin/verification/">{guarded("/admin/verification/", <Verification />)}</Route>
-              <Route path="/admin/clawbacks/">{guarded("/admin/clawbacks/", <Clawbacks />)}</Route>
-              <Route path="/admin/tax/">{guarded("/admin/tax/", <Tax />)}</Route>
-              <Route path="/admin/invites/">{guarded("/admin/invites/", <Invites />)}</Route>
-              <Route path="/admin/inbox/">{guarded("/admin/inbox/", <Inbox />)}</Route>
-              <Route path="/admin/appeals/">{guarded("/admin/appeals/", <Appeals />)}</Route>
-              <Route path="/admin/flags/">{guarded("/admin/flags/", <Flags />)}</Route>
-              <Route path="/admin/approvals/">{guarded("/admin/approvals/", <Approvals />)}</Route>
-              <Route path="/admin/audit/">{guarded("/admin/audit/", <Audit />)}</Route>
-              <Route path="/admin/security/" component={Security} />
-            </Switch>
+            <Suspense fallback={<Skeleton className="h-16 w-full" />}>
+              <Switch>
+                {Object.entries(CONSOLE_SCREENS).map(([href, { Screen }]) =>
+                  // Your access is everyone's: it's where an admin without a section's permission sees what they have.
+                  href === "/admin/security/" ? (
+                    <Route key={href} path={href} component={Screen} />
+                  ) : (
+                    <Route key={href} path={href}>
+                      {guarded(href, <Screen />)}
+                    </Route>
+                  ),
+                )}
+              </Switch>
+            </Suspense>
           </Layout>
         </KeysProvider>
       </PaletteProvider>
@@ -257,7 +209,11 @@ function Layout({ children }: { children: React.ReactNode }) {
     <div className="flex min-h-dvh flex-col md:flex-row">
       <header className="flex flex-col gap-2 border-b border-line bg-sidebar px-4 py-3 md:sticky md:top-0 md:h-dvh md:w-sidebar-admin md:shrink-0 md:overflow-y-auto md:border-r md:border-b-0 md:py-6">
         <div className="flex items-center justify-between gap-2 md:flex-col md:items-start">
-          <Link href="/" className="flex items-center gap-2 md:px-3" aria-label="IdleO home">
+          <Link
+            href="/admin/"
+            className="flex items-center gap-2 md:px-3"
+            aria-label="IdleO admin, control room"
+          >
             <Wordmark />
           </Link>
           <span className="text-caption font-bold tracking-wider text-text-3 uppercase md:px-3">Admin</span>

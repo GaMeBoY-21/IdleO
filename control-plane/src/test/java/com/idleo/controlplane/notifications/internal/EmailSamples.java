@@ -21,6 +21,7 @@ class EmailSamples {
     private final EmailContent content = new EmailContent(new NotificationProperties(
             URI.create("https://app.idleo.in/"),
             URI.create("https://host.idleo.in/"),
+            URI.create("https://admin.idleo.in/"),
             new NotificationProperties.Email("IdleO <notifications@mail.idleo.in>", null)));
 
     @Test

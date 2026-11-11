@@ -13,7 +13,7 @@ describe("the code stays apart (ADR 0058)", () => {
     expect(ownerOf("node_modules/react/index.js")).toBeNull();
   });
 
-  it("finds renting in the host site, and hosting or the console in a first load of the renter app", () => {
+  it("finds renting in the host site, the console in either, and renting or hosting in the admin site", () => {
     const chunks = {
       "assets/shell.js": ["src/main.tsx", "src/features/book/Book.tsx"],
       "assets/AdminConsole.js": ["src/features/admin/AdminConsole.tsx"],
@@ -22,10 +22,11 @@ describe("the code stays apart (ADR 0058)", () => {
       "assets/shell.js: src/features/book/Book.tsx (app)",
       "assets/AdminConsole.js: src/features/admin/AdminConsole.tsx (admin)",
     ]);
-    expect(strangers("app", chunks)).toEqual([]);
-    expect(strangers("app", chunks, { firstLoad: true })).toEqual([
+    // The console is the admin site's alone (ADR 0058), even as a chunk of its own the renter app never loads.
+    expect(strangers("app", chunks)).toEqual([
       "assets/AdminConsole.js: src/features/admin/AdminConsole.tsx (admin)",
     ]);
+    expect(strangers("admin", chunks)).toEqual(["assets/shell.js: src/features/book/Book.tsx (app)"]);
     expect(strangers("app", { "assets/x.js": ["src/features/hosting/Machine.tsx"] })).toEqual([
       "assets/x.js: src/features/hosting/Machine.tsx (host)",
     ]);

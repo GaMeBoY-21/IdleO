@@ -3,6 +3,10 @@ import * as data from "./fixtures";
 import * as admin from "./fixtures-admin";
 import { routes } from "./fixtures-admin-routes";
 import { fakeApi, signIn, type Answer } from "./support";
+import { ADMIN_URL } from "./sites";
+
+// The console is the admin site's alone (ADR 0058): every address here is on it.
+test.use({ baseURL: ADMIN_URL });
 
 /**
  * A long list scrolls smoothly (ADR 0057). In the serial project, beside the Lighthouse runs, as a frame's length means

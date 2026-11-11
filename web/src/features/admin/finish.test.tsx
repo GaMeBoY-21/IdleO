@@ -1,3 +1,4 @@
+import { CONSOLE_SCREENS } from "./console-screens";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { render, screen } from "@testing-library/react";
@@ -79,8 +80,15 @@ describe("every screen of the console", () => {
     const screens = [
       ...read("web/src/features/admin/AdminConsole.tsx").matchAll(/\{ href: "(\/admin\/[^"]*)"/g),
     ].map((match) => match[1]!);
-    const pages = read("web/src/screens.ts");
+    const pages = read("web/src/sites/admin/screens.ts");
     expect(screens.filter((href) => !pages.includes(`"${href}"`))).toEqual([]);
+  });
+
+  it("is drawn by its own chunk, so the admin site's first load is the frame and one screen (ADR 0058)", () => {
+    const screens = [
+      ...read("web/src/features/admin/AdminConsole.tsx").matchAll(/\{ href: "(\/admin\/[^"]*)"/g),
+    ].map((match) => match[1]!);
+    expect(Object.keys(CONSOLE_SCREENS).sort()).toEqual([...screens].sort());
   });
 });
 

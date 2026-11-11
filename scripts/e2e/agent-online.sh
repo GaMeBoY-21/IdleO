@@ -40,7 +40,8 @@
 #
 # Ports, from the environment: E2E_HTTP_PORT (8080), E2E_GRPC_PORT (9443), LOCAL_SIGN_IN_PORT (8099),
 # LOCAL_STORAGE_PORT (9100), LOCAL_MAIL_SMTP_PORT (1025), LOCAL_MAIL_WEB_PORT (8025), E2E_WEB_PORT (3000),
-# E2E_FIREBASE_WEB_PORT (3001), E2E_SITE_PORT (3002), E2E_HOST_PORT (3003, the host site).
+# E2E_FIREBASE_WEB_PORT (3001), E2E_SITE_PORT (3002), E2E_HOST_PORT (3003, the host site), E2E_ADMIN_PORT (3004, the
+# admin site).
 # --web compares screenshots with VISUAL_BASELINE_DIR (web/visual-baseline): an empty one is filled
 # first; otherwise every picture must match, and a new or changed picture fails until accepted with
 # E2E_UPDATE_SNAPSHOTS=all (Playwright's --update-snapshots; web/README.md "Screenshots").
@@ -73,8 +74,9 @@ mail_web_port="${LOCAL_MAIL_WEB_PORT:-8025}"
 web_port="${E2E_WEB_PORT:-3000}"
 firebase_web_port="${E2E_FIREBASE_WEB_PORT:-3001}"
 site_port="${E2E_SITE_PORT:-3002}"
-# The host site (ADR 0058).
+# The host site and the admin site (ADR 0058).
 host_port="${E2E_HOST_PORT:-3003}"
+admin_port="${E2E_ADMIN_PORT:-3004}"
 razorpay_port="${E2E_RAZORPAY_PORT:-8091}"
 razorpayx_port="${E2E_RAZORPAYX_PORT:-8092}"
 startup_timeout="${E2E_STARTUP_TIMEOUT:-600}"
@@ -565,10 +567,10 @@ summary+=("agents enrolled: $agents")
 log "building the web app"
 web_started="$(now_ms)"
 (cd web && pnpm install --frozen-lockfile) >"$out/web-build.log" 2>&1 || fail "pnpm install failed; see private/e2e/web-build.log"
-# The renter app, the host site and the website are builds of their own, each told the others' addresses
-# (web/src/build-settings.ts, ADR 0058); `pnpm build` makes both of the app's sites, dist/ and dist-host/.
+# The renter app, the host site, the admin site and the website are builds of their own, each told the others' addresses
+# (web/src/build-settings.ts, ADR 0058); `pnpm build` makes the app's three sites, dist/, dist-host/ and dist-admin/.
 site_settings=(IDLEO_SITE_URL="http://localhost:$site_port" IDLEO_APP_URL="http://localhost:$web_port"
-  IDLEO_HOST_URL="http://localhost:$host_port")
+  IDLEO_HOST_URL="http://localhost:$host_port" IDLEO_ADMIN_URL="http://localhost:$admin_port")
 (cd web && env "${site_settings[@]}" IDLEO_DEPLOYMENT=local VITE_API_URL="$api" VITE_STORAGE_URL="http://localhost:$storage_port" VITE_AUTH=oidc-mock VITE_OIDC_ISSUER="$sign_in" \
   VITE_OIDC_CLIENT_ID=idleo-local VITE_CHECKOUT_URL="http://localhost:$razorpay_port/v1/checkout.js" pnpm build) >>"$out/web-build.log" 2>&1 || fail "the web build failed; see private/e2e/web-build.log"
 (cd web && env "${site_settings[@]}" IDLEO_DEPLOYMENT=local VITE_API_URL="$api" pnpm build:site) >>"$out/web-build.log" 2>&1 ||
@@ -594,6 +596,7 @@ serve_web() {
 if ! $keep_running || [[ "${E2E_SERVE_WEB:-1}" != 0 ]]; then
   serve_web dist "$web_port"
   serve_web dist-host "$host_port"
+  serve_web dist-admin "$admin_port"
 fi
 $web_only && serve_web dist-firebase "$firebase_web_port"
 serve_web dist-website "$site_port"
@@ -604,9 +607,10 @@ summary+=("web app built and served: $(seconds_since "$web_started") s")
 web_url="http://localhost:$web_port"
 site_url="http://localhost:$site_port"
 host_url="http://localhost:$host_port"
+admin_url="http://localhost:$admin_port"
 # Playwright, with this stack's addresses (web/playwright.config.ts).
 web_test() {
-  (cd web && E2E_FULL_REPORT="$out/web-full.json" WEB_URL="$web_url" HOST_URL="$host_url" SITE_URL="$site_url" API_URL="$api" SIGN_IN_URL="$sign_in" FIREBASE_WEB_URL="http://localhost:$firebase_web_port" \
+  (cd web && E2E_FULL_REPORT="$out/web-full.json" WEB_URL="$web_url" HOST_URL="$host_url" ADMIN_URL="$admin_url" SITE_URL="$site_url" API_URL="$api" SIGN_IN_URL="$sign_in" FIREBASE_WEB_URL="http://localhost:$firebase_web_port" \
     pnpm exec playwright test "$@")
 }
 
@@ -1195,10 +1199,10 @@ if $web_only; then
   if [[ -n "$measuring" ]]; then
     (cd web && rm -rf .lighthouseci .lighthouseci-desktop .lighthouseci-devtools .lighthouseci-first-visit && LIGHTHOUSE_THROTTLING="$measuring" \
       LIGHTHOUSE_PAGES="${E2E_LIGHTHOUSE_PAGES:-home,hosting,add,link,book,session}" LIGHTHOUSE_RUNS="${E2E_LIGHTHOUSE_RUNS:-5}" \
-      E2E_LIGHTHOUSE_USER="$user-lighthouse" WEB_URL="$web_url" HOST_URL="$host_url" SITE_URL="$site_url" API_URL="$api" SIGN_IN_URL="$sign_in" \
+      E2E_LIGHTHOUSE_USER="$user-lighthouse" WEB_URL="$web_url" HOST_URL="$host_url" ADMIN_URL="$admin_url" SITE_URL="$site_url" API_URL="$api" SIGN_IN_URL="$sign_in" \
       pnpm exec playwright test --project=lighthouse --grep "the budgets hold on sign-in") >"$out/web-lighthouse.log" 2>&1 || lighthouse_failed=true
   else
-    (cd web && rm -rf .lighthouseci .lighthouseci-desktop .lighthouseci-devtools .lighthouseci-first-visit && E2E_LIGHTHOUSE_USER="$user-lighthouse" WEB_URL="$web_url" HOST_URL="$host_url" SITE_URL="$site_url" \
+    (cd web && rm -rf .lighthouseci .lighthouseci-desktop .lighthouseci-devtools .lighthouseci-first-visit && E2E_LIGHTHOUSE_USER="$user-lighthouse" WEB_URL="$web_url" HOST_URL="$host_url" ADMIN_URL="$admin_url" SITE_URL="$site_url" \
       API_URL="$api" SIGN_IN_URL="$sign_in" pnpm lighthouse) >"$out/web-lighthouse.log" 2>&1 || lighthouse_failed=true
   fi
   mkdir -p "$lighthouse_kept"

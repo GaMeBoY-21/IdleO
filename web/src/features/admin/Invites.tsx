@@ -11,24 +11,36 @@ import { useListParam, useListView } from "./listView";
 
 /**
  * Invite codes (ADR 0024, ADR 0027): made by the same service as `create-invites` and shown once, here, in this page's
- * memory only; listed afterwards with who used each, never the code.
+ * memory only; listed afterwards with what each unlocks and who used it, never the code. A code unlocks renting, hosting
+ * or both (ADR 0058).
  */
+const KINDS: [Unlocks, string][] = [
+  ["both", "Renting and hosting"],
+  ["renting", "Renting"],
+  ["hosting", "Hosting"],
+];
+type Unlocks = "both" | "renting" | "hosting";
+const kindOf = (unlocks: string) => KINDS.find(([kind]) => kind === unlocks)?.[1] ?? unlocks;
+
 export function Invites() {
   const client = useQueryClient();
   const [making, setMaking] = useState(false);
   const [count, setCount] = useState("1");
   const [days, setDays] = useState("30");
-  const [made, setMade] = useState<{ codes: string[]; note: string } | null>(null);
+  const [unlocks, setUnlocks] = useState<Unlocks>("both");
+  const [made, setMade] = useState<{ codes: string[]; note: string; unlocks: Unlocks } | null>(null);
   const [used, setUsed] = useListParam("used", "");
+  const [kind, setKind] = useListParam("unlocks", "");
   const view = useListView();
   const invites = useInfiniteQuery({
-    queryKey: [ADMIN, "invites", used, view],
+    queryKey: [ADMIN, "invites", used, kind, view],
     queryFn: ({ pageParam }) =>
       adminData(
         adminApi.GET("/admin/v1/invites", {
           params: {
             query: {
               ...(used ? { used: used === "used" } : {}),
+              ...(kind ? { unlocks: kind as Unlocks } : {}),
               ...view,
               ...(pageParam ? { cursor: pageParam } : {}),
             },
@@ -62,7 +74,8 @@ export function Invites() {
           }
         >
           <p className="text-small text-text-2">
-            For &ldquo;{made.note}&rdquo;. Shown only now: only their hashes are kept. Each works once.
+            For &ldquo;{made.note}&rdquo;, unlocking {kindOf(made.unlocks).toLowerCase()}. Shown only now:
+            only their hashes are kept. Each works once.
           </p>
           <ul
             className="tabular grid grid-cols-1 gap-2 rounded-inner border border-edge bg-panel p-4 text-body md:grid-cols-3"
@@ -78,10 +91,16 @@ export function Invites() {
         open={making}
         onOpenChange={setMaking}
         title="Make invite codes"
-        change={`${Number.isInteger(howMany) && howMany > 0 ? howMany : "Some"} single-use code${howMany === 1 ? "" : "s"}, ${expiry ? `each valid for ${expiry} days` : "with no expiry"}. The reason is the note that says who they're for, and the codes are shown once.`}
+        change={`${Number.isInteger(howMany) && howMany > 0 ? howMany : "Some"} single-use code${howMany === 1 ? "" : "s"} unlocking ${kindOf(unlocks).toLowerCase()}, ${expiry ? `each valid for ${expiry} days` : "with no expiry"}. The reason is the note that says who they're for, and the codes are shown once.`}
         confirm="Make the codes"
         extra={
-          <div className="flex gap-3">
+          <div className="flex flex-wrap gap-3">
+            <SmallSelect
+              label="Unlocks"
+              value={unlocks}
+              onChange={(value) => setUnlocks(value as Unlocks)}
+              options={KINDS}
+            />
             <SmallField
               label="How many (1 to 200)"
               value={count}
@@ -107,19 +126,28 @@ export function Invites() {
           }
           const created = await adminData(
             adminApi.POST("/admin/v1/invites", {
-              body: { count: howMany, note: reason, ...(expiry === null ? {} : { expiresInDays: expiry }) },
+              body: {
+                count: howMany,
+                note: reason,
+                unlocks,
+                ...(expiry === null ? {} : { expiresInDays: expiry }),
+              },
             }),
           );
           // More than 20 goes to another admin, and the codes are fetched from Approvals once it's approved.
           if ("codes" in created) {
-            setMade({ codes: created.codes, note: reason });
+            setMade({ codes: created.codes, note: reason, unlocks });
           }
           await client.invalidateQueries({ queryKey: [ADMIN, "invites"] });
         }}
       />
       <Section title="Codes">
         <div className="flex flex-wrap gap-3">
-          <ListBar list="invites" tags={false} extra={used ? { used: String(used === "used") } : {}} />
+          <ListBar
+            list="invites"
+            tags={false}
+            extra={{ ...(used ? { used: String(used === "used") } : {}), ...(kind ? { unlocks: kind } : {}) }}
+          />
           <SmallSelect
             label="Show"
             value={used}
@@ -130,6 +158,7 @@ export function Invites() {
               ["used", "Used"],
             ]}
           />
+          <SmallSelect label="Unlocks" value={kind} onChange={setKind} options={[["", "Any"], ...KINDS]} />
         </div>
         <PagedView
           query={invites}
@@ -142,11 +171,12 @@ export function Invites() {
               caption="Invite codes"
               list="invites"
               sorts={{ Made: "createdAt" }}
-              columns={["For", "Made by", "Made", "Lapses", "Used by"]}
+              columns={["For", "Unlocks", "Made by", "Made", "Lapses", "Used by"]}
             >
               {rows.map((invite) => (
                 <Row key={invite.id}>
                   <Cell>{invite.note ?? "Erased account"}</Cell>
+                  <Cell>{kindOf(invite.unlocks)}</Cell>
                   <Cell>{invite.createdBy}</Cell>
                   <Cell>
                     <RelativeTime value={invite.createdAt} />

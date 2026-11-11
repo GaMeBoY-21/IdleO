@@ -3,7 +3,9 @@ package com.idleo.controlplane.identity.internal;
 import com.idleo.controlplane.AdminList;
 import com.idleo.controlplane.AdminListing;
 import com.idleo.controlplane.AdminPermission;
+import com.idleo.controlplane.ApiProblem;
 import com.idleo.controlplane.NoContactDetails;
+import com.idleo.controlplane.Problem;
 import com.idleo.controlplane.RequiresPermission;
 import com.idleo.controlplane.identity.Approvals;
 import com.idleo.controlplane.identity.AuditTrail;
@@ -21,6 +23,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
@@ -60,7 +63,8 @@ class AdminInvitesController {
 
     /**
      * {@code count} codes, from 1 to 200; {@code note} says who they're for and is the audit log's reason; each code
-     * lapses {@code expiresInDays} days from now, or never when it isn't given.
+     * lapses {@code expiresInDays} days from now, or never when it isn't given; and unlocks renting, hosting or both
+     * ({@code unlocks}, ADR 0058), both when it isn't given.
      */
     record AdminInviteRequest(
             @Min(1) @Max(InviteService.MAX_COUNT) int count,
@@ -68,15 +72,35 @@ class AdminInvitesController {
             @NotBlank @Size(min = 5, max = 200) @NoContactDetails
             String note,
 
-            @Min(1) @Max(365) @Nullable Integer expiresInDays) {}
+            @Min(1) @Max(365) @Nullable Integer expiresInDays,
+
+            @Schema(allowableValues = {"renting", "hosting", "both"}) @Nullable
+            String unlocks) {
+
+        InviteService.Unlocks kind() {
+            if (unlocks == null) {
+                return InviteService.Unlocks.BOTH;
+            }
+            if (!KINDS.contains(unlocks)) {
+                throw ApiProblem.of(Problem.VALIDATION_FAILED, "A code unlocks renting, hosting or both.");
+            }
+            return InviteService.Unlocks.of(unlocks);
+        }
+    }
+
+    private static final Set<String> KINDS = Set.of("renting", "hosting", "both");
 
     /** The new codes, shown only now; each works once. */
     record AdminInvitesCreated(List<String> codes, @Nullable Instant expiresAt) {}
 
-    /** A code, without the code: its note, who made it and when, when it lapses, and who used it. */
+    /** A code, without the code: its note, what it unlocks, who made it and when, when it lapses, and who used it. */
     record AdminInvite(
             UUID id,
             @Nullable String note,
+
+            @Schema(allowableValues = {"renting", "hosting", "both"})
+            String unlocks,
+
             String createdBy,
             Instant createdAt,
             @Nullable Instant expiresAt,
@@ -97,6 +121,8 @@ class AdminInvitesController {
             content = @Content(schema = @Schema(implementation = AdminInvitesCreated.class)))
     ResponseEntity<?> create(
             @AuthenticationPrincipal CurrentUser admin, @Valid @RequestBody AdminInviteRequest request) {
+        // Checked before a bulk request waits for its approval, too.
+        var kind = request.kind();
         if (request.count() > BULK) {
             return approvals.submit(
                     admin,
@@ -108,7 +134,7 @@ class AdminInvitesController {
                     request.note().strip());
         }
         var expiry = Optional.ofNullable(request.expiresInDays()).map(Duration::ofDays);
-        var created = invites.create(request.count(), request.note().strip(), expiry, audit.admin(admin));
+        var created = invites.create(request.count(), request.note().strip(), expiry, kind, audit.admin(admin));
         return ResponseEntity.created(URI.create("/admin/v1/invites"))
                 .body(new AdminInvitesCreated(created.codes(), created.expiresAt()));
     }
@@ -116,35 +142,43 @@ class AdminInvitesController {
     /** The list, its filters, orders and CSV (ADR 0052). */
     static final AdminListing LIST = AdminListing.of("invites", AdminPermission.INVITES_READ, false)
             .noBulk("An invite is made or revoked on its own.")
-            .select("i.id, i.note, i.created_by, i.created_at, i.expires_at, i.used_by, u.email, i.used_at")
+            .select("i.id, i.note, i.unlocks, i.created_by, i.created_at, i.expires_at, i.used_by, u.email, i.used_at")
             .from("identity.invite_codes i left join identity.users u on u.id = i.used_by")
             .id("i.id")
             .sort("createdAt", AdminListing.Type.UUID, "i.id")
             .sortedBy("createdAt", true)
             .filter("used", "(i.used_at is not null) = cast(:used as boolean)")
+            .filter("unlocks", "i.unlocks = :unlocks")
             .csv("id", "i.id")
             .csv("note", "i.note")
+            .csv("unlocks", "i.unlocks")
             .csv("createdAt", "i.created_at")
             .csv("usedAt", "i.used_at")
             .build();
 
-    /** Every code, newest first; {@code used} true or false keeps only the used or the unused ones. */
+    /**
+     * Every code, newest first; {@code used} true or false keeps only the used or the unused ones, and {@code unlocks}
+     * only those of one kind.
+     */
     @RequiresPermission(AdminPermission.INVITES_READ)
     @AdminList("invites")
     @GetMapping
     AdminInvitePage list(
             @RequestParam(required = false) @Nullable Boolean used,
+            @RequestParam(required = false) @Schema(allowableValues = {"renting", "hosting", "both"}) @Nullable
+                    String unlocks,
             @RequestParam(required = false) @Nullable String sort,
             @RequestParam(required = false) @Nullable String cursor,
             @RequestParam(required = false) @Nullable Integer limit) {
         var page = LIST.page(
                 jdbc,
-                AdminListing.Asked.of(sort, "used", used),
+                AdminListing.Asked.of(sort, "used", used, "unlocks", unlocks),
                 cursor,
                 limit,
                 (rs, n) -> new AdminInvite(
                         rs.getObject("id", UUID.class),
                         rs.getString("note"),
+                        rs.getString("unlocks"),
                         rs.getString("created_by"),
                         rs.getTimestamp("created_at").toInstant(),
                         rs.getTimestamp("expires_at") == null

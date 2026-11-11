@@ -5,6 +5,10 @@ import { routes } from "./fixtures-admin-routes";
 import * as images from "./fixtures-images";
 import * as support from "./fixtures-support";
 import { API, fakeApi, onPhone, signIn, typeToConfirm, watchConsole, type Answer } from "./support";
+import { ADMIN_URL } from "./sites";
+
+// The console is the admin site's alone (ADR 0058): every address here is on it.
+test.use({ baseURL: ADMIN_URL });
 
 /**
  * Every admin write has been pressed from a screen by some test (ADR 0057): what the other console specs and the role

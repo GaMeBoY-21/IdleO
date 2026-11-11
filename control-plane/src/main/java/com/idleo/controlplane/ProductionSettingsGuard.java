@@ -34,8 +34,9 @@ import org.springframework.util.unit.DataSize;
  *   <li>an {@code identity.web-app-url}, where CLI sign-ins are approved, that is plain HTTP or on this machine
  *       (ADR 0025);
  *   <li>a {@code hosts.link.web-app-url}, where a host link is approved, that is plain HTTP or on this machine (ADR 0032);
- *   <li>a {@code notifications.web-app-url} or {@code notifications.host-site-url}, where an email's links go (the
- *       renter app's and the host site's, ADR 0058), that is plain HTTP or on this machine; a
+ *   <li>a {@code notifications.web-app-url}, {@code notifications.host-site-url} or {@code
+ *       notifications.admin-site-url}, where an email's links go (the renter app's, the host site's and the admin
+ *       site's, ADR 0058), that is plain HTTP or on this machine; a
  *       {@code notifications.email.from} on this machine; a mail server ({@code spring.mail.host}) on this machine,
  *       such as the local mail catcher; or an email provider other than {@code smtp} (ADR 0026); a sender that isn't on
  *       the web app's domain, no SMTP credentials, or no signing secret for the provider's webhook (ADR 0036);
@@ -55,7 +56,8 @@ import org.springframework.util.unit.DataSize;
  *   <li>no backup storage to watch ({@code backups.storage.*}), one that is plain HTTP or on this machine, or
  *       {@code backups.create-bucket}, development's (ADR 0036);
  *   <li>a passkey relying party ({@code identity.admin.passkeys.rp-id}) on this machine, where no passkey made for the
- *       real web app would work (ADR 0051);
+ *       real web app would work (ADR 0051); no admin site ({@code web.admin-origins}), or one that is plain HTTP, on this
+ *       machine, or off the passkeys' domain (ADR 0058);
  *   <li>a cooling-off delay shorter, or a refund limit higher, than the approval engine's own (ADR 0051);
  *   <li>{@code console.seed.allowed}, which lets {@code seed-console} make up 100,000 people (ADR 0052);
  *   <li>{@code e2e.clock-file}, which lets a file move the whole control plane's time (ADR 0057);
@@ -228,6 +230,11 @@ class ProductionSettingsGuard implements BeanFactoryPostProcessor {
         if (isDevelopmentIssuer(hostLinks)) {
             problems.add("notifications.host-site-url " + hostLinks + " is plain HTTP or on this machine");
         }
+        var adminLinks =
+                binder.bind("notifications.admin-site-url", String.class).orElse("");
+        if (isDevelopmentIssuer(adminLinks)) {
+            problems.add("notifications.admin-site-url " + adminLinks + " is plain HTTP or on this machine");
+        }
         var from = binder.bind("notifications.email.from", String.class).orElse("");
         if (from.toLowerCase(Locale.ROOT).contains("localhost")) {
             problems.add("notifications.email.from " + from + " is on this machine");
@@ -298,6 +305,20 @@ class ProductionSettingsGuard implements BeanFactoryPostProcessor {
         var rpId = binder.bind("identity.admin.passkeys.rp-id", String.class).orElse("localhost");
         if (rpId.isBlank() || "localhost".equals(rpId.strip())) {
             problems.add("identity.admin.passkeys.rp-id is " + rpId + ", the development value");
+        }
+        // The admin site (ADR 0058): the one origin of /admin/v1 and of an admin's passkeys, so it must be set, real,
+        // and
+        // on the passkeys' domain.
+        var admin = WebOrigins.of(environment).admin();
+        if (admin.isEmpty()) {
+            problems.add("web.admin-origins is missing, so nobody could reach the admin console");
+        }
+        for (var origin : admin) {
+            if (isDevelopmentOrigin(origin)) {
+                problems.add("admin origin " + origin + " is *, plain HTTP or on this machine");
+            } else if (!WebOrigins.coversHost(rpId, origin)) {
+                problems.add("admin origin " + origin + " isn't on the passkeys' domain " + rpId.strip());
+            }
         }
         if (binder.bind("identity.approvals.cooling-money", Duration.class)
                         .orElse(MIN_COOLING_MONEY)

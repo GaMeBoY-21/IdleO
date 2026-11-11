@@ -106,15 +106,16 @@ export default defineConfig(({ mode }) => {
       "import.meta.env.VITE_AUTH": JSON.stringify(env.VITE_AUTH),
       // Where the app's links to the website (Terms, Privacy, "← idleo") lead.
       "import.meta.env.IDLEO_SITE_URL": JSON.stringify(env.IDLEO_SITE_URL ?? ""),
-      // Where each site's links to the other lead ("Rent a GPU", "Earn with your laptop", a renter's PAN).
+      // Where each site's links to the others lead ("Rent a GPU", "Earn with your laptop", a renter's PAN, a console notice).
       "import.meta.env.IDLEO_APP_URL": JSON.stringify(env.IDLEO_APP_URL ?? ""),
       "import.meta.env.IDLEO_HOST_URL": JSON.stringify(env.IDLEO_HOST_URL ?? ""),
+      "import.meta.env.IDLEO_ADMIN_URL": JSON.stringify(env.IDLEO_ADMIN_URL ?? ""),
       "import.meta.env.IDLEO_WEB_SITE": JSON.stringify(site),
       // The release real visits' vitals and errors name (ADR 0036).
       "import.meta.env.IDLEO_RELEASE": JSON.stringify(process.env.IDLEO_RELEASE ?? "development"),
     },
     build: {
-      // Each site's own folder (dist, dist-host); IDLEO_DIST: a second build side by side, as the end-to-end test makes
+      // Each site's own folder (dist, dist-host, dist-admin); IDLEO_DIST: a second build side by side, as the end-to-end test makes
       // for the Firebase screens.
       outDir: distOf(site, process.env.IDLEO_DIST),
       target: "es2022",

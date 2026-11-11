@@ -2,6 +2,10 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { createHmac } from "node:crypto";
 import { expect, test, type Page } from "@playwright/test";
 import { signIn } from "./support";
+import { ADMIN_URL } from "./sites";
+
+// The console is the admin site's alone (ADR 0058): every address here is on it.
+test.use({ baseURL: ADMIN_URL });
 
 /**
  * The console's budgets (ADR 0057), on the seeded data, in a real browser, by scripts/e2e/console-budgets.sh. Each screen:

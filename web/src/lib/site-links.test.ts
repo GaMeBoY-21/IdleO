@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { appLink, hostLink, placeOf, siteLink } from "./site-links";
+import { adminLink, appLink, hostLink, placeOf, siteLink } from "./site-links";
 
 describe("site links", () => {
   it("is the website's address, which the local stack puts at :3002, never a path on the app", () => {
@@ -7,9 +7,10 @@ describe("site links", () => {
     expect(siteLink("/terms/")).toBe("http://localhost:3002/terms/");
   });
 
-  it("leads to the renter app and the host site at their own addresses, :3000 and :3003 locally", () => {
+  it("leads to the renter app, the host site and the admin site at their own addresses, :3000, :3003 and :3004 locally", () => {
     expect(appLink("/book/")).toBe("http://localhost:3000/book/");
     expect(hostLink("/payout-details/")).toBe("http://localhost:3003/payout-details/");
+    expect(adminLink("/admin/")).toBe("http://localhost:3004/admin/");
   });
 });
 
@@ -30,5 +31,16 @@ describe("where a notice's link leads, from the renter app (ADR 0058)", () => {
 
   it("keeps a path the notice says is the renter app's here", () => {
     expect(placeOf("/credit/", "app")).toEqual({ href: "/credit/", here: true });
+  });
+
+  it("sends an admin's link to the console to the admin site, whichever site the notice names", () => {
+    expect(placeOf("/admin/approvals/", "app")).toEqual({
+      href: "http://localhost:3004/admin/approvals/",
+      here: false,
+    });
+    expect(placeOf("/admin/security/")).toEqual({
+      href: "http://localhost:3004/admin/security/",
+      here: false,
+    });
   });
 });

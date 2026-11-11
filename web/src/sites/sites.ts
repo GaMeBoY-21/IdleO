@@ -1,11 +1,12 @@
 /**
  * The web app's sites (ADR 0058): one codebase, built once per site, each at its own address with its own routes,
- * headers and budgets. The marketing website (idleo.in, src/site/) is a fourth, built apart by vite.site.config.ts.
+ * headers and budgets: the renter app (app.idleo.in), the host site (host.idleo.in) and the admin site (admin.idleo.in).
+ * The marketing website (idleo.in, src/site/) is a fourth, built apart by vite.site.config.ts.
  *
  * This file is read by the build (vite.config.ts, scripts/), so it imports nothing.
  */
 
-export const SITES = ["app", "host"] as const;
+export const SITES = ["app", "host", "admin"] as const;
 export type SiteName = (typeof SITES)[number];
 
 export interface SiteFacts {
@@ -16,12 +17,39 @@ export interface SiteFacts {
   /** The development server's port, and the local stack's. */
   port: number;
   /** The build setting that holds its address, for links from the other sites. */
-  urlSetting: "IDLEO_APP_URL" | "IDLEO_HOST_URL";
+  urlSetting: "IDLEO_APP_URL" | "IDLEO_HOST_URL" | "IDLEO_ADMIN_URL";
+  /** The screen its first load is measured on (scripts/first-load.ts): where it opens once signed in. */
+  home: string;
+  /** The module drawn inside the home's own when it has one: the console's control room, inside the console's frame. */
+  homeScreen?: string;
+  /**
+   * Its first load's budget, gzipped, sign-in adapter included (web/README.md "The budgets"): 150 KB for the renter app
+   * and the host site; 190 KB for the admin site, which only staff open, on laptops (the product owner's say, Nov 11:
+   * the console's frame and control room with its tables were 186.3 KB).
+   */
+  firstLoadKb: number;
 }
 
 export const SITE_FACTS: Record<SiteName, SiteFacts> = {
-  app: { for: "renters", dist: "dist", port: 3000, urlSetting: "IDLEO_APP_URL" },
-  host: { for: "hosts", dist: "dist-host", port: 3003, urlSetting: "IDLEO_HOST_URL" },
+  app: { for: "renters", dist: "dist", port: 3000, urlSetting: "IDLEO_APP_URL", home: "/", firstLoadKb: 150 },
+  host: {
+    for: "hosts",
+    dist: "dist-host",
+    port: 3003,
+    urlSetting: "IDLEO_HOST_URL",
+    home: "/",
+    firstLoadKb: 150,
+  },
+  // The console keeps its /admin/ addresses on its own site, so every link to one only changes its host.
+  admin: {
+    for: "staff",
+    dist: "dist-admin",
+    port: 3004,
+    urlSetting: "IDLEO_ADMIN_URL",
+    home: "/admin/",
+    homeScreen: "src/features/admin/Dashboard.tsx",
+    firstLoadKb: 190,
+  },
 };
 
 /** The website's local port (scripts/serve.ts, ./start.sh); its address setting is IDLEO_SITE_URL. */
@@ -56,7 +84,7 @@ export function distOf(site: SiteName, base: string | undefined): string {
  * Which site's code each part of src/ is (ADR 0058, "The code stays apart"): a site's build may hold only its own and
  * what's shared. Anything not listed is shared. scripts/site-modules.ts reads every module in each build against this.
  */
-export const OWNED: Record<SiteName | "admin", readonly string[]> = {
+export const OWNED: Record<SiteName, readonly string[]> = {
   app: [
     "src/features/home/",
     "src/features/book/",
@@ -92,9 +120,9 @@ export const OWNED: Record<SiteName | "admin", readonly string[]> = {
   admin: ["src/features/admin/"],
 };
 
-/** The owner of a source module, by its path from web/: a site, the admin console, or null when shared. */
-export function ownerOf(module: string): SiteName | "admin" | null {
-  for (const [owner, prefixes] of Object.entries(OWNED) as [SiteName | "admin", readonly string[]][]) {
+/** The site a source module belongs to, by its path from web/, or null when shared. */
+export function ownerOf(module: string): SiteName | null {
+  for (const [owner, prefixes] of Object.entries(OWNED) as [SiteName, readonly string[]][]) {
     if (prefixes.some((prefix) => module === prefix || (prefix.endsWith("/") && module.startsWith(prefix)))) {
       return owner;
     }

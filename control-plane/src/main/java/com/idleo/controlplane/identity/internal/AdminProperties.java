@@ -18,8 +18,10 @@ import org.springframework.validation.annotation.Validated;
  *       than {@code session-max} (8 hours) from when it began.
  *   <li>{@code totp-issuer}: the name an authenticator app shows beside the code.
  *   <li>{@code step-up-window}: how recently a factor must have been given for a sensitive action (5 minutes, ADR 0051).
- *   <li>{@code passkeys.rp-id}: the WebAuthn relying party's id, the web app's registrable domain: a passkey works only
- *       there. {@code passkeys.rp-name} is what the device's prompt calls it. The prod profile refuses {@code localhost}.
+ *   <li>{@code passkeys.rp-id}: the WebAuthn relying party's id, the registrable domain (idleo.in): a passkey works only
+ *       on it and under it, and is used on the admin site alone ({@code web.admin-origins}, admin.idleo.in, ADR 0058).
+ *       {@code passkeys.rp-name} is what the device's prompt calls it. The prod profile refuses {@code localhost}, and an
+ *       id the admin site isn't on.
  * </ul>
  */
 @ConfigurationProperties("identity.admin")

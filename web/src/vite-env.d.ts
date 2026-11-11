@@ -17,6 +17,7 @@ interface ImportMetaEnv {
   /** The renter app's and the host site's addresses (ADR 0058), for the links from one site to the other. */
   readonly IDLEO_APP_URL?: string;
   readonly IDLEO_HOST_URL?: string;
+  readonly IDLEO_ADMIN_URL?: string;
   /** Which site this build is (src/sites/sites.ts), for the vitals its visits report. */
   readonly IDLEO_WEB_SITE?: string;
   /** The release this build is, from IDLEO_RELEASE, which real visits' vitals and errors name (ADR 0036). */
