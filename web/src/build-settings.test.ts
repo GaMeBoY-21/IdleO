@@ -19,6 +19,7 @@ const production = {
   IDLEO_SITE_URL: "https://site.example.invalid",
   IDLEO_APP_URL: "https://app.example.invalid",
   IDLEO_HOST_URL: "https://host.example.invalid",
+  IDLEO_ADMIN_URL: "https://admin.example.invalid",
   VITE_AUTH: "firebase",
   VITE_FIREBASE_API_KEY: "placeholder",
   VITE_FIREBASE_AUTH_DOMAIN: "placeholder.firebaseapp.com",
@@ -50,7 +51,7 @@ describe("the build settings", () => {
     expect(buildSettingsProblems({ ...production, IDLEO_APP_URL: "http://localhost:3000" })).toEqual([
       "a production build needs an https app address that isn't on this machine",
     ]);
-    expect(siteSettingsProblems({ IDLEO_DEPLOYMENT: "production" })).toHaveLength(3);
+    expect(siteSettingsProblems({ IDLEO_DEPLOYMENT: "production" })).toHaveLength(4);
     expect(siteSettingsProblems({})).toEqual([]);
   });
 
@@ -65,10 +66,20 @@ describe("the build settings", () => {
       site: "http://localhost:3002",
       app: "http://localhost:3000",
       host: "http://localhost:3003",
+      admin: "http://localhost:3004",
     });
     expect(assertSiteAddresses({ ...production, IDLEO_HOST_URL: "https://host.example.invalid/" }).host).toBe(
       "https://host.example.invalid",
     );
+  });
+
+  it("need the admin site's address outside a local build, and an https one (ADR 0058)", () => {
+    expect(buildSettingsProblems({ ...production, IDLEO_ADMIN_URL: undefined })).toEqual([
+      "a production build needs IDLEO_ADMIN_URL, the admin site's address",
+    ]);
+    expect(buildSettingsProblems({ ...production, IDLEO_ADMIN_URL: "http://localhost:3004" })).toEqual([
+      "a production build needs an https admin site address that isn't on this machine",
+    ]);
   });
 
   it("refuse the mock sign-in adapter outside a local build", () => {

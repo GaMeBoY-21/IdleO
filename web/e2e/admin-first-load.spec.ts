@@ -3,15 +3,16 @@ import { routes } from "./fixtures-admin-routes";
 import { fakeApi, signIn } from "./support";
 
 /**
- * The admin code never loads in the renter app (ADR 0027, ADR 0057), so the app's 150 KB budget is untouched. Every app
- * screen, as a person first lands on it: nothing it downloads holds the admin API's paths or the console's own words.
+ * The console is the admin site's alone (ADR 0058), and the renter app's build holds none of it (scripts/site-modules.ts),
+ * so the app's 150 KB budget is untouched. Every app screen, as a person first lands on it: nothing it downloads holds the
+ * admin API's paths or the console's own words.
  */
 const APP_SCREENS = [
   "/",
   "/book/",
   "/credit/",
   "/sessions/",
-  "/hosting/",
+  "/files/",
   "/account/",
   "/account/help/",
   "/account/data/",

@@ -5,6 +5,10 @@ import * as admin from "./fixtures-admin";
 import { routes } from "./fixtures-admin-routes";
 import * as support from "./fixtures-support";
 import { API, fakeApi, signIn } from "./support";
+import { ADMIN_URL } from "./sites";
+
+// The console is the admin site's alone (ADR 0058): every address here is on it.
+test.use({ baseURL: ADMIN_URL });
 
 /**
  * The console's contact sheet (ADR 0057), by hand only (.github/workflows/contact-sheet.yml): every screen in its main

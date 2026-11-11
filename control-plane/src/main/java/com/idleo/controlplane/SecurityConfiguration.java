@@ -5,8 +5,6 @@ import java.time.Duration;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
-import org.springframework.boot.context.properties.bind.Bindable;
-import org.springframework.boot.context.properties.bind.Binder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
@@ -37,48 +35,51 @@ class SecurityConfiguration {
     static final String[] OPEN_PATHS = {"/actuator/health/liveness", "/actuator/health/readiness"};
 
     /**
-     * The web app calls the API from its own origin (ADR 0018): only the origins in {@code web.allowed-origins} may,
-     * and only with a bearer token, never cookies. None by default; {@code localhost} only in the local profile,
+     * The web calls the API from its own origins (ADR 0018, ADR 0058, {@link WebOrigins}): only they may, and only with a
+     * bearer token, never cookies. {@code /v1} takes the renter app's, the host site's, the website's and the admin
+     * site's; {@code /admin/v1} only the admin site's. None by default; {@code localhost} only in the local profile,
      * which the production guard enforces.
      */
     @Bean
     CorsConfigurationSource webOrigins(Environment environment) {
         var source = new UrlBasedCorsConfigurationSource();
-        // Bound, not @Value: a YAML list is stored as indexed keys, which @Value can't read.
-        var origins =
-                Binder.get(environment)
-                        .bind("web.allowed-origins", Bindable.listOf(String.class))
-                        .orElse(List.of())
-                        .stream()
-                        .map(String::strip)
-                        .filter(origin -> !origin.isEmpty())
-                        .toList();
-        if (origins.isEmpty()) {
-            return source;
+        var origins = WebOrigins.of(environment);
+        if (!origins.all().isEmpty()) {
+            var cors = new CorsConfiguration();
+            cors.setAllowedOrigins(origins.all());
+            cors.setAllowedMethods(METHODS);
+            cors.setAllowedHeaders(List.of(
+                    HttpHeaders.AUTHORIZATION,
+                    HttpHeaders.CONTENT_TYPE,
+                    HttpHeaders.IF_MATCH,
+                    IdempotentRequests.HEADER));
+            cors.setExposedHeaders(List.of(HttpHeaders.ETAG, HttpHeaders.LOCATION));
+            cors.setAllowCredentials(false);
+            cors.setMaxAge(MAX_AGE);
+            source.registerCorsConfiguration("/v1/**", cors);
         }
-        var cors = new CorsConfiguration();
-        cors.setAllowedOrigins(origins);
-        cors.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE"));
-        cors.setAllowedHeaders(List.of(
-                HttpHeaders.AUTHORIZATION, HttpHeaders.CONTENT_TYPE, HttpHeaders.IF_MATCH, IdempotentRequests.HEADER));
-        cors.setExposedHeaders(List.of(HttpHeaders.ETAG, HttpHeaders.LOCATION));
-        cors.setAllowCredentials(false);
-        cors.setMaxAge(Duration.ofHours(1));
-        source.registerCorsConfiguration("/v1/**", cors);
-        // The admin console (ADR 0027) is part of the same web app: the same origins, and its admin session's header.
-        var admin = new CorsConfiguration(cors);
-        // Lists of its own: the copy shares the app's, so adding to them would add to /v1/** too.
-        admin.setAllowedHeaders(List.of(
-                HttpHeaders.AUTHORIZATION,
-                HttpHeaders.CONTENT_TYPE,
-                HttpHeaders.IF_MATCH,
-                IdempotentRequests.HEADER,
-                "Admin-Session"));
-        // An approved export's name and kind, which the console saves it under.
-        admin.setExposedHeaders(List.of(HttpHeaders.ETAG, HttpHeaders.LOCATION, HttpHeaders.CONTENT_DISPOSITION));
-        source.registerCorsConfiguration("/admin/v1/**", admin);
+        if (!origins.admin().isEmpty()) {
+            // The admin console (ADR 0027), on the admin site alone (ADR 0058), with its admin session's header.
+            var admin = new CorsConfiguration();
+            admin.setAllowedOrigins(origins.admin());
+            admin.setAllowedMethods(METHODS);
+            admin.setAllowedHeaders(List.of(
+                    HttpHeaders.AUTHORIZATION,
+                    HttpHeaders.CONTENT_TYPE,
+                    HttpHeaders.IF_MATCH,
+                    IdempotentRequests.HEADER,
+                    "Admin-Session"));
+            // An approved export's name and kind, which the console saves it under.
+            admin.setExposedHeaders(List.of(HttpHeaders.ETAG, HttpHeaders.LOCATION, HttpHeaders.CONTENT_DISPOSITION));
+            admin.setAllowCredentials(false);
+            admin.setMaxAge(MAX_AGE);
+            source.registerCorsConfiguration("/admin/v1/**", admin);
+        }
         return source;
     }
+
+    private static final List<String> METHODS = List.of("GET", "POST", "PUT", "PATCH", "DELETE");
+    private static final Duration MAX_AGE = Duration.ofHours(1);
 
     @Bean
     SecurityFilterChain securityFilterChain(

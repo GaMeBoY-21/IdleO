@@ -9,6 +9,7 @@ gateway:
     api: api.staging.idleo.in
     app: app.staging.idleo.in
     host: host.staging.idleo.in
+    admin: admin.staging.idleo.in
     site: staging.idleo.in
 
 tls:

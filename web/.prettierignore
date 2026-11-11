@@ -7,6 +7,10 @@ dist-host-ssr
 dist-firebase-host
 dist-firebase-ssr
 dist-firebase-host-ssr
+dist-admin
+dist-admin-ssr
+dist-firebase-admin
+dist-firebase-admin-ssr
 dist-site
 dist-site-ssr
 dist-website

@@ -2587,6 +2587,15 @@ paths:
         schema:
           type: boolean
       - in: query
+        name: unlocks
+        required: false
+        schema:
+          type: string
+          enum:
+          - renting
+          - hosting
+          - both
+      - in: query
         name: sort
         required: false
         schema:
@@ -12476,6 +12485,12 @@ components:
           type:
           - string
           - "null"
+        unlocks:
+          type: string
+          enum:
+          - renting
+          - hosting
+          - both
         usedAt:
           type:
           - string
@@ -12494,6 +12509,7 @@ components:
       - createdAt
       - createdBy
       - id
+      - unlocks
     AdminInvitePage:
       type: object
       properties:
@@ -12526,6 +12542,14 @@ components:
           type: string
           maxLength: 200
           minLength: 5
+        unlocks:
+          type:
+          - string
+          - "null"
+          enum:
+          - renting
+          - hosting
+          - both
       required:
       - count
       - note

@@ -45,7 +45,7 @@ const app = (
 // Each page holds its screen's first frame, pre-rendered without a query string (src/prerender.tsx). With no query,
 // the app adopts that HTML as it stands, so what painted first stays; with one, the frame may differ, so the app
 // draws the screen afresh over it.
-// The screen this page opens on is loaded first (its code is already preloading, src/screens.ts), so it's drawn
+// The screen this page opens on is loaded first (its code is already preloading, src/sites/<site>/screens.ts), so it's drawn
 // without waiting on React's Suspense (src/sites/frame.tsx). `@site` is this build's site (vite.config.ts, ADR 0058).
 const root = document.getElementById("root")!;
 void preloadScreen(window.location.pathname).then(() => {

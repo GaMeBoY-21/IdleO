@@ -469,6 +469,7 @@ export const invites = {
     {
       id: "01a1340a-0000-7000-8000-0000000a0001",
       note: "Pune pilot students",
+      unlocks: "renting",
       createdBy: "nikki",
       createdAt: ago(10 * 24 * 60),
       expiresAt: later(20),
@@ -479,6 +480,7 @@ export const invites = {
     {
       id: "01a1340a-0000-7000-8000-0000000a0002",
       note: "Pune pilot students",
+      unlocks: "both",
       createdBy: "nikki",
       createdAt: ago(10 * 24 * 60),
       expiresAt: later(20),

@@ -21,9 +21,11 @@ export const config = {
   /** The renter app's address and the host site's (ADR 0058): each site links to the other by these. */
   appUrl: (import.meta.env.IDLEO_APP_URL || "http://localhost:3000").replace(/\/+$/, ""),
   hostUrl: (import.meta.env.IDLEO_HOST_URL || "http://localhost:3003").replace(/\/+$/, ""),
+  /** The admin site's (ADR 0058), where a notice's link to the console leads from the other two. */
+  adminUrl: (import.meta.env.IDLEO_ADMIN_URL || "http://localhost:3004").replace(/\/+$/, ""),
   /** Grafana Cloud's address, for the control room's link to the alerts (ADR 0056); no token is ever in the app. */
   grafanaUrl: (import.meta.env.VITE_GRAFANA_URL ?? "").replace(/\/+$/, ""),
-  /** Which site this build is (ADR 0058): the renter app or the host site. */
+  /** Which site this build is (ADR 0058): the renter app, the host site or the admin site. */
   site: (import.meta.env.IDLEO_WEB_SITE ?? "app") as SiteName,
   /** The release this build is (IDLEO_RELEASE), which real visits' vitals and errors name (ADR 0036). */
   release: import.meta.env.IDLEO_RELEASE || "development",

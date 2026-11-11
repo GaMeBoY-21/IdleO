@@ -7,6 +7,7 @@ import { createHash } from "node:crypto";
 import { mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { assertSiteAddresses } from "../src/build-settings.ts";
+import { ADMIN_REDIRECTS, MOVED_TO_ADMIN } from "../src/sites/admin/paths.ts";
 import { MOVED_FROM_APP } from "../src/sites/host/paths.ts";
 import { distOf, siteOf } from "../src/sites/sites.ts";
 import { writePagesConfig } from "./pages-config.ts";
@@ -115,11 +116,19 @@ writeFileSync(`${dist}404.html`, await withFrame(html, "/not-a-screen/"));
 // Addresses with something after a screen's folder (a link's id, /link/<id>/) are answered with that screen's page, by
 // a rewrite where the host has the rule (scripts/serve.ts reads this file; docs/runbooks/deployment.md names the rule).
 const rewrites = SCREENS["/link/"] ? { "/link/": "/link/index.html" } : {};
-// The renter app's old hosting addresses, permanently to the host site's (ADR 0058), query and all.
-const redirects =
+// The renter app's old hosting and console addresses, permanently to the host site's and the admin site's (ADR 0058),
+// query and all; the admin site's root, to the console.
+const elsewhere = (moved: Readonly<Record<string, string>>, address: string) =>
+  Object.entries(moved).map(([from, to]): [string, string] => [from, `${address}${to}`]);
+const redirects: Record<string, string> =
   site === "app"
-    ? Object.fromEntries(Object.entries(MOVED_FROM_APP).map(([from, to]) => [from, `${addresses.host}${to}`]))
-    : {};
+    ? Object.fromEntries([
+        ...elsewhere(MOVED_FROM_APP, addresses.host),
+        ...elsewhere(MOVED_TO_ADMIN, addresses.admin),
+      ])
+    : site === "admin"
+      ? { ...ADMIN_REDIRECTS }
+      : {};
 writeFileSync(`${dist}rewrites.json`, `${JSON.stringify(rewrites, null, 2)}\n`);
 writeFileSync(`${dist}redirects.json`, `${JSON.stringify(redirects, null, 2)}\n`);
 writeFileSync(`${dist}headers.json`, `${JSON.stringify(securityHeaders(csp), null, 2)}\n`);

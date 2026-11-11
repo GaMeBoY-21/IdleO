@@ -31,6 +31,8 @@ export interface BuildEnv {
   IDLEO_APP_URL?: string | undefined;
   /** The host site's address (ADR 0058), where "Start hosting" and the renter app's old hosting addresses lead. */
   IDLEO_HOST_URL?: string | undefined;
+  /** The admin site's address (ADR 0058), where the renter app's old console addresses lead. */
+  IDLEO_ADMIN_URL?: string | undefined;
   VITE_OIDC_ISSUER?: string | undefined;
   VITE_OIDC_CLIENT_ID?: string | undefined;
   VITE_FIREBASE_API_KEY?: string | undefined;
@@ -57,12 +59,14 @@ const ADDRESSES = [
   { setting: "IDLEO_SITE_URL", what: "the public site", short: "site", local: "http://localhost:3002" },
   { setting: "IDLEO_APP_URL", what: "the app", short: "app", local: "http://localhost:3000" },
   { setting: "IDLEO_HOST_URL", what: "the host site", short: "host site", local: "http://localhost:3003" },
+  { setting: "IDLEO_ADMIN_URL", what: "the admin site", short: "admin site", local: "http://localhost:3004" },
 ] as const;
 
 /**
  * The addresses a deployed build needs (ADR 0029, ADR 0058): the website's, `IDLEO_SITE_URL`, the renter app's,
- * `IDLEO_APP_URL`, and the host site's, `IDLEO_HOST_URL`, each https and not on this machine. A local build may leave
- * them out. Every build checks all three, since each site links to the others.
+ * `IDLEO_APP_URL`, the host site's, `IDLEO_HOST_URL`, and the admin site's, `IDLEO_ADMIN_URL`, each https and not on this
+ * machine. A local build may leave them out. Every build checks all four, since the sites link and redirect to each
+ * other.
  */
 export function siteSettingsProblems(env: BuildEnv): string[] {
   const problems: string[] = [];
@@ -81,16 +85,21 @@ export function siteSettingsProblems(env: BuildEnv): string[] {
   return problems;
 }
 
-/** The three addresses, without a trailing slash: the settings', or the local stack's. Refuses a deployed build without them. */
-export function assertSiteAddresses(env: BuildEnv): { site: string; app: string; host: string } {
+/** The four addresses, without a trailing slash: the settings', or the local stack's. Refuses a deployed build without them. */
+export function assertSiteAddresses(env: BuildEnv): {
+  site: string;
+  app: string;
+  host: string;
+  admin: string;
+} {
   const problems = siteSettingsProblems(env);
   if (problems.length > 0) {
     throw new Error(`Refusing to build: ${problems.join("; ")}`);
   }
-  const [site, app, host] = ADDRESSES.map(({ setting, local }) =>
+  const [site, app, host, admin] = ADDRESSES.map(({ setting, local }) =>
     (env[setting] ?? local).replace(/\/+$/, ""),
   );
-  return { site: site!, app: app!, host: host! };
+  return { site: site!, app: app!, host: host!, admin: admin! };
 }
 
 /** Every problem with these settings; empty when the build may go ahead. */

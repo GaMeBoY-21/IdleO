@@ -30,8 +30,6 @@ import tools.jackson.databind.json.JsonMapper;
  */
 public final class TestPasskey {
 
-    private static final String ORIGIN = "http://localhost:3000";
-    private static final String RP_ID = "localhost";
     private static final JsonMapper JSON = JsonMapper.builder().build();
     private static final byte UP = 0x01;
     private static final byte UV = 0x04;
@@ -43,6 +41,12 @@ public final class TestPasskey {
 
     /** Whether it says it verified its user: a PIN or a fingerprint. */
     public boolean verifiesItsUser = true;
+
+    /** The page it's used on, which the browser writes into what it signs: the admin site's (ADR 0058). */
+    public String origin = "http://localhost:3004";
+
+    /** The relying party's id it signs for: the domain the passkey was made for. */
+    public String rpId = "localhost";
 
     public TestPasskey() throws GeneralSecurityException {
         var generator = KeyPairGenerator.getInstance("EC");
@@ -70,7 +74,7 @@ public final class TestPasskey {
                 EC2COSEKey.create((ECPublicKey) keys.getPublic(), COSEAlgorithmIdentifier.ES256));
         var flags = (byte) (UP | AT | (verifiesItsUser ? UV : 0));
         var authenticatorData = new AuthenticatorData<RegistrationExtensionAuthenticatorOutput>(
-                MessageDigest.getInstance("SHA-256").digest(RP_ID.getBytes(StandardCharsets.UTF_8)),
+                MessageDigest.getInstance("SHA-256").digest(rpId.getBytes(StandardCharsets.UTF_8)),
                 flags,
                 counter,
                 credential);
@@ -89,7 +93,7 @@ public final class TestPasskey {
         var clientData = clientData("webauthn.get", options.get("challenge").asString());
         counter++;
         var data = new ByteArrayOutputStream();
-        data.write(MessageDigest.getInstance("SHA-256").digest(RP_ID.getBytes(StandardCharsets.UTF_8)));
+        data.write(MessageDigest.getInstance("SHA-256").digest(rpId.getBytes(StandardCharsets.UTF_8)));
         data.write((byte) (UP | (verifiesItsUser ? UV : 0)));
         data.write(ByteBuffer.allocate(4).putInt(counter).array());
         var authenticatorData = data.toByteArray();
@@ -110,8 +114,8 @@ public final class TestPasskey {
         return base64(credentialId);
     }
 
-    private static byte[] clientData(String type, String challenge) {
+    private byte[] clientData(String type, String challenge) {
         return JSON.writeValueAsBytes(
-                java.util.Map.of("type", type, "challenge", challenge, "origin", ORIGIN, "crossOrigin", false));
+                java.util.Map.of("type", type, "challenge", challenge, "origin", origin, "crossOrigin", false));
     }
 }

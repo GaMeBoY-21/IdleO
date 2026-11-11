@@ -98,6 +98,10 @@ web:
     - http://127.0.0.1:3000
     # The host site's (ADR 0058).
     - http://localhost:3003
+  # The admin site's (ADR 0058), the only one that may call /admin/v1.
+  admin-origins:
+    - http://localhost:3004
+    - http://127.0.0.1:3004
 
 # ./start.sh backs the database up to this MinIO (ADR 0036) and sets BACKUPS_STORAGE_*; the bucket is made if it's missing.
 backups:

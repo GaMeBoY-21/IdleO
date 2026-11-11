@@ -58,10 +58,12 @@ class IdentityGatedActions {
     Approvals.GatedAction bulkInvites(InviteService invites) {
         return Approvals.fileAction(INVITES_BULK, AdminPermission.INVITES_CREATE, Approvals.Cooling.MONEY, run -> {
             var days = run.params().path("expiresInDays");
+            var unlocks = run.params().path("unlocks");
             var created = invites.create(
                     run.params().get("count").asInt(),
                     run.params().get("note").asString().strip(),
                     days.isNumber() ? Optional.of(Duration.ofDays(days.asLong())) : Optional.empty(),
+                    unlocks.isString() ? InviteService.Unlocks.of(unlocks.asString()) : InviteService.Unlocks.BOTH,
                     run.actor());
             return new Approvals.File(
                     "text/plain",

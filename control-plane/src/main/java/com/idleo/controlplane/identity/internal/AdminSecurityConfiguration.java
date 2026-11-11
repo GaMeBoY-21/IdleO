@@ -1,5 +1,6 @@
 package com.idleo.controlplane.identity.internal;
 
+import com.idleo.controlplane.WebOrigins;
 import com.idleo.controlplane.identity.CurrentUser;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -12,6 +13,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
+import org.springframework.core.env.Environment;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationManagerResolver;
@@ -31,6 +34,8 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
  * The admin console's own security chain (ADR 0027), for {@code /admin/v1/**} only, ahead of the API's.
  *
  * <ul>
+ *   <li>From a browser, only the admin site (ADR 0058, {@link WebOrigins#admits}): a request whose {@code Origin} is
+ *       another site's is refused, whatever CORS says.
  *   <li>Only ID tokens: a bearer value that is an API key never gets through.
  *   <li>The caller must be an active admin whose access isn't locked. The second-factor calls ({@link
  *       #SECOND_FACTOR_CALLS}) need nothing more; every other call also needs a live admin session in the {@value
@@ -67,6 +72,7 @@ class AdminSecurityConfiguration {
             AdminSecondFactor admins,
             AdminSessions sessions,
             CorsConfigurationSource webOrigins,
+            Environment environment,
             @Qualifier("handlerExceptionResolver") HandlerExceptionResolver resolver) {
         AuthenticationManager refuseKeys = authentication -> {
             throw new InvalidBearerTokenException("API keys never reach admin paths");
@@ -76,7 +82,8 @@ class AdminSecurityConfiguration {
                 request -> IdentitySecurityConfiguration.isApiKey(request) ? refuseKeys : tokens.resolve(request);
         var notFound = new NotFound(resolver);
         return http.securityMatcher(PATHS)
-                .authorizeHttpRequests(requests -> requests.anyRequest().access(access(admins, sessions)))
+                .authorizeHttpRequests(
+                        requests -> requests.anyRequest().access(access(admins, sessions, WebOrigins.of(environment))))
                 .oauth2ResourceServer(resourceServer -> resourceServer
                         .authenticationManagerResolver(idTokensOnly)
                         .authenticationEntryPoint((request, response, e) -> notFound.send(request, response))
@@ -91,8 +98,12 @@ class AdminSecurityConfiguration {
     }
 
     private static AuthorizationManager<RequestAuthorizationContext> access(
-            AdminSecondFactor admins, AdminSessions sessions) {
+            AdminSecondFactor admins, AdminSessions sessions, WebOrigins origins) {
         return (authentication, context) -> {
+            var request = context.getRequest();
+            if (!origins.admits(request.getHeader(HttpHeaders.ORIGIN))) {
+                return new AuthorizationDecision(false);
+            }
             if (!(authentication.get() instanceof IdentityAuthenticationToken token)
                     || token.denial().isPresent()
                     || token.isWaiting()
@@ -106,7 +117,6 @@ class AdminSecurityConfiguration {
             if (admin.isEmpty()) {
                 return new AuthorizationDecision(false);
             }
-            var request = context.getRequest();
             if (SECOND_FACTOR_CALLS.contains(request.getRequestURI())) {
                 return new AuthorizationDecision(true);
             }

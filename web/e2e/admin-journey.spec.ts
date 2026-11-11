@@ -1,8 +1,11 @@
 import { expect, test, type Page } from "@playwright/test";
 import { createHmac } from "node:crypto";
 import { writeFileSync } from "node:fs";
-import { HOST_URL } from "./sites";
+import { ADMIN_URL, APP_URL, HOST_URL } from "./sites";
 import { signIn, typeToConfirm } from "./support";
+
+// The console is the admin site's alone (ADR 0058): every address here is on it.
+test.use({ baseURL: ADMIN_URL });
 
 /**
  * The admin console against the real stack (ADR 0027), run by scripts/e2e/agent-online.sh, which makes
@@ -236,8 +239,9 @@ test("an admin enrols a second factor, then activates a host, grants credit and 
     report.stopped = runningSession;
   });
 
+  // The renter on the renter app (ADR 0058); the host's owner signs in on the host site below.
   const renterPage = await (
-    await browser.newContext({ baseURL, viewport: { width: 1280, height: 800 } })
+    await browser.newContext({ baseURL: APP_URL, viewport: { width: 1280, height: 800 } })
   ).newPage();
   const ownerPage = await (
     await browser.newContext({ baseURL, viewport: { width: 1280, height: 800 } })

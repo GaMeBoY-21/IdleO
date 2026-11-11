@@ -1,6 +1,6 @@
 {{- if .Values.web.enabled }}
-# The renter app, the website and the host site (web/Dockerfile, ADR 0058): nginx, the app on 8080, the website on 8081
-# and the host site on 8082.
+# The renter app, the website, the host site and the admin site (web/Dockerfile, ADR 0058): nginx, the app on 8080, the
+# website on 8081, the host site on 8082 and the admin site on 8083.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -28,6 +28,7 @@ spec:
             - { name: app, containerPort: 8080 }
             - { name: site, containerPort: 8081 }
             - { name: host, containerPort: 8082 }
+            - { name: admin, containerPort: 8083 }
           readinessProbe:
             httpGet: { path: /sign-in/, port: app }
             periodSeconds: 5
@@ -60,8 +61,9 @@ spec:
     - { name: app, port: 8080, targetPort: app }
     - { name: site, port: 8081, targetPort: site }
     - { name: host, port: 8082, targetPort: host }
+    - { name: admin, port: 8083, targetPort: admin }
 ---
-# The ingress reaches the app, the website and the host site. The web server itself reaches nothing, not even DNS: it serves files.
+# The ingress reaches the four sites. The web server itself reaches nothing, not even DNS: it serves files.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -80,4 +82,5 @@ spec:
         - { port: app, protocol: TCP }
         - { port: site, protocol: TCP }
         - { port: host, protocol: TCP }
+        - { port: admin, protocol: TCP }
 {{- end }}

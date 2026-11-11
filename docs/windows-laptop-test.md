@@ -138,7 +138,7 @@ the `logs` folder, and its last screen says where it is. Delete `%LOCALAPPDATA%\
 
 - **The number:** `scripts/install-report.sh` on the Mac: for each install, the minutes from opening setup to listed,
   the clicks, each step's duration and where it stopped.
-- **The admin console** (http://localhost:3000/admin/): the Installs card on the dashboard (installs, listed, median
+- **The admin console** (http://localhost:3004/admin/): the Installs card on the dashboard (installs, listed, median
   minutes, failures by step and reason), and the host page (agent version, self-test checks, last update).
 - **Logs on the laptop**, if something goes wrong: `%LOCALAPPDATA%\IdleO\logs\` (`setup-<date-time>.log` for each run
   of setup). On the Mac: `logs/control-plane.log`

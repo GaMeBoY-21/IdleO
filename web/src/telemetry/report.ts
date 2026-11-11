@@ -15,7 +15,7 @@ export interface ReportOptions {
   /** The control plane's address; `/v1/vitals` is added. */
   api: string;
   /** Which build: a site of the web app (src/sites/sites.ts), or the website. */
-  app: "app" | "host" | "site";
+  app: "app" | "host" | "admin" | "site";
   release: string;
 }
 

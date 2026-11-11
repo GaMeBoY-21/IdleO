@@ -76,6 +76,20 @@ class BrowserVitalsTests {
     }
 
     @Test
+    void theAdminSitesVitalsAreTheirOwn() throws Exception {
+        send("""
+                        {"app": "admin", "release": "2026.11.11-admin", "items": [
+                          {"type": "vital", "name": "LCP", "value": 900, "route": "/admin/users/", "device": "laptop"}
+                        ]}
+                        """).andExpect(status().isNoContent());
+        assertThat(meters.get("browser.vitals.lcp")
+                        .tags("app", "admin", "route", "/admin/users/")
+                        .summary()
+                        .count())
+                .isGreaterThanOrEqualTo(1);
+    }
+
+    @Test
     void anErrorIsCountedByReleaseAndLoggedWithoutWhatIsPersonal(CapturedOutput output) throws Exception {
         var before =
                 meters.find("browser.errors").tags("release", "2026.10.20-err").counter();

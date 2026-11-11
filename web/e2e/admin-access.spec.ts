@@ -1,6 +1,11 @@
 import { createHmac } from "node:crypto";
 import { expect, test, type CDPSession, type Page } from "@playwright/test";
-import { signIn } from "./support";
+import { token } from "./journey-support";
+import { API, signIn } from "./support";
+import { ADMIN_URL, APP_URL, HOST_URL } from "./sites";
+
+// The console is the admin site's alone (ADR 0058): every address here is on it.
+test.use({ baseURL: ADMIN_URL });
 
 /**
  * Who sees what in the console, against the real stack (ADR 0051), run with the admin journey by
@@ -187,4 +192,34 @@ test.describe("finding anything", () => {
     // A session this new has its factor; after 5 minutes the step-up dialog asks first.
     expect((await file).suggestedFilename()).toBe("invites.csv");
   });
+});
+
+/**
+ * The console is the admin site's alone (ADR 0058): the renter app sends its old console addresses there, query and all;
+ * the admin site's own root leads to the console; and the console's API answers the admin site's origin, never the
+ * renter app's or the host site's, whatever the caller's sign-in.
+ */
+test("the console is only on the admin site", async ({ request }) => {
+  test.skip(!owner, "needs scripts/e2e/agent-online.sh");
+  const moved = await request.get(`${APP_URL}/admin/users/?id=42`, { maxRedirects: 0 });
+  expect(moved.status()).toBe(301);
+  expect(moved.headers()["location"]).toBe(`${ADMIN_URL}/admin/users/?id=42`);
+  const home = await request.get(`${APP_URL}/admin/`, { maxRedirects: 0 });
+  expect([home.status(), home.headers()["location"]]).toEqual([301, `${ADMIN_URL}/admin/`]);
+  const root = await request.get(`${ADMIN_URL}/`, { maxRedirects: 0 });
+  expect([root.status(), root.headers()["location"]]).toEqual([301, "/admin/"]);
+
+  const bearer = `Bearer ${await token(request, owner)}`;
+  for (const elsewhere of [APP_URL, HOST_URL]) {
+    const refused = await request.get(`${API}/admin/v1/session`, {
+      headers: { Authorization: bearer, Origin: elsewhere },
+    });
+    expect(refused.ok(), elsewhere).toBe(false);
+    expect(refused.headers()["access-control-allow-origin"], elsewhere).toBeUndefined();
+  }
+  const answered = await request.get(`${API}/admin/v1/session`, {
+    headers: { Authorization: bearer, Origin: ADMIN_URL },
+  });
+  expect(answered.status()).toBe(200);
+  expect(answered.headers()["access-control-allow-origin"]).toBe(ADMIN_URL);
 });

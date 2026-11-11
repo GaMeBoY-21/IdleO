@@ -62,6 +62,7 @@ sessions:
 notifications:
   web-app-url: ${NOTIFICATIONS_WEB_APP_URL}
   host-site-url: ${NOTIFICATIONS_HOST_SITE_URL}
+  admin-site-url: ${NOTIFICATIONS_ADMIN_SITE_URL}
   email:
     from: ${NOTIFICATIONS_EMAIL_FROM}
     webhook-secret: ${NOTIFICATIONS_EMAIL_WEBHOOK_SECRET}

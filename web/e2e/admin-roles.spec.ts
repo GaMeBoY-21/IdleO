@@ -2,6 +2,10 @@ import { createHmac } from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";
 import { expect, test, type Browser, type Page } from "@playwright/test";
 import { API, signIn, typeToConfirm } from "./support";
+import { ADMIN_URL, APP_URL } from "./sites";
+
+// The console is the admin site's alone (ADR 0058): every address here is on it.
+test.use({ baseURL: ADMIN_URL });
 
 /**
  * A realistic day for each role, against the real stack (ADR 0057), run by scripts/e2e/agent-online.sh once the money has
@@ -218,7 +222,7 @@ test("Trust & Safety: linked accounts, the ladder, and an appeal another admin d
   // Two people on one browser and address, one after the other: what links them.
   for (const who of [person, other]) {
     const context = await browser.newContext();
-    await signIn(await context.newPage(), who, "/");
+    await signIn(await context.newPage(), who, "/", APP_URL);
     await context.close();
   }
 

@@ -67,8 +67,9 @@ prometheus_port=9190
 alertmanager_port=9193
 web_port=3000
 site_port=3002
-# The host site (ADR 0058).
+# The host site and the admin site (ADR 0058).
 host_port=3003
+admin_port=3004
 razorpay_port=8091
 razorpayx_port=8092
 compose_project=idleo-local
@@ -93,7 +94,7 @@ compose() { COMPOSE_PROJECT_NAME="$compose_project" docker compose -f "$root/con
 # Everything this script starts, by its pid file; the control plane's is a process group.
 stop_all() {
   local pid_file pid
-  for pid_file in "$state"/web.pid "$state"/host-web.pid "$state"/site.pid "$state"/agent-*.pid "$state"/fake-razorpay.pid "$state"/fake-razorpayx.pid; do
+  for pid_file in "$state"/web.pid "$state"/host-web.pid "$state"/admin-web.pid "$state"/site.pid "$state"/agent-*.pid "$state"/fake-razorpay.pid "$state"/fake-razorpayx.pid; do
     [[ -f "$pid_file" ]] || continue
     pid="$(cat "$pid_file")"
     # The web dev server is a process group (pnpm, then Vite); the rest are single processes.
@@ -167,7 +168,7 @@ if ! rustup toolchain list | grep -q "^$rust_want"; then
   (cd "$root/agent" && rustup toolchain install) >>"$out/rust-install.log" 2>&1 ||
     fail "Rust $rust_want couldn't be installed; see logs/rust-install.log"
 fi
-for port in "$http_port" "$grpc_port" "$sign_in_port" "$storage_port" "$mail_smtp_port" "$mail_web_port" "$web_port" "$host_port" "$site_port" \
+for port in "$http_port" "$grpc_port" "$sign_in_port" "$storage_port" "$mail_smtp_port" "$mail_web_port" "$web_port" "$host_port" "$admin_port" "$site_port" \
   "$grafana_port" "$prometheus_port" "$alertmanager_port" "$razorpay_port" "$razorpayx_port"; do
   if port_in_use "$port"; then
     fail "port $port is already in use. Stop what holds it (lsof -iTCP:$port -sTCP:LISTEN shows it), or ./start.sh --stop if it's an earlier start."
@@ -240,6 +241,8 @@ stack_control_plane_settings() {
   # Origins that may call the API from a browser: the renter app's and the host site's dev servers, and the public site's
   # pricing page.
   export WEB_ALLOWED_ORIGINS="http://localhost:$web_port,http://localhost:$host_port,http://localhost:$site_port"
+  # The admin site's, the only one that may call /admin/v1 (ADR 0058).
+  export WEB_ADMIN_ORIGINS="http://localhost:$admin_port"
   if $lan; then
     # The laptop's browser opens the website and the web app at the LAN address; storage is reached there by the
     # laptop (the app's download, a session's files) and by this Mac alike, so presigned links work from both.
@@ -284,7 +287,7 @@ echo "$control_plane_pid" >"$state/control-plane.pid"
 # The Credit page pays through the fake Razorpay's Checkout (ADR 0039).
 web_env=(IDLEO_DEPLOYMENT=local VITE_API_URL="$api" VITE_STORAGE_URL="http://localhost:$storage_port"
   IDLEO_SITE_URL="http://localhost:$site_port" IDLEO_APP_URL="http://localhost:$web_port"
-  IDLEO_HOST_URL="http://localhost:$host_port"
+  IDLEO_HOST_URL="http://localhost:$host_port" IDLEO_ADMIN_URL="http://localhost:$admin_port"
   VITE_CHECKOUT_URL="http://localhost:$razorpay_port/v1/checkout.js")
 if $lan; then
   # The laptop's browser calls the API (the website's Download button) at the LAN address; so does this Mac's.
@@ -335,6 +338,9 @@ echo $! >"$state/web.pid"
 # The host site's (ADR 0058), the same way; the app's `pnpm dev` above makes the generated sources for both.
 (cd "$root/web" && exec env "${web_env[@]}" IDLEO_WEB_SITE=host pnpm exec vite ${dev_host[@]+"${dev_host[@]}"} --port "$host_port" --strictPort) >>"$out/host-web.log" 2>&1 &
 echo $! >"$state/host-web.pid"
+# And the admin site's: the console, on an address of its own.
+(cd "$root/web" && exec env "${web_env[@]}" IDLEO_WEB_SITE=admin pnpm exec vite --port "$admin_port" --strictPort) >>"$out/admin-web.log" 2>&1 &
+echo $! >"$state/admin-web.pid"
 set +m
 
 wait "$agent_build_pid" || fail "the agent's build failed; see logs/agent-build.log"
@@ -422,6 +428,7 @@ sys.exit(0 if newest and now - datetime.datetime.fromisoformat(newest.replace("Z
 fi
 await "the web app" "http://localhost:$web_port/"
 await "the host site" "http://localhost:$host_port/"
+await "the admin site" "http://localhost:$admin_port/sign-in/"
 await "the website" "http://localhost:$site_port/"
 for i in 1 2; do
   curl -sf "$api/v1/hosts/${host_ids[$i]}" -H "Authorization: Bearer $owner_token" | grep -q '"online":true' ||
@@ -517,7 +524,7 @@ Everything is up, in $((SECONDS - started)) s.
   Email          http://localhost:$mail_web_port   (Mailpit: every email the stack sends, none delivered)
   Monitoring     http://localhost:$grafana_port   (Grafana: Platform health, Marketplace, Fleet, Money and Inbox; alerts arrive in Mailpit)
   Backups        archived to MinIO, encrypted; ops/backup/backup-now.sh, restore.sh (docs/runbooks/backups.md)
-  Admin console  http://localhost:$web_port/admin/   (needs the admin role: docs/runbooks/admin.md)
+  Admin site     http://localhost:$admin_port/admin/   (the console; needs the admin role: docs/runbooks/admin.md)
   API            $api
 
   Sign in as     nikki@example.com (₹500, owns both laptops)
@@ -549,7 +556,7 @@ if $lan; then
 READY
 fi
 cat <<READY
-  Logs           logs/  (control-plane, web, host-web, site, agent-1, agent-2, ops, link-demo)
+  Logs           logs/  (control-plane, web, host-web, admin-web, site, agent-1, agent-2, ops, link-demo)
   Stop           Ctrl-C here, or ./start.sh --stop from another terminal
 
 READY

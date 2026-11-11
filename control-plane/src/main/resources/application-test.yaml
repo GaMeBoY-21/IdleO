@@ -34,6 +34,9 @@ web:
     - http://127.0.0.1:3000
     # The host site's (ADR 0058).
     - http://localhost:3003
+  # The admin site's (ADR 0058).
+  admin-origins:
+    - http://localhost:3004
 
 spring:
   datasource:
