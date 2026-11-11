@@ -21,7 +21,7 @@ RUN cargo build --release --locked --bin idleo-scanner
 # denial of service in its HTML parser), which no Trivy release carries yet: nothing found in
 # our own images is ever accepted (ADR 0048). The base below still supplies everything else. When a Trivy release has
 # the fix, drop this stage and take that release's image.
-FROM golang:1.27.3-alpine3.24@sha256:d200d2dd76b03a99b52651fd1325aff7dcd35422c35c01bac56571b0507f3deb AS trivy
+FROM golang:1.27.3-alpine3.24@sha256:fa3d596898d9f126af7c01d14ee7597bab3f39cccf392ef36b69fe77cd681f18 AS trivy
 RUN apk add --no-cache git
 WORKDIR /src
 RUN git init -q && git remote add origin https://github.com/aquasecurity/trivy.git \
@@ -39,7 +39,7 @@ RUN tries() { for try in 1 2 3 4 5; do "$@" && return 0; [ "$try" = 5 ] || sleep
       -o /trivy ./cmd/trivy && go version -m /trivy | grep -E 'mod.*aquasecurity/trivy|go-jose/v4|golang.org/x/net'
 
 # Trivy 0.76.1 (aquasec/trivy:0.76.1), its multi-platform index.
-FROM aquasec/trivy:0.76.1@sha256:790fd66d1697395d8693d1acaa1ea702406a20f109b6fc7bac8db623eca6c06c
+FROM aquasec/trivy:0.76.2@sha256:8f6bb947dbc528902e11f2f5be52f7b519f6a39d5d148f41166f2040499768fb
 ARG VERSION=development
 ARG REVISION=unknown
 LABEL org.opencontainers.image.title="idleo-scanner" \
