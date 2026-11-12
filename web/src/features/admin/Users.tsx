@@ -1,4 +1,5 @@
 import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
+import { FilterBar } from "@/components/ui/FilterBar";
 import { useMemo, useState } from "react";
 import { KeyValueList } from "@/components/ui/KeyValues";
 import { StatusChip, Tag } from "@/components/ui/StatusChip";
@@ -13,7 +14,6 @@ import {
   AdminPage,
   Cell,
   Empty,
-  Filters,
   PagedView,
   QueryView,
   Row,
@@ -62,7 +62,7 @@ function UserSearch() {
   return (
     <AdminPage title="Users">
       <ListBar list="users" filters={{ query: "query", status: "status" }} />
-      <Filters onSubmit={() => setAsked({ query: query.trim(), status })}>
+      <FilterBar onSubmit={() => setAsked({ query: query.trim(), status })}>
         <SmallField label="Email, name or id" value={query} onChange={setQuery} width="w-72" />
         <SmallSelect
           label="Status"
@@ -75,7 +75,7 @@ function UserSearch() {
             ["suspended", "Suspended"],
           ]}
         />
-      </Filters>
+      </FilterBar>
       <PagedView
         query={users}
         what="users"

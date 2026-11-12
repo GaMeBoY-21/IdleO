@@ -1,4 +1,5 @@
 import { Cpu, Layers } from "lucide-react";
+import { FilterBar } from "@/components/ui/FilterBar";
 import { useState, type ReactNode } from "react";
 import { PageHeader, PageTitle, SectionHeader } from "@/components/ui/Headers";
 import { ApiError } from "@/api/errors";
@@ -22,7 +23,7 @@ import { motion, radii, spacing, themes, typeScale } from "@/design/tokens";
 import { STATE_DOMAINS, type StateDomain } from "@/lib/states";
 import { ConfirmDialog, Sheet } from "@/components/ui/Sheet";
 import { toast, Toaster } from "@/components/ui/Toast";
-import { Empty, Filters, Id, Problem, Section, SmallField, TableSkeleton } from "@/features/admin/ui";
+import { Empty, Id, Problem, Section, SmallField, TableSkeleton } from "@/features/admin/ui";
 
 /**
  * The component gallery (web/README.md "The component gallery"): the tokens, then every shared component in each of its
@@ -382,10 +383,10 @@ function ConsoleSet() {
           ]}
         />
       </Section>
-      <Filters onSubmit={() => undefined}>
+      <FilterBar onSubmit={() => undefined}>
         <SmallField label="Email" value="" onChange={() => undefined} />
         <SmallField label="Phone" value="" onChange={() => undefined} />
-      </Filters>
+      </FilterBar>
       <TableSkeleton what="users" rows={3} />
       <Empty title="Nobody matches">Try a shorter part of their email, or their phone number.</Empty>
       <Problem

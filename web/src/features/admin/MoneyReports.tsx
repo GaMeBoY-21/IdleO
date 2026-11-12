@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { FilterBar } from "@/components/ui/FilterBar";
 import { useState } from "react";
 import { KeyValueList } from "@/components/ui/KeyValues";
 import { Link } from "wouter";
@@ -7,18 +8,7 @@ import type { components } from "@/api/schema.gen";
 import { ADMIN, adminApi, adminData } from "./api";
 import { word } from "./words";
 import { ledgerHref } from "./Ledger";
-import {
-  AdminPage,
-  Cell,
-  Empty,
-  Filters,
-  QueryView,
-  Row,
-  Section,
-  SmallField,
-  SmallSelect,
-  Table,
-} from "./ui";
+import { AdminPage, Cell, Empty, QueryView, Row, Section, SmallField, SmallSelect, Table } from "./ui";
 
 type Figure = components["schemas"]["AdminFigure"];
 
@@ -77,7 +67,7 @@ function Headlines() {
   });
   return (
     <Section title="Headline figures">
-      <Filters onSubmit={() => setAsked({ ...form, from: form.from.trim(), to: form.to.trim() })}>
+      <FilterBar onSubmit={() => setAsked({ ...form, from: form.from.trim(), to: form.to.trim() })}>
         <SmallSelect
           label="By"
           value={form.interval}
@@ -94,7 +84,7 @@ function Headlines() {
           onChange={(from) => setForm({ ...form, from })}
         />
         <SmallField label="To (YYYY-MM-DD)" value={form.to} onChange={(to) => setForm({ ...form, to })} />
-      </Filters>
+      </FilterBar>
       <QueryView
         query={report}
         what="the money report"

@@ -244,25 +244,6 @@ export function Id({ value, page, label }: { value: string; page?: string; label
   );
 }
 
-/** A search form's row of fields and its button, submitted as a whole. */
-export function Filters({ onSubmit, children }: { onSubmit: () => void; children: ReactNode }) {
-  return (
-    <form
-      role="search"
-      className="flex flex-wrap items-end gap-2"
-      onSubmit={(event) => {
-        event.preventDefault();
-        onSubmit();
-      }}
-    >
-      {children}
-      <Button type="submit" variant="ghost">
-        Search
-      </Button>
-    </form>
-  );
-}
-
 /** One small labelled field of a search form, or of a sheet. */
 export function SmallField({
   label,
