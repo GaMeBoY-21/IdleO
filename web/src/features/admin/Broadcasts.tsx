@@ -1,12 +1,13 @@
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { StatusChip } from "@/components/ui/StatusChip";
 import { RelativeTime } from "@/components/ui/Time";
 import { formatDateTime } from "@/lib/time";
 import { ActionSheet, SheetProblem } from "./ActionSheet";
 import { ADMIN, adminApi, adminData } from "./api";
 import { ListScope, useListView } from "./listView";
 import { ActionButton } from "./permissions";
-import { Cell, Empty, PagedView, Pill, Row, Section, SmallField, SmallSelect, Table } from "./ui";
+import { Cell, Empty, PagedView, Row, Section, SmallField, SmallSelect, Table } from "./ui";
 
 const AUDIENCES: [string, string][] = [
   ["RENTERS", "Every renter"],
@@ -94,11 +95,7 @@ function BroadcastList() {
                 </Cell>
                 <Cell>{formatDateTime(item.sendAt)}</Cell>
                 <Cell>
-                  <Pill
-                    tone={item.state === "sent" ? "running" : item.state === "cancelled" ? "plain" : "plain"}
-                  >
-                    {item.state}
-                  </Pill>
+                  <StatusChip size="sm" domain="broadcast" state={item.state} />
                   {item.reached !== null && item.reached !== undefined && (
                     <span className="block text-caption text-text-2">reached {item.reached}</span>
                   )}

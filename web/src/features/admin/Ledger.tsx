@@ -1,5 +1,6 @@
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
+import { StatusChip } from "@/components/ui/StatusChip";
 import { Link, useSearch } from "wouter";
 import { Money as Paise } from "@/components/ui/Money";
 import { RelativeTime } from "@/components/ui/Time";
@@ -13,7 +14,6 @@ import {
   Filters,
   Id,
   PagedView,
-  Pill,
   QueryView,
   Row,
   Section,
@@ -165,8 +165,8 @@ function TrialBalance() {
           <>
             {balance.balanced ? (
               <p className="text-small text-text-2">
-                <Pill tone="running">balanced</Pill> Debits <Paise paise={balance.debitsPaise} /> equal
-                credits <Paise paise={balance.creditsPaise} />.
+                <StatusChip size="sm" domain="ledger" state="balanced" /> Debits{" "}
+                <Paise paise={balance.debitsPaise} /> equal credits <Paise paise={balance.creditsPaise} />.
               </p>
             ) : (
               <p role="alert" className="rounded-control bg-danger-soft p-4 text-small text-danger">

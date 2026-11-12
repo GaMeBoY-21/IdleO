@@ -90,7 +90,7 @@ describe("the renter's words", () => {
     // control plane has already moved past (it ignores a stale attempt's report).
     const internal = new Set(["superseded"]);
     const missing = [...codes].filter((code) => !(code in ENDINGS) && !internal.has(code));
-    expect(missing, "codes without words in src/lib/labels.ts ENDINGS").toEqual([]);
+    expect(missing, "codes without words in src/lib/endings.ts ENDINGS").toEqual([]);
     for (const words of Object.values(ENDINGS)) {
       expect(words.sentence).toMatch(/^[A-Z].*\.$/);
       expect(words.next).toMatch(/^[A-Z].*\.$/);

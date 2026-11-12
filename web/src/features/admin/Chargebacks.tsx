@@ -1,5 +1,6 @@
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
+import { StatusChip } from "@/components/ui/StatusChip";
 import { Link, useSearch } from "wouter";
 import { Money } from "@/components/ui/Money";
 import { RelativeTime } from "@/components/ui/Time";
@@ -15,7 +16,6 @@ import {
   Fields,
   PagedView,
   Id,
-  Pill,
   QueryView,
   Row,
   RowLink,
@@ -44,9 +44,9 @@ export function Chargebacks() {
 
 function OutcomePill({ chargeback }: { chargeback: AdminChargeback }) {
   if (chargeback.outcome == null) {
-    return <Pill tone="danger">{chargeback.status.replaceAll("_", " ")}</Pill>;
+    return <StatusChip size="sm" domain="chargeback" state={chargeback.status} />;
   }
-  return <Pill tone={chargeback.outcome === "won" ? "running" : "plain"}>{chargeback.outcome}</Pill>;
+  return <StatusChip size="sm" domain="chargeback" state={chargeback.outcome} />;
 }
 
 function ChargebackList() {

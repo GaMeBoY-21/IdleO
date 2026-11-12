@@ -1,5 +1,6 @@
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { StatusChip } from "@/components/ui/StatusChip";
 import { Link } from "wouter";
 import { Money as Paise } from "@/components/ui/Money";
 import { RelativeTime } from "@/components/ui/Time";
@@ -7,7 +8,7 @@ import type { components } from "@/api/schema.gen";
 import { ActionSheet, SheetProblem } from "./ActionSheet";
 import { ADMIN, adminApi, adminData } from "./api";
 import { ledgerHref } from "./Ledger";
-import { AdminPage, Cell, Empty, PagedView, Pill, Row, Section, SmallField, SmallSelect, Table } from "./ui";
+import { AdminPage, Cell, Empty, PagedView, Row, Section, SmallField, SmallSelect, Table } from "./ui";
 import { ActionButton } from "./permissions";
 import { ListBar } from "./Lists";
 import { ListScope, useListView } from "./listView";
@@ -115,17 +116,7 @@ function SettlementList() {
                   <Paise paise={settlement.taxPaise} />
                 </Cell>
                 <Cell>
-                  <Pill
-                    tone={
-                      settlement.state === "matched"
-                        ? "running"
-                        : settlement.state === "unmatched"
-                          ? "danger"
-                          : "plain"
-                    }
-                  >
-                    {settlement.state}
-                  </Pill>
+                  <StatusChip size="sm" domain="settlement" state={settlement.state} />
                 </Cell>
               </Row>
             ))}

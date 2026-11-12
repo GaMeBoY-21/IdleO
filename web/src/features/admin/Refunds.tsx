@@ -1,5 +1,6 @@
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { StatusChip } from "@/components/ui/StatusChip";
 import { useSearch } from "wouter";
 import { Money } from "@/components/ui/Money";
 import { RelativeTime } from "@/components/ui/Time";
@@ -7,7 +8,7 @@ import { formatPaise, parseRupees, rupeeInput } from "@/lib/money";
 import { ActionSheet, SheetProblem } from "./ActionSheet";
 import { ADMIN, adminApi, adminData, type AdminCreditRefund } from "./api";
 import { refundProblem } from "./rules";
-import { AdminPage, Cell, Empty, Id, Pill, PagedView, Row, SmallField, SmallSelect, Table } from "./ui";
+import { AdminPage, Cell, Empty, Id, PagedView, Row, SmallField, SmallSelect, Table } from "./ui";
 import { ActionButton } from "./permissions";
 import { PlainRecord } from "./Records";
 import { ListBar } from "./Lists";
@@ -110,17 +111,7 @@ function RefundList() {
                   <Money paise={refund.refundablePaise} />
                 </Cell>
                 <Cell>
-                  <Pill
-                    tone={
-                      refund.status === "failed"
-                        ? "danger"
-                        : refund.status === "refunded"
-                          ? "running"
-                          : "plain"
-                    }
-                  >
-                    {refund.status}
-                  </Pill>
+                  <StatusChip size="sm" domain="refund" state={refund.status} />
                   {refund.decision && (
                     <span className="block text-caption text-text-2">{refund.decision}</span>
                   )}

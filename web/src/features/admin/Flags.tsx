@@ -1,5 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { StatusChip } from "@/components/ui/StatusChip";
 import type { components } from "@/api/schema.gen";
 import { RelativeTime } from "@/components/ui/Time";
 import { formatDateTime } from "@/lib/time";
@@ -7,7 +8,7 @@ import { ActionSheet } from "./ActionSheet";
 import { ADMIN, adminApi, adminData } from "./api";
 import { ActionButton } from "./permissions";
 import { pauseEnd, PAUSE_CHOICES, type PauseChoice } from "./rules";
-import { AdminPage, Cell, Id, Pill, QueryView, Row, Section, SmallSelect, Table } from "./ui";
+import { AdminPage, Cell, Id, QueryView, Row, Section, SmallSelect, Table } from "./ui";
 
 type Flag = components["schemas"]["AdminFlag"];
 
@@ -44,9 +45,18 @@ export function Flags() {
                   </Cell>
                   <Cell>
                     {item.paused ? (
-                      <Pill tone="danger">{item.id === "maintenance" ? "on" : "paused"}</Pill>
+                      <StatusChip
+                        size="sm"
+                        domain="flag"
+                        state="paused"
+                        label={item.id === "maintenance" ? "On" : undefined}
+                      />
                     ) : (
-                      <Pill tone="running">{item.id === "maintenance" ? "off" : "running"}</Pill>
+                      <StatusChip
+                        size="sm"
+                        domain="flag"
+                        state={item.id === "maintenance" ? "off" : "running"}
+                      />
                     )}
                     {item.paused && item.until && (
                       <span className="block text-caption text-text-2">

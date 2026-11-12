@@ -1,5 +1,6 @@
 import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { StatusChip, Tag } from "@/components/ui/StatusChip";
 import { Link, useSearch } from "wouter";
 import { TextArea } from "@/components/ui/Inputs";
 import { Money } from "@/components/ui/Money";
@@ -23,7 +24,6 @@ import {
   Fields,
   Id,
   PagedView,
-  Pill,
   QueryView,
   Row,
   RowLink,
@@ -68,10 +68,12 @@ export function Abuse() {
 
 function StatePill({ item }: { item: Pick<AbuseSummary, "state" | "banned"> }) {
   return (
-    <Pill tone={item.state === "open" ? "danger" : "plain"}>
-      {STATE[item.state] ?? item.state}
-      {item.banned ? ", banned" : ""}
-    </Pill>
+    <StatusChip
+      size="sm"
+      domain="abuse"
+      state={item.state}
+      label={item.banned ? `${STATE[item.state] ?? item.state}, banned` : undefined}
+    />
   );
 }
 
@@ -206,7 +208,7 @@ function LearnableBuilds({ found, itemId }: { found: AbuseDetail; itemId: string
             <span className="font-medium">{signal.detail}</span>
             <span className="tabular break-all text-text-2">{signal.sha256}</span>
             {waiting.has(signal.sha256) ? (
-              <Pill tone="plain">On the list to publish</Pill>
+              <Tag>On the list to publish</Tag>
             ) : (
               <ActionButton
                 permission="abuse.blocklist"

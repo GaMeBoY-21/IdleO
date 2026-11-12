@@ -1,11 +1,11 @@
 /**
- * Why a session ended, in the renter's words (web/DESIGN.md "Voice"). Apart from src/lib/labels.ts, which the first screen
+ * Why a session ended, in the renter's words (web/DESIGN.md "Voice"). Apart from src/lib/states.ts, which the first screen
  * imports: these words (api/endings.json) are only the session screen's, and `LATER` in vite.config.ts keeps them out of the
  * shell chunk, so the signed-in home's first load doesn't carry them.
  */
 
 import endingWords from "../../../api/endings.json";
-import { readable } from "./labels";
+import { readable } from "./states";
 
 /** Why a session ended without completing, in plain words, and what to do next. */
 export interface Ending {

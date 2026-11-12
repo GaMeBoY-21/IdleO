@@ -3,7 +3,7 @@ import { Link } from "wouter";
 import { isLive, useTemplateName, type Session } from "@/api/queries";
 import { Money } from "@/components/ui/Money";
 import { Skeleton, SkeletonLine } from "@/components/ui/Skeleton";
-import { StateChip } from "@/components/ui/StateChip";
+import { StatusChip } from "@/components/ui/StatusChip";
 import { Tile } from "@/components/ui/Tile";
 import { Elapsed, RelativeTime } from "@/components/ui/Time";
 import { costSoFar } from "@/lib/sessions";
@@ -51,7 +51,7 @@ export function SessionRow({ session }: { session: Session }) {
           </p>
         </div>
         <div className="flex shrink-0 flex-col items-end gap-1">
-          <StateChip state={session.state} />
+          <StatusChip domain="session" state={session.state} />
           <p className="text-small tabular">
             <span className="sr-only">{live ? "Cost so far" : "Charged"} </span>
             <Money paise={live ? costSoFar(session) : session.chargedPaise} className="font-semibold" />
@@ -131,7 +131,7 @@ function TableRow({ session }: { session: Session }) {
           )}
         </span>
         <span className="flex w-1/6 shrink-0 items-center">
-          <StateChip state={session.state} />
+          <StatusChip domain="session" state={session.state} />
         </span>
         <p className="w-1/6 shrink-0 text-right text-small tabular">
           <span className="sr-only">{live ? "Cost so far" : "Charged"} </span>

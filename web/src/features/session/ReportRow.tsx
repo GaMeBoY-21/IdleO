@@ -11,8 +11,7 @@ import { REPLY_PROMISE, reportWords } from "@/lib/reports";
 const loadSheet = () => import("./ReportSheet");
 const ReportSheet = lazy(() => loadSheet().then((module) => ({ default: module.ReportSheet })));
 
-const ROW =
-  "tile-motion flex min-h-18 w-full items-center gap-4 rounded-panel bg-panel px-4 py-4 text-left";
+const ROW = "tile-motion flex min-h-18 w-full items-center gap-4 rounded-panel bg-panel px-4 py-4 text-left";
 
 /**
  * "Report a problem" on an ended session, and where the latest report stands (ADR 0028): one row that's always two

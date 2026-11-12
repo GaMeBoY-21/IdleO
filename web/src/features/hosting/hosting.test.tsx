@@ -1,7 +1,7 @@
 import { render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as data from "../../../e2e/fixtures-hosting";
-import { MachineChip } from "./MachineChip";
+import { StatusChip } from "@/components/ui/StatusChip";
 import { RightNow } from "./MachineFigures";
 import { MachineRow } from "./MachineRow";
 import { WeekBars } from "./WeekBars";
@@ -40,7 +40,8 @@ describe("the Hosting tab's machines", () => {
   });
 
   it("names its state in the chip, whatever its colour", () => {
-    render(<MachineChip state={machineState(data.hostRunning, now)} />);
+    const state = machineState(data.hostRunning, now);
+    render(<StatusChip domain="machine" state={state.kind} label={state.label} testId="machine-chip" />);
     expect(screen.getByTestId("machine-chip")).toHaveTextContent("Running a session");
   });
 });

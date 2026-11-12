@@ -1,5 +1,6 @@
 import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { StatusChip, Tag } from "@/components/ui/StatusChip";
 import { useSearch } from "wouter";
 import { Banner } from "@/components/ui/Banner";
 import { Button } from "@/components/ui/Button";
@@ -19,7 +20,6 @@ import {
   Fields,
   Id,
   PagedView,
-  Pill,
   QueryView,
   Row,
   RowLink,
@@ -100,7 +100,7 @@ export function UserEnforcement({ id }: { id: string }) {
                   <Cell className="max-w-64">{each.reason ?? "—"}</Cell>
                   <Cell>{each.endsAt ? formatDateTime(each.endsAt) : "—"}</Cell>
                   <Cell>
-                    <Pill tone={each.state === "active" ? "danger" : "plain"}>{each.state}</Pill>
+                    <StatusChip size="sm" domain="enforcement" state={each.state} />
                     {each.appealed && <span className="block text-caption text-text-2">Appealed</span>}
                   </Cell>
                   <Cell>
@@ -254,8 +254,8 @@ function AppealList() {
                   <Id value={appeal.userId} page="user" />
                 </Cell>
                 <Cell>
-                  <Pill>{appeal.state}</Pill>
-                  {appeal.sameReviewer && <Pill tone="danger">Same reviewer</Pill>}
+                  <StatusChip size="sm" domain="appeal" state={appeal.state} />
+                  {appeal.sameReviewer && <Tag>Same reviewer</Tag>}
                 </Cell>
                 <Cell>{appeal.decidedBy ? <Id value={appeal.decidedBy} page="user" /> : "—"}</Cell>
                 <Cell>

@@ -1,5 +1,6 @@
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { StatusChip, Tag } from "@/components/ui/StatusChip";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/Button";
 import { Money as Paise } from "@/components/ui/Money";
@@ -10,19 +11,7 @@ import { ActionSheet, SheetProblem } from "./ActionSheet";
 import { ADMIN, adminApi, adminData } from "./api";
 import { word } from "./words";
 import { ledgerHref } from "./Ledger";
-import {
-  AdminPage,
-  Cell,
-  Empty,
-  Id,
-  PagedView,
-  Pill,
-  Row,
-  Section,
-  SmallField,
-  SmallSelect,
-  Table,
-} from "./ui";
+import { AdminPage, Cell, Empty, Id, PagedView, Row, Section, SmallField, SmallSelect, Table } from "./ui";
 import { ActionButton } from "./permissions";
 import { ListBar } from "./Lists";
 import { useListView } from "./listView";
@@ -367,11 +356,12 @@ function Posted() {
                 <Cell>{adjustment.requestedBy}</Cell>
                 <Cell>
                   {adjustment.reversesId ? (
-                    <Pill>
-                      reverses <Id value={adjustment.reversesId} />
-                    </Pill>
+                    <Tag>
+                      {" "}
+                      reverses <Id value={adjustment.reversesId} />{" "}
+                    </Tag>
                   ) : adjustment.reversedById ? (
-                    <Pill>reversed</Pill>
+                    <StatusChip size="sm" domain="due" state="reversed" />
                   ) : (
                     <ActionButton
                       permission="money.adjust"

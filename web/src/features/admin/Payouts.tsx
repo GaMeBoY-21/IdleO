@@ -1,5 +1,6 @@
 import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { StatusChip } from "@/components/ui/StatusChip";
 import { Link, useSearch } from "wouter";
 import { Money } from "@/components/ui/Money";
 import { RelativeTime } from "@/components/ui/Time";
@@ -14,7 +15,6 @@ import {
   Fields,
   Id,
   PagedView,
-  Pill,
   QueryView,
   Row,
   Section,
@@ -35,14 +35,6 @@ export const PAYOUT_MISMATCH_WORDS: Record<string, string> = {
   missing_theirs: "We sent it; RazorpayX doesn't have it",
   amount: "A different amount",
   status: "Ended differently",
-};
-
-const STATUS_TONE: Record<string, "running" | "danger" | "plain"> = {
-  processed: "running",
-  failed: "danger",
-  rejected: "danger",
-  cancelled: "danger",
-  reversed: "danger",
 };
 
 /**
@@ -166,9 +158,11 @@ function RunsAndPayouts() {
                         "unknown"
                       )}{" "}
                       for <Money paise={found.balance.duePaise} /> due on {found.balance.payday}{" "}
-                      <Pill tone={found.balance.isShort ? "danger" : "running"}>
-                        {found.balance.isShort ? "short" : "enough"}
-                      </Pill>
+                      <StatusChip
+                        size="sm"
+                        domain="balance"
+                        state={found.balance.isShort ? "short" : "enough"}
+                      />
                       {found.balance.failure && (
                         <span className="block text-caption text-text-2">{found.balance.failure}</span>
                       )}
@@ -295,7 +289,7 @@ function PayoutRow({ payout, onRetry }: { payout: AdminPayout; onRetry: () => vo
         <Money paise={payout.netPaise} />
       </Cell>
       <Cell>
-        <Pill tone={STATUS_TONE[payout.status] ?? "plain"}>{payout.status}</Pill>
+        <StatusChip size="sm" domain="payout" state={payout.status} />
         {(payout.statusDescription ?? payout.lastError) && (
           <span className="block text-caption text-text-2">
             {payout.statusReason ? `${word(payout.statusReason ?? "")}: ` : ""}
@@ -378,9 +372,12 @@ function Reconciliation() {
                       <RelativeTime value={item.lastFoundAt} />
                     </Cell>
                     <Cell>
-                      <Pill tone={item.state === "open" ? "danger" : "plain"}>
-                        {PAYOUT_MISMATCH_WORDS[item.kind] ?? item.kind}
-                      </Pill>
+                      <StatusChip
+                        size="sm"
+                        domain="mismatch"
+                        state={item.state}
+                        label={PAYOUT_MISMATCH_WORDS[item.kind] ?? item.kind}
+                      />
                     </Cell>
                     <Cell className="tabular">{item.subject}</Cell>
                     <Cell>{item.userId ? <Id value={item.userId} page="user" /> : "—"}</Cell>
@@ -532,7 +529,11 @@ function Batch({ id }: { id: string }) {
             items={[
               [
                 "State",
-                run.state === "preview" ? <Pill>preview</Pill> : <Pill tone="running">released</Pill>,
+                run.state === "preview" ? (
+                  <StatusChip size="sm" domain="payoutRun" state="preview" />
+                ) : (
+                  <StatusChip size="sm" domain="payoutRun" state="released" />
+                ),
               ],
               ["Payouts", run.payouts ?? 0],
               ["Total, net", <Money key="total" paise={run.totalPaise ?? 0} />],
@@ -584,7 +585,7 @@ function Batch({ id }: { id: string }) {
                       {item.leftOutWords ? (
                         <span className="text-text-2">left out: {item.leftOutWords}</span>
                       ) : item.payoutStatus ? (
-                        <Pill tone={STATUS_TONE[item.payoutStatus] ?? "plain"}>{item.payoutStatus}</Pill>
+                        <StatusChip size="sm" domain="payout" state={item.payoutStatus} />
                       ) : (
                         <span className="text-text-2">when released</span>
                       )}

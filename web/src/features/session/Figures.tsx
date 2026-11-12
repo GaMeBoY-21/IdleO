@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import type { Session } from "@/api/queries";
 import { ProgressBar } from "@/components/ui/Progress";
 import { Money } from "@/components/ui/Money";
-import { StateChip } from "@/components/ui/StateChip";
+import { StatusChip } from "@/components/ui/StatusChip";
 import { Tile, TileLabel } from "@/components/ui/Tile";
 import { Elapsed, RelativeTime } from "@/components/ui/Time";
 import { cn } from "@/lib/cn";
@@ -38,7 +38,7 @@ export function RunningTile({
     <Tile tone="night" className="flex flex-col gap-4">
       <div className="flex flex-col gap-2">
         <span className="self-start">
-          <StateChip state={session.state} />
+          <StatusChip domain="session" state={session.state} />
         </span>
         <h1 className="font-title text-display-feature break-words">{title}</h1>
         <p className="text-small text-on-night-2">

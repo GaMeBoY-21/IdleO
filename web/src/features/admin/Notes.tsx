@@ -1,11 +1,12 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRef, useState, type ReactNode } from "react";
+import { StatusChip, Tag } from "@/components/ui/StatusChip";
 import { Banner } from "@/components/ui/Banner";
 import { Button } from "@/components/ui/Button";
 import { RelativeTime } from "@/components/ui/Time";
 import { ADMIN, adminApi, adminData, asAction, type AdminNote } from "./api";
 import { useCan } from "./permissions";
-import { Empty, Id, Pill, QueryView, Section, Problem } from "./ui";
+import { Empty, Id, QueryView, Section, Problem } from "./ui";
 
 export type NoteSubject = "user" | "host" | "session" | "payment";
 
@@ -70,9 +71,6 @@ export function RecordHead({ subject, id }: { subject: NoteSubject; id: string }
   );
 }
 
-const toneOf = (colour: string) =>
-  colour === "danger" ? "danger" : colour === "running" ? "running" : "plain";
-
 function Tags({ subject, id }: { subject: NoteSubject; id: string }) {
   const can = useCan();
   const client = useQueryClient();
@@ -105,7 +103,7 @@ function Tags({ subject, id }: { subject: NoteSubject; id: string }) {
       <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Tags">
         {held.map((tag) => (
           <span key={tag.id} className="inline-flex items-center gap-1">
-            <Pill tone={toneOf(tag.colour)}>{tag.label}</Pill>
+            <Tag>{tag.label}</Tag>
             {writable && (
               <Button
                 variant="quiet"
@@ -184,8 +182,8 @@ function NoteRow({ note, subject, id }: { note: AdminNote; subject: NoteSubject;
       <div className="flex flex-wrap items-center gap-2 text-caption text-text-2">
         <Id value={note.authorId} page="user" /> · <RelativeTime value={note.createdAt} />
         {note.editedAt && <span>· changed</span>}
-        {note.pinned && <Pill>Pinned</Pill>}
-        {note.openInvestigation && <Pill tone="danger">Open investigation</Pill>}
+        {note.pinned && <Tag>Pinned</Tag>}
+        {note.openInvestigation && <Tag>Open investigation</Tag>}
       </div>
       {editing === null ? (
         <NoteBody body={note.body} />
@@ -358,9 +356,10 @@ export function RecordNotes({ subject, id }: { subject: NoteSubject; id: string 
                 </select>
               </label>
               {mentions.map((who) => (
-                <Pill key={who}>
-                  @{mentionable.data?.admins.find((admin) => admin.id === who)?.name ?? who.slice(-8)}
-                </Pill>
+                <Tag key={who}>
+                  {" "}
+                  @{mentionable.data?.admins.find((admin) => admin.id === who)?.name ?? who.slice(-8)}{" "}
+                </Tag>
               ))}
             </div>
             <Problem error={problem} />
@@ -387,8 +386,6 @@ export function RecordNotes({ subject, id }: { subject: NoteSubject; id: string 
     </div>
   );
 }
-
-const STRENGTHS: Record<string, string> = { STRONG: "Strong", MEDIUM: "Medium", WEAK: "Weak" };
 
 /** Accounts that may be the same person or ring (ADR 0052): leads for a person to look at. Nothing here acts. */
 export function LinkedAccounts({ id }: { id: string }) {
@@ -429,9 +426,7 @@ export function LinkedAccounts({ id }: { id: string }) {
                       key={`${signal.signal}${signal.evidence}`}
                       className="flex flex-wrap items-center gap-2"
                     >
-                      <Pill tone={signal.strength === "STRONG" ? "danger" : "plain"}>
-                        {STRENGTHS[signal.strength] ?? signal.strength}
-                      </Pill>
+                      <StatusChip size="sm" domain="signal" state={signal.strength} />
                       {signal.evidence}
                       {signal.at && (
                         <span className="text-caption text-text-2">

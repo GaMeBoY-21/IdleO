@@ -1,4 +1,4 @@
-import { readable } from "@/lib/labels";
+import { readable } from "@/lib/states";
 
 /**
  * The renter's words for each kind of credit movement in their history (the control plane's WalletController names

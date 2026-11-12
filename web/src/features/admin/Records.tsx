@@ -1,5 +1,6 @@
 import { useQuery, type UseInfiniteQueryResult, type UseQueryResult } from "@tanstack/react-query";
 import { type ReactNode } from "react";
+import { StatusChip } from "@/components/ui/StatusChip";
 import { Money } from "@/components/ui/Money";
 import { RelativeTime } from "@/components/ui/Time";
 import { ADMIN, adminApi, adminData } from "./api";
@@ -7,7 +8,7 @@ import { word } from "./words";
 import { LinkedAccounts, RecordHead, RecordNotes } from "./Notes";
 import { RecordTabs, type RecordTab } from "./RecordTabs";
 import { Timeline } from "./Timeline";
-import { AdminPage, BackLink, Cell, Empty, Fields, Id, Pill, QueryView, Row, Section, Table } from "./ui";
+import { AdminPage, BackLink, Cell, Empty, Fields, Id, QueryView, Row, Section, Table } from "./ui";
 import { useListQuery } from "./listView";
 import { UserEnforcement } from "./Enforcement";
 
@@ -547,17 +548,7 @@ function HostPresence({ id }: { id: string }) {
                 <Row key={`${change.at}-${index}`}>
                   <Cell>{when(change.at)}</Cell>
                   <Cell>
-                    <Pill
-                      tone={
-                        change.state === "online"
-                          ? "running"
-                          : change.state === "offline"
-                            ? "plain"
-                            : "danger"
-                      }
-                    >
-                      {change.state}
-                    </Pill>
+                    <StatusChip size="sm" domain="presence" state={change.state} />
                   </Cell>
                 </Row>
               ))}
@@ -740,8 +731,8 @@ function SessionMinutes({ id }: { id: string }) {
       row={(minute) => (
         <Row key={minute.minuteIndex}>
           <Cell>{minute.minuteIndex}</Cell>
-          <Cell>{minute.agentReported ? "Yes" : <Pill tone="danger">No</Pill>}</Cell>
-          <Cell>{minute.leaseAlive ? "Yes" : <Pill tone="danger">No</Pill>}</Cell>
+          <Cell>{minute.agentReported ? "Yes" : <StatusChip size="sm" domain="witness" state="no" />}</Cell>
+          <Cell>{minute.leaseAlive ? "Yes" : <StatusChip size="sm" domain="witness" state="no" />}</Cell>
           <Cell>{minute.billed ? "Yes" : "No"}</Cell>
         </Row>
       )}
@@ -861,13 +852,7 @@ export function PaymentRecord({ id }: { id: string }) {
             <RecordHead subject="payment" id={id} />
             <div className="flex flex-wrap items-center gap-2">
               <Money paise={payment.amountPaise} />
-              <Pill
-                tone={
-                  payment.status === "paid" ? "running" : payment.status === "failed" ? "danger" : "plain"
-                }
-              >
-                {payment.status}
-              </Pill>
+              <StatusChip size="sm" domain="payment" state={payment.status} />
             </div>
             <Fields
               items={[

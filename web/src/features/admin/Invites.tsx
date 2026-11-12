@@ -1,10 +1,11 @@
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { StatusChip } from "@/components/ui/StatusChip";
 import { Button } from "@/components/ui/Button";
 import { RelativeTime } from "@/components/ui/Time";
 import { ActionSheet, SheetProblem } from "./ActionSheet";
 import { ADMIN, adminApi, adminData } from "./api";
-import { AdminPage, Cell, Empty, PagedView, Pill, Row, Section, SmallField, SmallSelect, Table } from "./ui";
+import { AdminPage, Cell, Empty, PagedView, Row, Section, SmallField, SmallSelect, Table } from "./ui";
 import { ActionButton } from "./permissions";
 import { ListBar } from "./Lists";
 import { useListParam, useListView } from "./listView";
@@ -189,7 +190,7 @@ export function Invites() {
                         <RelativeTime value={invite.usedAt} className="text-text-2" />
                       </span>
                     ) : (
-                      <Pill>unused</Pill>
+                      <StatusChip size="sm" domain="invite" state="unused" />
                     )}
                   </Cell>
                 </Row>
