@@ -30,7 +30,7 @@ export function EmptyState({
  */
 export function InShape({ shape, children }: { shape: ReactNode; children: ReactNode }) {
   return (
-    <div className="grid">
+    <div className="grid grid-cols-1">
       <div aria-hidden="true" className="invisible col-start-1 row-start-1">
         {shape}
       </div>

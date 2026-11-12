@@ -13,7 +13,7 @@ import {
 import { Button } from "@/components/ui/Button";
 import { Money } from "@/components/ui/Money";
 import { SkeletonLine } from "@/components/ui/Skeleton";
-import { ErrorState, EmptyState } from "@/components/ui/States";
+import { ErrorState, EmptyState, InShape } from "@/components/ui/States";
 import { Tile } from "@/components/ui/Tile";
 import { useNow } from "@/lib/clock";
 import { cn } from "@/lib/cn";
@@ -32,13 +32,16 @@ export function PayoutsTile({ enabled }: { enabled: boolean }) {
     return <Summary summary={summary.data} />;
   }
   if (summary.isError) {
+    // In the space the summary held while loading, so what's under it doesn't jump up.
     return (
-      <ErrorState
-        error={summary.error}
-        what="your payouts"
-        onRetry={() => void summary.refetch()}
-        retrying={summary.isFetching}
-      />
+      <InShape shape={<SummarySkeleton />}>
+        <ErrorState
+          error={summary.error}
+          what="your payouts"
+          onRetry={() => void summary.refetch()}
+          retrying={summary.isFetching}
+        />
+      </InShape>
     );
   }
   return <SummarySkeleton />;

@@ -19,14 +19,14 @@ export function Gpus({ links }: { links: EntryLinks }) {
       </section>
 
       <section className={`${column} pb-14 md:pb-20`}>
-        <ul className="grid gap-2 md:grid-cols-2 md:gap-4">
+        <ul className="grid grid-cols-1 gap-2 md:grid-cols-2 md:gap-4">
           {GPU_CLASSES.map((gpu) => (
             <li key={gpu.gb} className={tile} aria-labelledby={`gpu-${gpu.gb}`}>
               <h2 id={`gpu-${gpu.gb}`} className={sectionTitle}>
                 {gpu.gb} GB GPU memory
               </h2>
               <p className="mt-1 text-small text-text-2">Typical cards: {gpu.cards.join(", ")}</p>
-              <dl className="mt-4 grid gap-2 text-body">
+              <dl className="mt-4 grid grid-cols-1 gap-2 text-body">
                 {(
                   [
                     ["Fine-tuning with QLoRA", gpu.qlora],

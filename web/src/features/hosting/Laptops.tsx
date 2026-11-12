@@ -58,7 +58,7 @@ export function Laptops() {
         </div>
         {since !== null && <StaleNotice updatedAt={since} />}
         {failed || (
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
             {machines
               ? machines.map((host) => <MachineTile key={host.id} host={host} className="xl:h-host-panel" />)
               : [0, 1].map((key) => <Skeleton key={key} tile className="h-service-card xl:h-host-panel" />)}
@@ -67,7 +67,7 @@ export function Laptops() {
           </div>
         )}
         {!hosts.isError && machines && machines.length > 0 && (
-          <div className="grid items-start gap-4 xl:grid-cols-3">
+          <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-3">
             <div className="xl:col-span-2">
               <AtAGlance machines={machines} enabled={painted} />
             </div>

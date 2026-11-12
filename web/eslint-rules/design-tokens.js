@@ -31,6 +31,14 @@ const STEPS = new Set(
 );
 const SIZED =
   /(?:^|[\s:])-?(?:h|w|min-h|min-w|max-h|max-w|size|p|px|py|pt|pb|pl|pr|ps|pe|m|mx|my|mt|mb|ml|mr|ms|me|gap|gap-x|gap-y|top|bottom|left|right|inset|inset-x|inset-y|space-x|space-y|translate-x|translate-y|basis)-(\d+(?:\.\d+)?)(?=$|\s)/g;
+// A grid names its columns at every width (`grid-cols-1` below the breakpoint that sets more): without, its one column
+// is as wide as its widest word, and a long name or email pushes the page sideways.
+const bareGrid = (text) => {
+  const classes = text.split(/\s+/);
+  return (
+    classes.includes("grid") && !classes.some((name) => /^(grid-cols-|cols-)/.test(name) || name === "grid-flow-col")
+  );
+};
 const unknownStep = (text) => [...text.matchAll(SIZED)].some((match) => !STEPS.has(match[1]));
 
 function check(context, node, text) {
@@ -46,6 +54,8 @@ function check(context, node, text) {
     context.report({ node, messageId: "duration" });
   } else if (unknownStep(text)) {
     context.report({ node, messageId: "step" });
+  } else if (bareGrid(text)) {
+    context.report({ node, messageId: "columns" });
   }
 }
 
@@ -63,6 +73,7 @@ export default {
       layer: "Use a layer token (z-raised, z-sticky, z-sheet, z-toast…), not a z-index number.",
       duration: "Use a motion token (duration-press, duration-appear, duration-large), not a number of ms.",
       styled: "Spacing, type, layers and durations come from the design tokens, not a style prop.",
+      columns: "A grid names its columns at every width: add grid-cols-1 (or a cols- utility) beside the breakpoints' own.",
       step: "That step isn't on the spacing scale (src/design/tokens.ts), so the class makes no CSS and does nothing.",
     },
     schema: [],

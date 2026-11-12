@@ -98,7 +98,7 @@ export function Shell({
         {children}
       </main>
       <footer className={`${column} flex flex-col gap-12 pt-12 pb-10 md:pt-16`}>
-        <div className="grid gap-8 text-small sm:grid-cols-2 md:grid-cols-4">
+        <div className="grid grid-cols-1 gap-8 text-small sm:grid-cols-2 md:grid-cols-4">
           {FOOTER.map((group) => (
             <nav key={group.title} aria-label={group.title} className="flex flex-col gap-1">
               <p className="mb-1 font-semibold text-text-3">{group.title}</p>

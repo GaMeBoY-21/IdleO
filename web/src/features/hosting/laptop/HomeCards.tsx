@@ -38,7 +38,7 @@ export function EarningsHero({
       tone="night"
       size="lg"
       aria-labelledby="week-title"
-      className="grid gap-6 md:col-span-6 md:grid-cols-2 xl:col-span-8 xl:h-host-panel xl:grid-cols-5 xl:gap-8 xl:py-8"
+      className="grid grid-cols-1 gap-6 md:col-span-6 md:grid-cols-2 xl:col-span-8 xl:h-host-panel xl:grid-cols-5 xl:gap-8 xl:py-8"
     >
       {/* Its figures at the foot, so nothing that arrives above them moves them. */}
       <div className="flex flex-col justify-between gap-4 xl:col-span-2">

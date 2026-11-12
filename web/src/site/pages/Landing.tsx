@@ -105,7 +105,7 @@ export function Landing({ context }: { context: SiteContext }) {
   return (
     <>
       <section
-        className={`${column} grid items-center gap-14 pt-6 pb-16 md:pt-12 md:pb-24 xl:grid-cols-2`}
+        className={`${column} grid grid-cols-1 items-center gap-14 pt-6 pb-16 md:pt-12 md:pb-24 xl:grid-cols-2`}
         aria-labelledby="what"
       >
         <div className="flex flex-col gap-6">
@@ -190,7 +190,7 @@ export function Landing({ context }: { context: SiteContext }) {
         <h2 id="run" className={`${bandTitle} max-w-form`}>
           What you can run
         </h2>
-        <ul className="mt-10 grid gap-4 md:grid-cols-3">
+        <ul className="mt-10 grid grid-cols-1 gap-4 md:grid-cols-3">
           {context.services.map((service, index) => (
             <li
               key={service.id}
@@ -212,7 +212,7 @@ export function Landing({ context }: { context: SiteContext }) {
         </p>
       </section>
 
-      <section className={`${column} grid gap-4 py-6 xl:grid-cols-2`}>
+      <section className={`${column} grid grid-cols-1 gap-4 py-6 xl:grid-cols-2`}>
         <div
           className="flex flex-col gap-4 rounded-hero border border-edge bg-panel p-8 text-text md:p-10"
           aria-labelledby="promises"
@@ -360,7 +360,7 @@ export function HowItWorks() {
       <h2 id="steps" className={`${bandTitle} max-w-form`}>
         How it works
       </h2>
-      <ol className="grid gap-4 md:grid-cols-3">
+      <ol className="grid grid-cols-1 gap-4 md:grid-cols-3">
         {STEPS.map((step, index) => (
           <li
             key={step.title}
@@ -389,7 +389,7 @@ export function Sealed() {
         <h2 id="sealed" className={`${sectionHeading} max-w-form text-on-night`}>
           Sealed, on both sides.
         </h2>
-        <ul className="grid gap-6 md:grid-cols-3">
+        <ul className="grid grid-cols-1 gap-6 md:grid-cols-3">
           {SEALED.map((item) => (
             <li key={item.title} className="flex flex-col gap-2">
               <h3 className="text-section">{item.title}</h3>

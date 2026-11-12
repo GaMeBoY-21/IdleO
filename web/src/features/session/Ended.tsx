@@ -157,7 +157,7 @@ export function Ended({
       right={
         <>
           {done && <Outputs id={session.id} />}
-          {feedback && <div className="grid gap-4 md:grid-cols-2 2xl:gap-4">{feedback}</div>}
+          {feedback && <div className="grid grid-cols-1 gap-4 md:grid-cols-2 2xl:gap-4">{feedback}</div>}
           {session.startedAt && <LogsLater id={session.id} settled={session.settled} laptop={false} />}
         </>
       }

@@ -35,7 +35,7 @@ export function HostPayouts() {
             Payout details
           </Link>
         </div>
-        <div className="grid items-start gap-4 xl:grid-cols-5">
+        <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-5">
           <div className="flex flex-col gap-4 xl:col-span-2">
             <PayoutsTile enabled={painted} />
             <WhereTile enabled={painted} />

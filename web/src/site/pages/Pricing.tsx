@@ -39,7 +39,7 @@ export function Pricing({ context }: { context: SiteContext }) {
           {EXAMPLE_CLASS_GB} GB class at the prices above. A job's real cost depends on the model, the data
           and the GPU it gets.
         </p>
-        <ul className="mt-4 grid gap-2 md:grid-cols-2 md:gap-4">
+        <ul className="mt-4 grid grid-cols-1 gap-2 md:grid-cols-2 md:gap-4">
           {context.examples.map((example) => (
             <li
               key={example.label}
@@ -66,7 +66,7 @@ export function Pricing({ context }: { context: SiteContext }) {
         <h2 id="billing" className={sectionTitle}>
           How billing works
         </h2>
-        <dl className="mt-4 grid gap-2 md:grid-cols-2 md:gap-4">
+        <dl className="mt-4 grid grid-cols-1 gap-2 md:grid-cols-2 md:gap-4">
           {[
             [
               "By the minute",

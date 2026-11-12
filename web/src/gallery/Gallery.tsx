@@ -200,7 +200,7 @@ function Buttons() {
 function Forms() {
   const [on, setOn] = useState(true);
   return (
-    <div className="grid gap-6 md:grid-cols-2">
+    <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
       <Field label="Name" placeholder="Asha" />
       <Field label="UPI id" hint="Your bank's app shows it, like name@bank." defaultValue="asha@okbank" />
       <Field label="Amount" error="Enter at least ₹10." defaultValue="₹5" />
@@ -232,7 +232,7 @@ function Forms() {
 
 function Tiles() {
   return (
-    <div className="grid gap-4 md:grid-cols-3">
+    <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
       {TONES.map((tone) => (
         <Tile key={tone} tone={tone}>
           <TileLabel tone={tone}>{tone}</TileLabel>
@@ -248,7 +248,7 @@ function Tiles() {
 function States() {
   const failed = new ApiError(503, null, "Unavailable", null);
   return (
-    <div className="grid gap-4 md:grid-cols-2">
+    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
       <Tile>
         <SectionHeader>Loading: skeleton lines and a tile</SectionHeader>
         <SkeletonLine size="section" width="60%" />
@@ -308,7 +308,7 @@ function Chips() {
 
 function Pieces() {
   return (
-    <div className="grid gap-4 md:grid-cols-2">
+    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
       <Option icon={Layers} title="Fine-tune a model" detail="Your model and data, about 40 min" />
       <Option icon={Cpu} title="Run your code" detail="Your folder, our GPU" selected />
       <div className="flex gap-2">

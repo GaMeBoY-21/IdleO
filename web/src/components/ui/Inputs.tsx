@@ -95,7 +95,7 @@ export const Switch = forwardRef<
   return (
     <div className={cn("flex flex-col gap-2", className)}>
       <label htmlFor={id} className="flex min-h-touch cursor-pointer items-center justify-between gap-4">
-        <span className="text-small font-medium">{label}</span>
+        <span className="min-w-0 text-small font-medium">{label}</span>
         <span className="relative inline-flex shrink-0 items-center">
           <input
             ref={ref}
