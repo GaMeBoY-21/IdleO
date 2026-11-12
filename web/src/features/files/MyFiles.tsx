@@ -1,5 +1,6 @@
 import { Link } from "wouter";
 import { useUploadPages } from "@/api/queries";
+import { StatGrid, StatTile } from "@/components/ui/KeyValues";
 import { PageTitle, SectionHeader } from "@/components/ui/Headers";
 import { AccountFrame } from "@/components/shell/AccountFrame";
 import { Button, buttonClasses } from "@/components/ui/Button";
@@ -125,18 +126,12 @@ function FilesSummary({ uploads }: { uploads: Upload[] | undefined }) {
   return (
     <Tile as="section" aria-labelledby="files-summary-title" className="flex flex-col gap-2 xl:p-8">
       <SectionHeader id="files-summary-title">Kept for you</SectionHeader>
-      <dl className="grid grid-cols-2 gap-2">
-        <div className="flex min-h-18 flex-col justify-center rounded-control bg-panel-2 px-4 py-4">
-          <dt className="text-small text-text-2">Uploads</dt>
-          <dd className="text-option font-semibold tabular">{uploads ? uploads.length : "…"}</dd>
-        </div>
-        <div className="flex min-h-18 flex-col justify-center rounded-control bg-panel-2 px-4 py-4">
-          <dt className="text-small text-text-2">In all</dt>
-          <dd className="text-option font-semibold tabular">
-            {uploads ? formatBytes(uploads.reduce((sum, upload) => sum + upload.sizeBytes, 0)) : "…"}
-          </dd>
-        </div>
-      </dl>
+      <StatGrid>
+        <StatTile label="Uploads">{uploads ? uploads.length : "…"}</StatTile>
+        <StatTile label="In all">
+          {uploads ? formatBytes(uploads.reduce((sum, upload) => sum + upload.sizeBytes, 0)) : "…"}
+        </StatTile>
+      </StatGrid>
       <p className="min-h-10 text-small text-text-2">
         {next
           ? `${next.name} goes next, on ${formatDay(next.expiresAt)}, unless a session uses it before then.`

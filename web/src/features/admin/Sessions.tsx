@@ -1,5 +1,6 @@
 import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
+import { KeyValueList } from "@/components/ui/KeyValues";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { Link, useSearch } from "wouter";
 import { Money } from "@/components/ui/Money";
@@ -12,7 +13,6 @@ import {
   AdminPage,
   Cell,
   Empty,
-  Fields,
   Filters,
   Id,
   PagedView,
@@ -228,7 +228,7 @@ function SessionRecord({ id }: { id: string }) {
           const summary = found.session;
           return (
             <>
-              <Fields
+              <KeyValueList
                 items={[
                   [
                     "Session id",

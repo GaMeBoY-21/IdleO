@@ -1,5 +1,6 @@
 import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
+import { KeyValueList } from "@/components/ui/KeyValues";
 import { StatusChip, Tag } from "@/components/ui/StatusChip";
 import { Link, useSearch } from "wouter";
 import { buttonClasses } from "@/components/ui/Button";
@@ -12,7 +13,6 @@ import {
   AdminPage,
   Cell,
   Empty,
-  Fields,
   Filters,
   PagedView,
   QueryView,
@@ -193,7 +193,7 @@ function UserRecord({ id }: { id: string }) {
       <QueryView query={user} what="this user">
         {(found) => (
           <>
-            <Fields
+            <KeyValueList
               items={[
                 [
                   "Email",

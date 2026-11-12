@@ -201,20 +201,6 @@ export function RowLink({ href, children }: { href: string; children: ReactNode 
   );
 }
 
-/** A record's fields, as label and value pairs. */
-export function Fields({ items }: { items: [string, ReactNode][] }) {
-  return (
-    <dl className="flex flex-col gap-2 text-small">
-      {items.map(([label, value]) => (
-        <div key={label} className="flex flex-col md:flex-row md:gap-6">
-          <dt className="text-text-2 md:w-40 md:shrink-0">{label}</dt>
-          <dd className="min-w-0 break-all">{value}</dd>
-        </div>
-      ))}
-    </dl>
-  );
-}
-
 /** Copies an id with one click, and says it has. */
 function CopyId({ value }: { value: string }) {
   const [copied, setCopied] = useState(false);

@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from "react";
 import { useLocation } from "wouter";
+import { KeyValueList } from "@/components/ui/KeyValues";
 import { Button } from "@/components/ui/Button";
 import { HANDBOOK, RUNBOOKS, runbookUrl } from "./runbooks";
 import { Sheet } from "./Sheet";
@@ -190,14 +191,7 @@ function KeyLines({ title, lines }: { title: string; lines: [string, string][] }
   return (
     <section className="flex flex-col gap-1">
       <h3 className="text-small font-semibold">{title}</h3>
-      <dl className="flex flex-col gap-1 text-small">
-        {lines.map(([key, what]) => (
-          <div key={key} className="flex gap-2">
-            <dt className="tabular w-24 shrink-0 font-semibold">{key}</dt>
-            <dd>{what}</dd>
-          </div>
-        ))}
-      </dl>
+      <KeyValueList items={lines} />
     </section>
   );
 }

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link } from "wouter";
+import { StatGrid, StatTile } from "@/components/ui/KeyValues";
 import { SectionHeader } from "@/components/ui/Headers";
 import {
   downloadStatement,
@@ -42,8 +43,6 @@ export function PayoutsTile({ enabled }: { enabled: boolean }) {
   return <SummarySkeleton />;
 }
 
-const FIGURE = "flex min-h-18 flex-col justify-center gap-1 rounded-control bg-panel-2 px-4 py-4";
-
 export function Summary({ summary }: { summary: PayoutSummary }) {
   const blocked = blockedWords(summary.blockedBy);
   const nextAvailable = summary.pending.find((session) => session.availableAt != null)?.availableAt;
@@ -55,30 +54,18 @@ export function Summary({ summary }: { summary: PayoutSummary }) {
           Payout details
         </Link>
       </div>
-      <dl className="grid grid-cols-2 gap-2">
-        <div className={FIGURE}>
-          <dt className="text-small text-text-2">Available</dt>
-          <dd className="text-option font-semibold">
-            <Money paise={summary.availablePaise} />
-          </dd>
-        </div>
-        <div className={FIGURE}>
-          <dt className="text-small text-text-2">Pending</dt>
-          <dd className="text-option font-semibold">
-            <Money paise={summary.pendingPaise} />
-          </dd>
-        </div>
-        <div className={FIGURE}>
-          <dt className="text-small text-text-2">Next payout</dt>
-          <dd className="text-option font-semibold">{formatDay(summary.nextPayoutAt)}</dd>
-        </div>
-        <div className={FIGURE}>
-          <dt className="text-small text-text-2">Tax deducted {summary.financialYear}</dt>
-          <dd className="text-option font-semibold">
-            <Money paise={summary.yearTdsPaise} />
-          </dd>
-        </div>
-      </dl>
+      <StatGrid>
+        <StatTile label={<>Available</>}>
+          <Money paise={summary.availablePaise} />
+        </StatTile>
+        <StatTile label={<>Pending</>}>
+          <Money paise={summary.pendingPaise} />
+        </StatTile>
+        <StatTile label={<>Next payout</>}>{formatDay(summary.nextPayoutAt)}</StatTile>
+        <StatTile label={<>Tax deducted {summary.financialYear}</>}>
+          <Money paise={summary.yearTdsPaise} />
+        </StatTile>
+      </StatGrid>
       {/* Four lines kept for what's said here, whichever it is and however it wraps on a phone, so nothing below moves. */}
       <div className="flex min-h-20 flex-col gap-1 text-small">
         {blocked ? (
@@ -145,17 +132,14 @@ export function SummarySkeleton() {
       <div className="flex items-baseline justify-between gap-2">
         <SectionHeader>Payouts</SectionHeader>
       </div>
-      <dl className="grid grid-cols-2 gap-2">
+      <StatGrid>
         {/* The loaded labels, the year's too, so one that wraps on a phone wraps here as well. */}
         {["Available", "Pending", "Next payout", `Tax deducted ${year}`].map((label) => (
-          <div key={label} className={FIGURE}>
-            <dt className="text-small text-text-2">{label}</dt>
-            <dd className="text-option font-semibold">
-              <SkeletonLine size="option" width="w-2/3" />
-            </dd>
-          </div>
+          <StatTile key={label} label={label}>
+            <SkeletonLine size="option" width="w-2/3" />
+          </StatTile>
         ))}
-      </dl>
+      </StatGrid>
       <div className="flex min-h-20 flex-col gap-1 text-small">
         <SkeletonLine size="small" width="w-2/3" />
       </div>

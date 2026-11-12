@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
+import { KeyValueList } from "@/components/ui/KeyValues";
 import { PageTitle } from "@/components/ui/Headers";
 import {
   useApproveHostLink,
@@ -82,22 +83,22 @@ function Machine({ link }: { link: HostLink | undefined }) {
       <PageTitle variant="panel" id="link-title">
         Link this laptop to your account?
       </PageTitle>
-      <dl className="flex flex-col gap-2 text-body">
-        <Row label="Laptop" value={link?.machineName} />
-        {link === undefined ? (
-          <Row label="Graphics" value={undefined} />
-        ) : (
-          link.gpus.map((gpu) => (
-            <Row
-              key={`${gpu.model}-${gpu.vramMb}`}
-              label="Graphics"
-              value={`${gpuName(gpu.model)} · ${gigabytes(gpu.vramMb)}`}
-            />
-          ))
-        )}
-        <Row label="System" value={link === undefined ? undefined : (SYSTEMS[link.os] ?? link.os)} />
-        <Row label="App version" value={link?.agentVersion} />
-      </dl>
+      <KeyValueList
+        layout="split"
+        size="body"
+        divided
+        onNight
+        items={[
+          ["Laptop", shown(link?.machineName)],
+          ...(link === undefined
+            ? [["Graphics", shown(undefined)] as const]
+            : link.gpus.map(
+                (gpu) => ["Graphics", `${gpuName(gpu.model)} · ${gigabytes(gpu.vramMb)}`] as const,
+              )),
+          ["System", shown(link === undefined ? undefined : (SYSTEMS[link.os] ?? link.os))],
+          ["App version", shown(link?.agentVersion)],
+        ]}
+      />
       <p className="min-h-10 text-small text-on-night-2" aria-live="off">
         {link === undefined
           ? ""
@@ -111,15 +112,9 @@ function Machine({ link }: { link: HostLink | undefined }) {
   );
 }
 
-function Row({ label, value }: { label: string; value: string | undefined }) {
-  return (
-    <div className="flex items-center justify-between gap-4 border-b border-on-night/15 pb-4 last:border-0 last:pb-0">
-      <dt className="shrink-0 text-on-night-2">{label}</dt>
-      <dd className="flex min-h-6 min-w-0 items-center justify-end text-right font-semibold break-words">
-        {value ?? <Skeleton className="skeleton-dark block h-6 w-32" />}
-      </dd>
-    </div>
-  );
+/** A value, or its place held at its size while the link loads. */
+function shown(value: string | undefined) {
+  return value ?? <Skeleton className="skeleton-dark block h-6 w-32" />;
 }
 
 function AnswerSkeleton() {

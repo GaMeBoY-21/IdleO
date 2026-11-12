@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
+import { KeyValueList } from "@/components/ui/KeyValues";
 import { Link } from "wouter";
 import { Money as Paise } from "@/components/ui/Money";
 import type { components } from "@/api/schema.gen";
@@ -10,7 +11,6 @@ import {
   AdminPage,
   Cell,
   Empty,
-  Fields,
   Filters,
   QueryView,
   Row,
@@ -179,7 +179,7 @@ function Liabilities() {
       <QueryView query={liabilities} what="the liabilities">
         {(found) => (
           <>
-            <Fields
+            <KeyValueList
               items={[
                 [
                   "Renters' bought credit",

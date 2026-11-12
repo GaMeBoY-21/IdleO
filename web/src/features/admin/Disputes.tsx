@@ -1,5 +1,6 @@
 import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import { word } from "./words";
+import { KeyValueList } from "@/components/ui/KeyValues";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { useState, type ReactNode } from "react";
 import { Link, useSearch } from "wouter";
@@ -23,7 +24,6 @@ import {
   AdminPage,
   Cell,
   Empty,
-  Fields,
   Id,
   PagedView,
   QueryView,
@@ -238,7 +238,7 @@ function Summary({ found }: { found: AdminDispute }) {
   const { dispute, session, rating } = found;
   return (
     <>
-      <Fields
+      <KeyValueList
         items={[
           ["State", <StatePill key="state" dispute={dispute} />],
           ["Reason", reasonTitle(dispute.reason)],
@@ -293,7 +293,7 @@ function Summary({ found }: { found: AdminDispute }) {
         ]}
       />
       <Section title="What it cost">
-        <Fields
+        <KeyValueList
           items={[
             ["The renter paid", <Money key="paid" paise={session.paidPaise} />],
             ["The platform kept", <Money key="commission" paise={session.commissionPaise} />],
@@ -317,7 +317,7 @@ function Summary({ found }: { found: AdminDispute }) {
       </Section>
       {dispute.state !== "open" && (
         <Section title="How it was decided">
-          <Fields items={decision(dispute)} />
+          <KeyValueList items={decision(dispute)} />
         </Section>
       )}
     </>

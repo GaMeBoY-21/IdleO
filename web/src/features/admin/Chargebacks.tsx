@@ -1,5 +1,6 @@
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
+import { KeyValueList } from "@/components/ui/KeyValues";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { Link, useSearch } from "wouter";
 import { Money } from "@/components/ui/Money";
@@ -12,7 +13,6 @@ import {
   AdminPage,
   Cell,
   Empty,
-  Fields,
   PagedView,
   Id,
   QueryView,
@@ -138,7 +138,7 @@ function ChargebackRecord({ id }: { id: string }) {
       <QueryView query={chargeback} what="this chargeback">
         {(found) => (
           <>
-            <Fields
+            <KeyValueList
               items={[
                 ["State", <OutcomePill key="state" chargeback={found} />],
                 [
@@ -189,7 +189,7 @@ function ChargebackRecord({ id }: { id: string }) {
             </p>
             <Section title="The payment">
               {found.payment ? (
-                <Fields
+                <KeyValueList
                   items={[
                     ["Paid", <Money key="paid" paise={found.payment.amountPaise} />],
                     [

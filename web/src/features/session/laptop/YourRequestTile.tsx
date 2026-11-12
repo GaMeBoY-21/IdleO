@@ -1,5 +1,7 @@
 import { breakable } from "@/lib/breakable";
 import type { Session, Template } from "@/api/queries";
+import { SectionHeader } from "@/components/ui/Headers";
+import { KeyValueList } from "@/components/ui/KeyValues";
 import { Money } from "@/components/ui/Money";
 import { Tile } from "@/components/ui/Tile";
 import { aboutRuntime } from "@/lib/catalog";
@@ -42,32 +44,17 @@ export function YourRequestTile({
   });
   return (
     <Tile as="section" aria-labelledby="request-title" size="lg" className="flex flex-col gap-2 xl:p-6">
-      <h2 id="request-title" className="text-section">
-        Your request
-      </h2>
-      <dl className="flex flex-col">
-        {[...inputs, ...presets].map((row) => (
-          <div
-            key={row.label}
-            className="flex items-baseline justify-between gap-4 border-b border-line py-2 text-body"
-          >
-            <dt className="shrink-0 text-text-2">{row.label}</dt>
-            <dd className="min-w-0 flex-1 text-right font-semibold break-words">{row.value}</dd>
-          </div>
-        ))}
-        <div className="flex items-baseline justify-between gap-4 border-b border-line py-2 text-body">
-          <dt className="text-text-2">Spending cap</dt>
-          <dd className="font-semibold">
-            <Money paise={session.maxSpendPaise} />
-          </dd>
-        </div>
-        <div className="flex items-baseline justify-between gap-4 py-2 text-body">
-          <dt className="text-text-2">Held until it runs</dt>
-          <dd className="font-semibold">
-            <Money paise={session.reservedPaise} />
-          </dd>
-        </div>
-      </dl>
+      <SectionHeader id="request-title">Your request</SectionHeader>
+      <KeyValueList
+        layout="split"
+        size="body"
+        divided
+        items={[
+          ...[...inputs, ...presets].map((row): [string, React.ReactNode] => [row.label, row.value]),
+          ["Spending cap", <Money key="cap" paise={session.maxSpendPaise} />],
+          ["Held until it runs", <Money key="held" paise={session.reservedPaise} />],
+        ]}
+      />
       <p className="text-caption text-text-2">Nothing is charged until it runs.</p>
     </Tile>
   );

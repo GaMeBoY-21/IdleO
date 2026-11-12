@@ -1,5 +1,6 @@
 import { Link } from "wouter";
 import { useEarnings, useHosts, type EarningsEntry, type OwnerEarnings } from "@/api/hosting";
+import { StatGrid, StatTile } from "@/components/ui/KeyValues";
 import { PageTitle, SectionHeader } from "@/components/ui/Headers";
 import { Page } from "@/components/shell/AppShell";
 import { HostFlow } from "@/components/shell/HostFlow";
@@ -125,14 +126,12 @@ function Totals({ owner, heading = false }: { owner: OwnerEarnings; heading?: bo
         <p className="text-small font-semibold text-on-night-2">All machines, in total</p>
         <Money paise={owner.totalPaise} className="block font-title text-timer" />
       </div>
-      <dl className="grid grid-cols-2 gap-2">
+      <StatGrid>
         <Figure label="This week">
           <Money paise={owner.weekPaise} />
         </Figure>
-        <Figure label="Hours rented">
-          <span className="tabular">{formatMinutes(owner.minutesRentedThisWeek)}</span>
-        </Figure>
-      </dl>
+        <Figure label="Hours rented">{formatMinutes(owner.minutesRentedThisWeek)}</Figure>
+      </StatGrid>
       <p className="max-w-prose text-small text-on-night-2">{PAYOUT_NOTE}</p>
       {owner.machines.length > 1 && (
         <ul aria-label="Each machine" className="flex flex-col divide-y divide-on-night/15">
@@ -262,10 +261,9 @@ function EarningsSkeleton() {
 
 function Figure({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="flex min-h-18 flex-col justify-center gap-1 rounded-control bg-on-night/10 px-4 py-4">
-      <dt className="text-small text-on-night-2">{label}</dt>
-      <dd className="text-option font-semibold">{children}</dd>
-    </div>
+    <StatTile label={label} onNight>
+      {children}
+    </StatTile>
   );
 }
 

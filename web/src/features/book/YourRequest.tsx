@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
 import type { Template } from "@/api/queries";
+import { SectionHeader } from "@/components/ui/Headers";
+import { KeyValueList } from "@/components/ui/KeyValues";
 import { Tile } from "@/components/ui/Tile";
 import { aboutRuntime } from "@/lib/catalog";
 import type { BookValues, Uploads } from "./form";
@@ -86,15 +88,8 @@ export function YourRequest({
   }
   return (
     <Tile tone="night" as="div" className="flex flex-col gap-4 p-6">
-      <h2 className="text-section">Your request</h2>
-      <dl className="flex flex-col gap-2 text-body">
-        {summaryRows(template, values, uploads).map(([label, value]) => (
-          <div key={label} className="flex items-baseline justify-between gap-4">
-            <dt className="shrink-0 text-on-night-2">{label}</dt>
-            <dd className="min-w-0 text-right font-semibold break-words">{value}</dd>
-          </div>
-        ))}
-      </dl>
+      <SectionHeader>Your request</SectionHeader>
+      <KeyValueList layout="split" size="body" onNight items={summaryRows(template, values, uploads)} />
       {gpu}
       {button}
     </Tile>

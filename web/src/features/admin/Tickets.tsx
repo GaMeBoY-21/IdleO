@@ -1,5 +1,6 @@
 import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { KeyValueList } from "@/components/ui/KeyValues";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { useSearch } from "wouter";
 import { TextArea } from "@/components/ui/Inputs";
@@ -13,7 +14,6 @@ import {
   AdminPage,
   Cell,
   Empty,
-  Fields,
   Id,
   PagedView,
   QueryView,
@@ -186,7 +186,7 @@ function TicketRecord({ id }: { id: string }) {
             <Section
               title={`${ticketNumber(ticket.number)} · ${TOPICS.find(([code]) => code === ticket.topic)?.[1] ?? ticket.topic}`}
             >
-              <Fields
+              <KeyValueList
                 items={[
                   ["Status", STATUS[ticket.status] ?? ticket.status],
                   [
@@ -393,7 +393,7 @@ function PrivacyRequest({ userId, onExport }: { userId: string; onExport: () => 
         </ActionButton>
       }
     >
-      <Fields
+      <KeyValueList
         items={[
           [
             "Deletion",

@@ -1,5 +1,6 @@
 import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { KeyValueList } from "@/components/ui/KeyValues";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { Link, useSearch } from "wouter";
 import { Money } from "@/components/ui/Money";
@@ -12,7 +13,6 @@ import {
   AdminPage,
   Cell,
   Empty,
-  Fields,
   Id,
   PagedView,
   QueryView,
@@ -145,7 +145,7 @@ function RunsAndPayouts() {
       <QueryView query={payouts} what="the payouts">
         {(found) => (
           <>
-            <Fields
+            <KeyValueList
               items={[
                 ["Next run", formatDateTime(found.nextPayday)],
                 [
@@ -525,7 +525,7 @@ function Batch({ id }: { id: string }) {
             ) : null
           }
         >
-          <Fields
+          <KeyValueList
             items={[
               [
                 "State",

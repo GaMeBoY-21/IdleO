@@ -1,5 +1,6 @@
 import { useQuery, type UseInfiniteQueryResult, type UseQueryResult } from "@tanstack/react-query";
 import { type ReactNode } from "react";
+import { KeyValueList } from "@/components/ui/KeyValues";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { Money } from "@/components/ui/Money";
 import { RelativeTime } from "@/components/ui/Time";
@@ -8,7 +9,7 @@ import { word } from "./words";
 import { LinkedAccounts, RecordHead, RecordNotes } from "./Notes";
 import { RecordTabs, type RecordTab } from "./RecordTabs";
 import { Timeline } from "./Timeline";
-import { AdminPage, Cell, Empty, Fields, Id, QueryView, Row, Section, Table } from "./ui";
+import { AdminPage, Cell, Empty, Id, QueryView, Row, Section, Table } from "./ui";
 import { useListQuery } from "./listView";
 import { UserEnforcement } from "./Enforcement";
 
@@ -83,7 +84,7 @@ function Wallet({ id }: { id: string }) {
     <QueryView query={query} what="their credit">
       {(credit) => (
         <div className="flex flex-col gap-4">
-          <Fields
+          <KeyValueList
             items={[
               ["Balance", <Money key="balance" paise={credit.balancePaise} />],
               ["Reserved", <Money key="reserved" paise={credit.reservedPaise} />],
@@ -254,7 +255,7 @@ function PayoutsAndChecks({ id, canCheck, canPay }: { id: string; canCheck: bool
           <QueryView query={details} what="how they're paid">
             {(found) => (
               <div className="flex flex-col gap-2">
-                <Fields
+                <KeyValueList
                   items={[["PAN", found.pan ? `Ending ${found.pan.last4}, ${found.pan.state}` : "Not given"]]}
                 />
                 {found.methods.length > 0 && (
@@ -617,7 +618,7 @@ function HostEarnings({ id }: { id: string }) {
   return (
     <QueryView query={query} what="what this host earned">
       {(earned) => (
-        <Fields
+        <KeyValueList
           items={[
             ["Charged to renters", <Money key="charged" paise={earned.chargedPaise} />],
             ["The host's share", <Money key="share" paise={earned.hostSharePaise} />],
@@ -854,7 +855,7 @@ export function PaymentRecord({ id }: { id: string }) {
               <Money paise={payment.amountPaise} />
               <StatusChip size="sm" domain="payment" state={payment.status} />
             </div>
-            <Fields
+            <KeyValueList
               items={[
                 ["Person", <Id key="user" value={payment.userId} page="user" />],
                 ["Razorpay payment", payment.paymentId ?? "—"],
@@ -1005,7 +1006,7 @@ const ID_FIELDS: Record<string, string> = {
 /** What a record says, field by field, for one that has nothing but its fields to show. */
 function FieldsOf({ record }: { record: Record<string, unknown> }) {
   return (
-    <Fields
+    <KeyValueList
       items={Object.entries(record)
         .filter(([, value]) => value === null || typeof value !== "object")
         .map(([name, value]): [string, ReactNode] => [

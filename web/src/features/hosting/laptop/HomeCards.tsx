@@ -1,5 +1,6 @@
 import { useDemand, usePriceBand, type Host, type OwnerEarnings } from "@/api/hosting";
 import { usePayoutHistory, usePayoutSummary } from "@/api/payouts";
+import { StatGrid, StatTile } from "@/components/ui/KeyValues";
 import { SectionHeader } from "@/components/ui/Headers";
 import { AppLink } from "@/components/ui/AppLink";
 import { Bars, BarsSkeleton } from "@/components/ui/Bars";
@@ -65,22 +66,16 @@ export function EarningsHero({
             <Skeleton className="skeleton-dark h-15 w-48" />
           )}
         </span>
-        <dl className="grid grid-cols-2 gap-2 text-small">
-          <div className="flex min-h-20 flex-col justify-start rounded-control bg-on-night/10 px-4 py-2">
-            <dt className="text-on-night-2">Pending</dt>
-            <dd className="font-semibold tabular">
-              {summary ? <Money paise={summary.pendingPaise} /> : "…"}
-            </dd>
-          </div>
-          <div className="flex min-h-20 flex-col justify-start rounded-control bg-on-night/10 px-4 py-2">
-            <dt className="text-on-night-2">Next payout</dt>
-            <dd className="font-semibold tabular">
-              {summary
-                ? `${formatDay(summary.nextPayoutAt)}${nextAmount !== null ? ` · ${formatPaise(nextAmount)}` : ""}`
-                : "…"}
-            </dd>
-          </div>
-        </dl>
+        <StatGrid>
+          <StatTile label="Pending" onNight>
+            {summary ? <Money paise={summary.pendingPaise} /> : "…"}
+          </StatTile>
+          <StatTile label="Next payout" onNight>
+            {summary
+              ? `${formatDay(summary.nextPayoutAt)}${nextAmount !== null ? ` · ${formatPaise(nextAmount)}` : ""}`
+              : "…"}
+          </StatTile>
+        </StatGrid>
       </div>
       <div className="flex flex-col justify-end gap-2 xl:col-span-3">
         {owner ? <WeeksBars weeks={owner.weeks} /> : <BarsSkeleton count={8} tone="night" />}

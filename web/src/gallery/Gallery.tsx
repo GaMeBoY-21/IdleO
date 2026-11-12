@@ -8,6 +8,7 @@ import { Button, type ButtonVariant } from "@/components/ui/Button";
 import { Checklist } from "@/components/ui/Checklist";
 import { CopyButton } from "@/components/ui/CopyButton";
 import { Field } from "@/components/ui/Field";
+import { KeyValueList, StatGrid, StatTile } from "@/components/ui/KeyValues";
 import { RadioGroup, Select, Switch, TextArea } from "@/components/ui/Inputs";
 import { Money } from "@/components/ui/Money";
 import { IconTile, Option } from "@/components/ui/Option";
@@ -20,7 +21,7 @@ import { Elapsed, RelativeTime } from "@/components/ui/Time";
 import { motion, radii, spacing, themes, typeScale } from "@/design/tokens";
 import { STATE_DOMAINS, type StateDomain } from "@/lib/states";
 import { Sheet } from "@/features/admin/Sheet";
-import { Empty, Fields, Filters, Id, Problem, Section, SmallField, TableSkeleton } from "@/features/admin/ui";
+import { Empty, Filters, Id, Problem, Section, SmallField, TableSkeleton } from "@/features/admin/ui";
 
 /**
  * The component gallery (web/README.md "The component gallery"): the tokens, then every shared component in each of its
@@ -340,6 +341,20 @@ function Pieces() {
           { title: "Run a first test job", detail: "Being checked.", done: null },
         ]}
       />
+      <StatGrid>
+        <StatTile label="On hold" note="Set aside while a session runs.">
+          <Money paise={540} />
+        </StatTile>
+        <StatTile label="Uploads">4</StatTile>
+      </StatGrid>
+      <KeyValueList
+        layout="split"
+        divided
+        items={[
+          ["Spending cap", <Money key="cap" paise={50000} />],
+          ["Held until it runs", <Money key="held" paise={1200} />],
+        ]}
+      />
       <Specimen name="Money and time">
         <span className="text-figure">
           <Money paise={12345678} />
@@ -356,7 +371,7 @@ function ConsoleSet() {
   return (
     <div className="flex flex-col gap-6">
       <Section title="A section's header" action={<Button variant="ghost">Export</Button>}>
-        <Fields
+        <KeyValueList
           items={[
             ["Name", "Asha Rao"],
             ["Joined", <RelativeTime key="joined" value={minutesAgo(60 * 24 * 40)} />],
