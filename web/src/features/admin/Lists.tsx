@@ -56,6 +56,7 @@ export function ListBar({
   const [exporting, setExporting] = useState(false);
   const [saving, setSaving] = useState("");
   const [shared, setShared] = useState(false);
+  const [saveOpen, setSaveOpen] = useState(false);
   const [problem, setProblem] = useState<unknown>(null);
   const views = useQuery({
     queryKey: [ADMIN, "views", list],
@@ -154,37 +155,40 @@ export function ListBar({
           </Button>
         ))}
       {/* Saving a view is now and then: behind its own line, so the list's toolbar stays one row on a phone. */}
-      <details className="group">
+      <details className="group" open={saveOpen} onToggle={(event) => setSaveOpen(event.currentTarget.open)}>
         <summary className="inline-flex min-h-touch cursor-pointer items-center font-semibold text-text-2 hover:text-text md:min-h-9">
           Save this view…
         </summary>
-        <form
-          className="flex flex-wrap items-end gap-2 pt-2"
-          onSubmit={(event) => {
-            event.preventDefault();
-            if (saving.trim() !== "") {
-              void save();
-            }
-          }}
-        >
-          <label htmlFor={id} className="flex flex-col gap-1 text-caption text-text-2">
-            Save this view as
-            <input
-              id={id}
-              value={saving}
-              maxLength={80}
-              onChange={(event) => setSaving(event.target.value)}
-              className="min-h-touch rounded-control bg-raised px-2 text-small text-text md:min-h-9"
-            />
-          </label>
-          <label className="flex min-h-touch items-center gap-2 md:min-h-9">
-            <input type="checkbox" checked={shared} onChange={(event) => setShared(event.target.checked)} />
-            Share it
-          </label>
-          <Button type="submit" variant="quiet">
-            Save
-          </Button>
-        </form>
+        {/* Only while open: a closed fold's fields would be in the page but out of the keyboard's reach. */}
+        {saveOpen && (
+          <form
+            className="flex flex-wrap items-end gap-2 pt-2"
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (saving.trim() !== "") {
+                void save();
+              }
+            }}
+          >
+            <label htmlFor={id} className="flex flex-col gap-1 text-caption text-text-2">
+              Save this view as
+              <input
+                id={id}
+                value={saving}
+                maxLength={80}
+                onChange={(event) => setSaving(event.target.value)}
+                className="min-h-touch rounded-control bg-raised px-2 text-small text-text md:min-h-9"
+              />
+            </label>
+            <label className="flex min-h-touch items-center gap-2 md:min-h-9">
+              <input type="checkbox" checked={shared} onChange={(event) => setShared(event.target.checked)} />
+              Share it
+            </label>
+            <Button type="submit" variant="quiet">
+              Save
+            </Button>
+          </form>
+        )}
       </details>
       {can("export.create") && (
         <Button variant="ghost" onClick={() => setExporting(true)}>
