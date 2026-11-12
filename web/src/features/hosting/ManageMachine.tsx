@@ -83,6 +83,7 @@ export function ManageMachine({ host }: { host: Host }) {
               variant="ghost"
               busy={rename.isPending}
               disabled={problem !== undefined || trimmed === host.name}
+              why={problem ?? "That's its name already."}
               className="self-start"
             >
               Save name

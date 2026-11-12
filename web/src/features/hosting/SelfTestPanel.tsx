@@ -111,11 +111,12 @@ export function SelfTestPanel({ host }: { host: Host }) {
             variant="ghost"
             busy={start.isPending}
             disabled={!body.canRun}
+            aria-describedby={`${host.id}-self-test-why`}
             onClick={() => start.mutate()}
           >
             Run self-test
           </Button>
-          <p className="min-h-5 text-center text-small text-text-2">
+          <p id={`${host.id}-self-test-why`} className="min-h-5 text-center text-small text-text-2">
             {body.canRun ? `Up to ${body.perDay} a day.` : (body.whyNot?.message ?? "")}
           </p>
         </>

@@ -257,7 +257,14 @@ function Approve({ link }: { link: HostLink }) {
         {approve.isError && <Banner tone="danger">{problemMessage(approve.error)}</Banner>}
         {deny.isError && <Banner tone="danger">{problemMessage(deny.error)}</Banner>}
         <div className="flex flex-col items-center gap-2">
-          <Button type="submit" large block busy={approve.isPending} disabled={!ready || deny.isPending}>
+          <Button
+            type="submit"
+            large
+            block
+            busy={approve.isPending}
+            disabled={!ready || deny.isPending}
+            why={deny.isPending ? "It's being declined." : "Give it a name and a price first."}
+          >
             Approve and start earning
           </Button>
           <button

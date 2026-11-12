@@ -296,6 +296,7 @@ function GiveUp({ enabled, details }: { enabled: boolean; details: Details }) {
         <Button
           variant="danger"
           disabled={statement.trim().length < 10}
+          why="Write a sentence saying you give them up, at least 10 characters."
           busy={forfeit.isPending}
           onClick={() => forfeit.mutate(statement.trim())}
         >
