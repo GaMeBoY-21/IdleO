@@ -15,6 +15,7 @@ import { LaptopHosting, LaptopPitch } from "./laptop/LaptopHosting";
 import { useAfterPaint } from "@/lib/after-first-screen";
 import { FirstRun } from "./FirstRun";
 import { MachineRow } from "./MachineRow";
+import { PauseSwitch } from "./PauseSwitch";
 import { WeekBars, WeekBarsSkeleton } from "./WeekBars";
 import { HOST_PATHS } from "@/sites/host/paths";
 
@@ -121,8 +122,9 @@ export function Hosting() {
             {machines ? (
               <ul className="flex flex-col gap-2">
                 {machines.map((host) => (
-                  <li key={host.id}>
+                  <li key={host.id} className="flex flex-col gap-1">
                     <MachineRow host={host} />
+                    <PauseSwitch host={host} className="px-4" />
                   </li>
                 ))}
               </ul>
