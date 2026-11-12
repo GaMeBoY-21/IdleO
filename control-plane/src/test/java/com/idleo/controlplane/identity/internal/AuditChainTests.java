@@ -299,7 +299,8 @@ class AuditChainTests {
         copies.copyFinishedDays();
 
         var newest = copies.newest().orElseThrow();
-        var keys = s3.listObjectsV2(request -> request.bucket(bucket)).contents().stream()
+        // Every page of the listing: S3 gives at most 1,000 keys a page, and the days other tests date ahead are more.
+        var keys = s3.listObjectsV2Paginator(request -> request.bucket(bucket)).contents().stream()
                 .map(software.amazon.awssdk.services.s3.model.S3Object::key)
                 .toList();
         assertThat(keys).contains(newest.objectKey(), newest.objectKey().replace(".ndjson.gz", ".head.json"));
