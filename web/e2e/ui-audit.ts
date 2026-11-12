@@ -52,7 +52,14 @@ export async function audit(
         return `<${element.tagName.toLowerCase()}>${text ? ` "${text}"` : ""}`;
       };
       const main: HTMLElement = document.querySelector("main") ?? document.body;
-      const text = main.innerText;
+      // What's read as words: code samples and reference tables (the docs) name codes and numbers on purpose.
+      const prose = main.cloneNode(true) as HTMLElement;
+      prose.querySelectorAll("code, pre, kbd, samp, .docs table").forEach((element) => element.remove());
+      document.body.append(prose);
+      prose.style.position = "absolute";
+      prose.style.visibility = "hidden";
+      const text = prose.innerText;
+      prose.remove();
 
       // Layout: nothing scrolls sideways; nothing is cut off; a truncated name shows its whole value on hover or focus.
       const overflow = document.documentElement.scrollWidth - window.innerWidth;
@@ -190,7 +197,12 @@ export async function audit(
       // Tables: numbers right-aligned in tabular figures.
       for (const cell of main.querySelectorAll("td, [role='cell']")) {
         const value = cell.textContent.trim();
-        if (!visible(cell) || !/^[₹+−-]?\s?[\d,.]+\s?(%|h|min|s|GB|MB|°C|paise)?$/.test(value)) {
+        if (
+          !visible(cell) ||
+          cell.closest(".docs") ||
+          cell.querySelector("code") ||
+          !/^[₹+−-]?\s?\d[\d,.]*\s?(%|h|min|s|GB|MB|°C|paise)?$/.test(value)
+        ) {
           continue;
         }
         const style = getComputedStyle(cell);
