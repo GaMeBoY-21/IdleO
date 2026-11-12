@@ -1,5 +1,6 @@
 import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
+import { StatusChip, Tag } from "@/components/ui/StatusChip";
 import { Link, useSearch } from "wouter";
 import { buttonClasses } from "@/components/ui/Button";
 import { Money } from "@/components/ui/Money";
@@ -15,7 +16,6 @@ import {
   Fields,
   Filters,
   PagedView,
-  Pill,
   QueryView,
   Row,
   RowLink,
@@ -118,10 +118,8 @@ function UserSearch() {
 function UserStatus({ user }: { user: AdminUser }) {
   return (
     <span className="flex flex-wrap gap-1">
-      <Pill tone={user.status === "suspended" ? "danger" : user.status === "active" ? "running" : "plain"}>
-        {user.status}
-      </Pill>
-      {user.admin && <Pill>admin</Pill>}
+      <StatusChip size="sm" domain="account" state={user.status} />
+      {user.admin && <Tag>Admin</Tag>}
     </span>
   );
 }

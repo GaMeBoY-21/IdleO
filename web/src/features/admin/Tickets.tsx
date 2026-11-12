@@ -1,5 +1,6 @@
 import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { StatusChip } from "@/components/ui/StatusChip";
 import { useSearch } from "wouter";
 import { TextArea } from "@/components/ui/Inputs";
 import { RelativeTime } from "@/components/ui/Time";
@@ -16,7 +17,6 @@ import {
   Fields,
   Id,
   PagedView,
-  Pill,
   QueryView,
   Row,
   RowLink,
@@ -139,7 +139,12 @@ function TicketQueue() {
                 <Cell>
                   {ticket.dueAt ? (
                     ticket.overdue ? (
-                      <Pill tone="danger">Overdue since {formatDay(ticket.dueAt)}</Pill>
+                      <StatusChip
+                        size="sm"
+                        domain="due"
+                        state="overdue"
+                        label={`Overdue since ${formatDay(ticket.dueAt)}`}
+                      />
                     ) : (
                       formatDay(ticket.dueAt)
                     )
@@ -228,7 +233,12 @@ function TicketRecord({ id }: { id: string }) {
                     "Due",
                     ticket.dueAt ? (
                       ticket.overdue ? (
-                        <Pill tone="danger">Overdue since {formatDay(ticket.dueAt)}</Pill>
+                        <StatusChip
+                          size="sm"
+                          domain="due"
+                          state="overdue"
+                          label={`Overdue since ${formatDay(ticket.dueAt)}`}
+                        />
                       ) : (
                         formatDay(ticket.dueAt)
                       )

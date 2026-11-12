@@ -1,5 +1,6 @@
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { StatusChip } from "@/components/ui/StatusChip";
 import { useSearch } from "wouter";
 import { Money } from "@/components/ui/Money";
 import { RelativeTime } from "@/components/ui/Time";
@@ -14,7 +15,6 @@ import {
   Filters,
   Id,
   PagedView,
-  Pill,
   QueryView,
   Row,
   Section,
@@ -142,17 +142,7 @@ function Search() {
                     <Money paise={payment.amountPaise} />
                   </Cell>
                   <Cell>
-                    <Pill
-                      tone={
-                        payment.status === "paid"
-                          ? "running"
-                          : payment.status === "failed"
-                            ? "danger"
-                            : "plain"
-                      }
-                    >
-                      {payment.status}
-                    </Pill>
+                    <StatusChip size="sm" domain="payment" state={payment.status} />
                     {payment.failureReason && (
                       <span className="block text-caption text-text-2">{payment.failureReason}</span>
                     )}
@@ -252,9 +242,12 @@ function Reconciliation() {
                       <RelativeTime value={item.lastFoundAt} />
                     </Cell>
                     <Cell>
-                      <Pill tone={item.state === "open" ? "danger" : "plain"}>
-                        {MISMATCH_WORDS[item.kind] ?? item.kind}
-                      </Pill>
+                      <StatusChip
+                        size="sm"
+                        domain="mismatch"
+                        state={item.state}
+                        label={MISMATCH_WORDS[item.kind] ?? item.kind}
+                      />
                     </Cell>
                     <Cell className="tabular">{item.subject}</Cell>
                     <Cell>{item.userId ? <Id value={item.userId} page="user" /> : "—"}</Cell>

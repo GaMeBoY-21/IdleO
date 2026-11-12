@@ -1,5 +1,6 @@
 import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
+import { StatusChip } from "@/components/ui/StatusChip";
 import { Link, useSearch } from "wouter";
 import { Money } from "@/components/ui/Money";
 import { RelativeTime } from "@/components/ui/Time";
@@ -16,7 +17,6 @@ import {
   Filters,
   Id,
   PagedView,
-  Pill,
   QueryView,
   Row,
   RowLink,
@@ -201,8 +201,7 @@ function SessionSearch({ user, host }: { user: string; host: string }) {
 }
 
 function SessionState({ state }: { state: string }) {
-  const tone = state === "RUNNING" ? "running" : state === "FAILED" ? "danger" : "plain";
-  return <Pill tone={tone}>{word(state)}</Pill>;
+  return <StatusChip size="sm" domain="session" state={state} exact />;
 }
 
 function SessionRecord({ id }: { id: string }) {

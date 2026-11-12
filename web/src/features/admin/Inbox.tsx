@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
+import { StatusChip, Tag } from "@/components/ui/StatusChip";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/Button";
 import { Money } from "@/components/ui/Money";
@@ -14,7 +15,6 @@ import {
   AdminPage,
   Cell,
   Empty,
-  Pill,
   QueryView,
   Row,
   Section,
@@ -54,15 +54,22 @@ const VIEWS: [string, string][] = [
 /** Its due time in words, never colour alone: past it, paused, or none. */
 function Due({ item }: { item: Item }) {
   if (item.paused) {
-    return <Pill>Paused, waiting on the person</Pill>;
+    return <StatusChip size="sm" domain="due" state="paused" />;
   }
   if (!item.dueAt) {
     return <>—</>;
   }
   return item.breachedAt ? (
-    <Pill tone="danger">
-      Past its target, <RelativeTime value={item.dueAt} />
-    </Pill>
+    <StatusChip
+      size="sm"
+      domain="due"
+      state="overdue"
+      label={
+        <>
+          Past its target, <RelativeTime value={item.dueAt} />
+        </>
+      }
+    />
   ) : (
     <RelativeTime value={item.dueAt} />
   );
@@ -181,7 +188,7 @@ export function Inbox() {
                 </Cell>
                 <Cell>{KIND_WORDS[item.type] ?? item.type}</Cell>
                 <Cell>
-                  <Pill tone={item.priority === "urgent" ? "danger" : "plain"}>{item.priority}</Pill>
+                  <StatusChip size="sm" domain="priority" state={item.priority} />
                   {item.overridden && (
                     <span className="block text-caption text-text-2" title={item.overrideReason ?? undefined}>
                       Set by an admin
@@ -555,7 +562,7 @@ function Targets() {
                 <Cell>{minutes(target.firstMinutes)}</Cell>
                 <Cell>{minutes(target.resolveMinutes)}</Cell>
                 <Cell>{target.pauses ? "While waiting on the person" : "Never"}</Cell>
-                <Cell>{target.legal ? <Pill>A law sets this</Pill> : ""}</Cell>
+                <Cell>{target.legal ? <Tag>A law sets this</Tag> : ""}</Cell>
                 <Cell>
                   <ActionButton
                     permission="queues.sla"

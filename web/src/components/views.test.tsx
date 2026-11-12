@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/api/errors";
 import { Button } from "@/components/ui/Button";
 import { Field } from "@/components/ui/Field";
-import { StateChip } from "@/components/ui/StateChip";
+import { StatusChip } from "@/components/ui/StatusChip";
 import { CreditCard } from "@/features/credit/CreditCard";
 import { data, queryResult, wallet } from "@/test/fixtures";
 
@@ -63,8 +63,8 @@ describe("the shared components", () => {
   it("name a session's state in words, whatever its colour", () => {
     render(
       <>
-        <StateChip state="HOST_LOST" />
-        <StateChip state="SOMETHING_NEW" />
+        <StatusChip domain="session" state="HOST_LOST" />
+        <StatusChip domain="session" state="SOMETHING_NEW" />
       </>,
     );
     expect(screen.getByText("Moving to another GPU")).toBeInTheDocument();

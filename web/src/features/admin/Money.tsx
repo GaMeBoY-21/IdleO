@@ -1,11 +1,12 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { StatusChip } from "@/components/ui/StatusChip";
 import { Link } from "wouter";
 import { Money as Paise } from "@/components/ui/Money";
 import { RelativeTime } from "@/components/ui/Time";
 import { ActionSheet } from "./ActionSheet";
 import { ADMIN, adminApi, adminData } from "./api";
-import { AdminPage, Cell, Empty, Id, Pill, QueryView, Row, Section, Table } from "./ui";
+import { AdminPage, Cell, Empty, Id, QueryView, Row, Section, Table } from "./ui";
 import { ActionButton } from "./permissions";
 import { ListBar } from "./Lists";
 import { ListScope, useListQuery, useListView } from "./listView";
@@ -76,9 +77,9 @@ function Reconciliation() {
                 <Cell>{run.trigger}</Cell>
                 <Cell>
                   {run.ledgerBalanced ? (
-                    <Pill tone="running">balanced</Pill>
+                    <StatusChip size="sm" domain="ledger" state="balanced" />
                   ) : (
-                    <Pill tone="danger">unbalanced</Pill>
+                    <StatusChip size="sm" domain="ledger" state="unbalanced" />
                   )}{" "}
                   <span className="tabular text-caption text-text-2">
                     <Paise paise={run.ledgerDebitsPaise} /> debits

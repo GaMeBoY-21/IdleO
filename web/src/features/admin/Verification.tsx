@@ -1,9 +1,10 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { StatusChip } from "@/components/ui/StatusChip";
 import { RelativeTime } from "@/components/ui/Time";
 import { ActionSheet } from "./ActionSheet";
 import { ADMIN, adminApi, adminData, type AdminPanReview, type AdminUpiReview } from "./api";
-import { AdminPage, Cell, Empty, Id, Pill, QueryView, Row, Section, Table } from "./ui";
+import { AdminPage, Cell, Empty, Id, QueryView, Row, Section, Table } from "./ui";
 import { ActionButton } from "./permissions";
 import { Reveal } from "./Reveal";
 import { ListBar } from "./Lists";
@@ -162,9 +163,7 @@ function PanReviews({
                 <Cell>{pan.name}</Cell>
                 <Cell>{pan.holder}</Cell>
                 <Cell>
-                  <Pill tone={pan.checked === "name_mismatch" ? "danger" : "plain"}>
-                    {pan.checked === "not_checked" ? "no provider yet" : pan.checked.replace("_", " ")}
-                  </Pill>
+                  <StatusChip size="sm" domain="panCheck" state={pan.checked} />
                 </Cell>
                 <Cell>
                   <div className="flex gap-1">

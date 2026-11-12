@@ -1,5 +1,6 @@
 import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { StatusChip, Tag } from "@/components/ui/StatusChip";
 import type { components } from "@/api/schema.gen";
 import { RelativeTime } from "@/components/ui/Time";
 import { ActionSheet, SheetProblem } from "./ActionSheet";
@@ -14,7 +15,6 @@ import {
   Filters,
   Id,
   PagedView,
-  Pill,
   QueryView,
   Row,
   RowLink,
@@ -98,9 +98,9 @@ function Rollouts() {
                 <Cell className="tabular font-semibold">{item.id}</Cell>
                 <Cell>
                   {item.paused ? (
-                    <Pill tone="danger">paused</Pill>
+                    <StatusChip size="sm" domain="flag" state="paused" />
                   ) : (
-                    <Pill tone="running">{item.percent}%</Pill>
+                    <Tag>{item.percent}%</Tag>
                   )}
                   {item.signedPercent !== null &&
                     item.signedPercent !== undefined &&

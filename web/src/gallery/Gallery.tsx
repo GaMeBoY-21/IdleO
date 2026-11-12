@@ -13,23 +13,14 @@ import { Money } from "@/components/ui/Money";
 import { IconTile, Option } from "@/components/ui/Option";
 import { ProgressBar } from "@/components/ui/Progress";
 import { Skeleton, SkeletonLine } from "@/components/ui/Skeleton";
-import { StateChip } from "@/components/ui/StateChip";
+import { StatusChip, Tag } from "@/components/ui/StatusChip";
 import { EmptyState, ErrorState, StaleNotice } from "@/components/ui/States";
 import { SectionTitle, Tile, TileLabel, type TileTone } from "@/components/ui/Tile";
 import { Elapsed, RelativeTime } from "@/components/ui/Time";
 import { motion, radii, spacing, themes, typeScale } from "@/design/tokens";
+import { STATE_DOMAINS, type StateDomain } from "@/lib/states";
 import { Sheet } from "@/features/admin/Sheet";
-import {
-  Empty,
-  Fields,
-  Filters,
-  Id,
-  Pill,
-  Problem,
-  Section,
-  SmallField,
-  TableSkeleton,
-} from "@/features/admin/ui";
+import { Empty, Fields, Filters, Id, Problem, Section, SmallField, TableSkeleton } from "@/features/admin/ui";
 
 /**
  * The component gallery (web/README.md "The component gallery"): the tokens, then every shared component in each of its
@@ -282,15 +273,23 @@ function States() {
 function Chips() {
   return (
     <>
-      <Specimen name="Session state chip (renter app and host site)">
+      <Specimen name="State chip: session (the renter's words)">
         {SESSION_STATES.map((state) => (
-          <StateChip key={state} state={state} />
+          <StatusChip key={state} domain="session" state={state} />
         ))}
       </Specimen>
-      <Specimen name="The console's pill">
-        <Pill>Open</Pill>
-        <Pill tone="running">Online</Pill>
-        <Pill tone="danger">Suspended</Pill>
+      {Object.entries(STATE_DOMAINS)
+        .filter(([domain]) => domain !== "session")
+        .map(([domain, words]) => (
+          <Specimen key={domain} name={`State chip: ${domain}`}>
+            {Object.keys(words).map((state) => (
+              <StatusChip key={state} domain={domain as StateDomain} state={state} size="sm" />
+            ))}
+          </Specimen>
+        ))}
+      <Specimen name="Tag (a label, not a state)">
+        <Tag>Pinned</Tag>
+        <Tag>A law sets this</Tag>
       </Specimen>
     </>
   );

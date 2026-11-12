@@ -1,5 +1,6 @@
 import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import { word } from "./words";
+import { StatusChip } from "@/components/ui/StatusChip";
 import { useState, type ReactNode } from "react";
 import { Link, useSearch } from "wouter";
 import { Money } from "@/components/ui/Money";
@@ -26,7 +27,6 @@ import {
   Fields,
   Id,
   PagedView,
-  Pill,
   QueryView,
   Row,
   RowLink,
@@ -56,7 +56,7 @@ const stateWords = (dispute: Pick<AdminDisputeSummary, "state">) =>
   dispute.state === "open" ? "Open" : dispute.state === "refunded" ? "Refunded" : "No refund";
 
 function StatePill({ dispute }: { dispute: Pick<AdminDisputeSummary, "state"> }) {
-  return <Pill tone={dispute.state === "open" ? "danger" : "plain"}>{stateWords(dispute)}</Pill>;
+  return <StatusChip size="sm" domain="report" state={dispute.state} label={stateWords(dispute)} />;
 }
 
 function DisputeQueue() {

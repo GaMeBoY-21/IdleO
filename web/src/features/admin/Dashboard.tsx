@@ -1,5 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
+import { StatusChip } from "@/components/ui/StatusChip";
 import { Link } from "wouter";
 import { readEvents } from "@/api/stream";
 import { config } from "@/config";
@@ -11,7 +12,7 @@ import { RelativeTime } from "@/components/ui/Time";
 import { useCan } from "./permissions";
 import { ADMIN, adminApi, adminData, type AdminInstalls, type Schemas } from "./api";
 import { word } from "./words";
-import { AdminPage, Cell, Empty, Pill, QueryView, Row, Section, SmallSelect, Table } from "./ui";
+import { AdminPage, Cell, Empty, QueryView, Row, Section, SmallSelect, Table } from "./ui";
 import { ListBar } from "./Lists";
 import { RecordTabs } from "./RecordTabs";
 import { ListScope, useListParam, useListQuery, useListView } from "./listView";
@@ -262,7 +263,7 @@ function Panels({ figures }: { figures: ControlRoom }) {
           <ul aria-label="The control plane's checks" className="flex flex-col gap-2">
             {figures.health.map((check) => (
               <li key={check.name} className="flex items-start gap-2 text-small">
-                <Pill tone={check.ok ? "running" : "danger"}>{check.ok ? "ok" : "look"}</Pill>
+                <StatusChip size="sm" domain="health" state={check.ok ? "ok" : "look"} />
                 <span>
                   {HEALTH_LINKS[check.name] !== undefined ? (
                     <Link

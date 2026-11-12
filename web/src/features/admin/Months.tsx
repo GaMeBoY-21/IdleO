@@ -1,10 +1,11 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { StatusChip } from "@/components/ui/StatusChip";
 import { RelativeTime } from "@/components/ui/Time";
 import type { components } from "@/api/schema.gen";
 import { ActionSheet } from "./ActionSheet";
 import { ADMIN, adminApi, adminData } from "./api";
-import { AdminPage, Cell, Pill, QueryView, Row, Section, Table } from "./ui";
+import { AdminPage, Cell, QueryView, Row, Section, Table } from "./ui";
 import { ActionButton } from "./permissions";
 
 type Period = components["schemas"]["AdminPeriod"];
@@ -39,11 +40,11 @@ export function Months() {
                   <Cell className="tabular">{period.month}</Cell>
                   <Cell>
                     {period.state === "closed" ? (
-                      <Pill tone="running">closed</Pill>
+                      <StatusChip size="sm" domain="month" state="closed" />
                     ) : period.over ? (
-                      <Pill>open</Pill>
+                      <StatusChip size="sm" domain="month" state="open" />
                     ) : (
-                      <Pill>this month</Pill>
+                      <StatusChip size="sm" domain="month" state="current" />
                     )}
                   </Cell>
                   <Cell>

@@ -254,28 +254,6 @@ export function Id({ value, page, label }: { value: string; page?: string; label
   );
 }
 
-/** A small word for a state, in a pill; never colour alone. */
-export function Pill({
-  children,
-  tone = "plain",
-}: {
-  children: ReactNode;
-  tone?: "plain" | "danger" | "running";
-}) {
-  return (
-    <span
-      className={cn(
-        "inline-flex rounded-full px-2 py-1 text-caption font-medium",
-        tone === "plain" && "bg-raised text-text",
-        tone === "running" && "bg-ok text-ok-fg",
-        tone === "danger" && "bg-danger-soft text-danger",
-      )}
-    >
-      {children}
-    </span>
-  );
-}
-
 /** A search form's row of fields and its button, submitted as a whole. */
 export function Filters({ onSubmit, children }: { onSubmit: () => void; children: ReactNode }) {
   return (

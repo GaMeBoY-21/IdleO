@@ -1,11 +1,12 @@
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { StatusChip } from "@/components/ui/StatusChip";
 import { useSearch } from "wouter";
 import { RelativeTime } from "@/components/ui/Time";
 import { imageSize } from "@/lib/images";
 import { ActionSheet } from "./ActionSheet";
 import { ADMIN, adminApi, adminData, type AdminImage } from "./api";
-import { AdminPage, Cell, Empty, Id, Pill, PagedView, Row, Section, SmallSelect, Table } from "./ui";
+import { AdminPage, Cell, Empty, Id, PagedView, Row, Section, SmallSelect, Table } from "./ui";
 import { ActionButton } from "./permissions";
 import { PlainRecord } from "./Records";
 import { ListBar } from "./Lists";
@@ -137,9 +138,7 @@ function ImageRow({ image, onAct }: { image: AdminImage; onAct: (acting: Acting)
         {image.reason && <span className="block text-caption text-text-2">{image.reason}</span>}
       </Cell>
       <Cell>
-        <Pill tone={image.state === "blocked" || image.state === "failed" ? "danger" : "plain"}>
-          {image.state}
-        </Pill>
+        <StatusChip size="sm" domain="image" state={image.state} />
       </Cell>
       <Cell>{image.compressedBytes == null ? "" : imageSize(image.compressedBytes)}</Cell>
       <Cell>{image.critical ?? ""}</Cell>

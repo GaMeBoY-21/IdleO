@@ -3,7 +3,7 @@ import type { Session } from "@/api/queries";
 import { Banner } from "@/components/ui/Banner";
 import { buttonClasses } from "@/components/ui/Button";
 import { Money } from "@/components/ui/Money";
-import { StateChip } from "@/components/ui/StateChip";
+import { StatusChip } from "@/components/ui/StatusChip";
 import { Tile } from "@/components/ui/Tile";
 import { RelativeTime } from "@/components/ui/Time";
 import { cn } from "@/lib/cn";
@@ -94,7 +94,7 @@ export function Ended({
       <div className="flex flex-col gap-2">
         {!done && (
           <span className="self-start">
-            <StateChip state={session.state} />
+            <StatusChip domain="session" state={session.state} />
           </span>
         )}
         <h1 className="font-title text-display-feature">

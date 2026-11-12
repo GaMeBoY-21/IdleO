@@ -1,11 +1,12 @@
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { StatusChip } from "@/components/ui/StatusChip";
 import { RelativeTime } from "@/components/ui/Time";
 import { formatPaise } from "@/lib/money";
 import { formatDateTime } from "@/lib/time";
 import { ActionSheet } from "./ActionSheet";
 import { ADMIN, adminApi, adminData, type AdminReviewMinute } from "./api";
-import { AdminPage, Cell, Empty, Id, PagedView, Pill, Row, RowLink, SmallSelect, Table } from "./ui";
+import { AdminPage, Cell, Empty, Id, PagedView, Row, RowLink, SmallSelect, Table } from "./ui";
 import { ActionButton } from "./permissions";
 import { ListBar } from "./Lists";
 import { useListParam, useListView } from "./listView";
@@ -102,9 +103,7 @@ export function Review() {
                 <Cell>
                   {minute.resolution ? (
                     <span className="flex flex-col gap-1">
-                      <Pill tone={minute.resolution === "charged" ? "running" : "plain"}>
-                        {minute.resolution}
-                      </Pill>
+                      <StatusChip size="sm" domain="minute" state={minute.resolution} />
                       <span className="text-caption text-text-2">
                         {minute.resolutionReason}, {minute.resolvedBy}
                       </span>

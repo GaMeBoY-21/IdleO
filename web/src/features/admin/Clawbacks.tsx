@@ -1,10 +1,11 @@
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { StatusChip } from "@/components/ui/StatusChip";
 import { Money } from "@/components/ui/Money";
 import { RelativeTime } from "@/components/ui/Time";
 import { ActionSheet } from "./ActionSheet";
 import { ADMIN, adminApi, adminData, type AdminClawback } from "./api";
-import { AdminPage, Cell, Empty, Id, Pill, PagedView, Row, Section, SmallSelect, Table } from "./ui";
+import { AdminPage, Cell, Empty, Id, PagedView, Row, Section, SmallSelect, Table } from "./ui";
 import { ActionButton } from "./permissions";
 import { ListBar } from "./Lists";
 import { useListParam, useListView } from "./listView";
@@ -98,7 +99,7 @@ export function Clawbacks() {
                     <Money paise={clawback.recoveredPaise} />
                   </Cell>
                   <Cell>
-                    <Pill tone={clawback.state === "owed" ? "danger" : "plain"}>{clawback.state}</Pill>
+                    <StatusChip size="sm" domain="clawback" state={clawback.state} />
                     {clawback.waiveReason && (
                       <span className="block text-caption text-text-2">
                         {clawback.waivedBy}: {clawback.waiveReason}

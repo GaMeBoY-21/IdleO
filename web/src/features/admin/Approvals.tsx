@@ -1,5 +1,6 @@
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { StatusChip } from "@/components/ui/StatusChip";
 import { Button } from "@/components/ui/Button";
 import { RelativeTime } from "@/components/ui/Time";
 import { formatDateTime } from "@/lib/time";
@@ -9,7 +10,7 @@ import { ActionButton } from "./permissions";
 import { useMe } from "@/api/queries";
 import { ListBar } from "./Lists";
 import { useListView } from "./listView";
-import { AdminPage, Cell, Empty, PagedView, Pill, Row, Section, SmallSelect, Table, Problem } from "./ui";
+import { AdminPage, Cell, Empty, PagedView, Row, Section, SmallSelect, Table, Problem } from "./ui";
 
 /** A change, as the approver reads it. */
 function Changes({ request }: { request: AdminApproval }) {
@@ -122,7 +123,7 @@ export function Approvals() {
                   </Cell>
                   <Cell className="max-w-64">{request.reason}</Cell>
                   <Cell>
-                    <Pill tone={request.state === "failed" ? "danger" : "plain"}>{request.state}</Pill>
+                    <StatusChip size="sm" domain="approval" state={request.state} />
                     {request.state === "pending" && request.solo && request.runAfter && (
                       <span className="block text-caption text-text-2">
                         Runs by itself at {formatDateTime(request.runAfter)}

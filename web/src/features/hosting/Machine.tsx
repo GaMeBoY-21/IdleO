@@ -11,7 +11,7 @@ import { useTitle } from "@/lib/title";
 import { lazy, Suspense } from "react";
 import { HostFlow } from "@/components/shell/HostFlow";
 import { useAfterPaint } from "@/lib/after-first-screen";
-import { MachineChip } from "./MachineChip";
+import { StatusChip } from "@/components/ui/StatusChip";
 import { GpuLine, PrivacyLine, RatingLine, ReliabilityLine, RightNow } from "./MachineFigures";
 import { MachineLink } from "./MachineLink";
 import { ManageMachine } from "./ManageMachine";
@@ -88,7 +88,7 @@ export function Machine() {
       className="xl:grid xl:grid-cols-2 xl:items-start"
       summary={
         <Tile tone="night" size="lg" className="flex flex-col gap-2 xl:p-8">
-          <MachineChip state={state} />
+          <StatusChip domain="machine" state={state.kind} label={state.label} testId="machine-chip" />
           <h1 className="font-title text-display-feature break-words">{machine.name}</h1>
           <p className="min-h-5 text-small text-on-night-2">
             {restored ? (

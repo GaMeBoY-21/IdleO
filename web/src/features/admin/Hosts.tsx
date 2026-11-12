@@ -1,5 +1,6 @@
 import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
+import { StatusChip } from "@/components/ui/StatusChip";
 import { Link, useSearch } from "wouter";
 import { buttonClasses } from "@/components/ui/Button";
 import { RelativeTime } from "@/components/ui/Time";
@@ -16,7 +17,6 @@ import {
   Filters,
   Id,
   PagedView,
-  Pill,
   QueryView,
   Row,
   RowLink,
@@ -97,11 +97,11 @@ function HostSearch() {
                 </Cell>
                 <Cell>
                   {host.online ? (
-                    <Pill tone="running">online</Pill>
+                    <StatusChip size="sm" domain="presence" state="online" />
                   ) : host.presence === "UNKNOWN" ? (
-                    <Pill>unknown, checking…</Pill>
+                    <StatusChip size="sm" domain="presence" state="unknown" />
                   ) : (
-                    <Pill>offline</Pill>
+                    <StatusChip size="sm" domain="presence" state="offline" />
                   )}
                 </Cell>
                 <Cell>{host.gpuModels.join(", ") || "—"}</Cell>
@@ -191,15 +191,7 @@ function SelfTestRun({ status }: { status: AdminSelfTestStatus | null }) {
 }
 
 function HostStatus({ status }: { status: string }) {
-  return (
-    <Pill
-      tone={
-        status === "active" ? "running" : status === "suspended" || status === "removed" ? "danger" : "plain"
-      }
-    >
-      {status}
-    </Pill>
-  );
+  return <StatusChip size="sm" domain="account" state={status} />;
 }
 
 type Action = "activate" | "suspend" | "revoke-certificates" | "run-self-test";

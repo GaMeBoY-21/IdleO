@@ -5,7 +5,7 @@ import { Tile } from "@/components/ui/Tile";
 import { Elapsed, RelativeTime } from "@/components/ui/Time";
 import { cn } from "@/lib/cn";
 import type { LogSignals } from "@/lib/log-signals";
-import { sessionState } from "@/lib/labels";
+import { stateOf } from "@/lib/states";
 import { costSoFar } from "@/lib/sessions";
 import { StopAction } from "../Actions";
 
@@ -30,7 +30,7 @@ export function LiveTile({
   signals: LogSignals;
 }) {
   const running = session.state === "RUNNING";
-  const label = sessionState(session.state).label;
+  const label = stateOf("session", session.state).label;
   const price = session.pricePaisePerMin == null ? null : <Money paise={session.pricePaisePerMin * 60} />;
   return (
     <Tile tone="night" size="feature" className="flex flex-wrap items-center justify-between gap-x-8 gap-y-6">
