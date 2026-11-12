@@ -1,4 +1,5 @@
 import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
+import { count } from "@/lib/format";
 import { useState } from "react";
 import { Banner } from "@/components/ui/Banner";
 import { RelativeTime } from "@/components/ui/Time";
@@ -208,7 +209,7 @@ function Standing() {
             )}
             <p className="text-text-2">
               {found.copies[0]
-                ? `Newest off-site copy: ${found.copies[0].day}, ${found.copies[0].rows} rows.`
+                ? `Newest off-site copy: ${found.copies[0].day}, ${count(found.copies[0].rows, "row")}.`
                 : "No day has been copied off site yet."}
             </p>
           </div>

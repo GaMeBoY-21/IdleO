@@ -1,4 +1,5 @@
 import { formatBytes } from "@/lib/bytes";
+import { count } from "@/lib/format";
 import type { InputUpload } from "@/features/upload/useUploads";
 
 /** "about 40 s left", "about 3 min left", "about 2 h 10 min left". */
@@ -15,7 +16,7 @@ function timeLeft(seconds: number | null): string {
     : `about ${Math.floor(minutes / 60)} h ${minutes % 60} min left`;
 }
 
-const files = (count: number) => `${count.toLocaleString("en-IN")} files`;
+const files = (n: number) => count(n, "file");
 
 /**
  * How an upload stands, in a line: "4.6 GB · 4 files · in My files", "64% of 4.6 GB · 2.1 MB/s · about 3 min left",

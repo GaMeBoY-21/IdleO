@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { count } from "@/lib/format";
 import { useMemo, useState } from "react";
 import { StatusChip, Tag } from "@/components/ui/StatusChip";
 import { Link } from "wouter";
@@ -538,7 +539,11 @@ const minutes = (value: number | null | undefined) => {
   if (value == null) {
     return "—";
   }
-  return value >= 1440 ? `${value / 1440} days` : value >= 60 ? `${value / 60} hours` : `${value} minutes`;
+  return value >= 1440
+    ? count(value / 1440, "day")
+    : value >= 60
+      ? count(value / 60, "hour")
+      : count(value, "minute");
 };
 
 /** The targets the timers run to. The Owner can change them; the ones a law sets say so. */
