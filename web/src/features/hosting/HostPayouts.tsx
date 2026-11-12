@@ -9,7 +9,7 @@ import { useWide } from "@/lib/media";
 import { useTitle } from "@/lib/title";
 import { HOST_PATHS } from "@/sites/host/paths";
 import { usePayoutDetails } from "@/api/payouts";
-import { maskedPan } from "@/lib/payouts";
+import { maskedPan } from "@/lib/pan";
 import { SkeletonLine } from "@/components/ui/Skeleton";
 import { Tile } from "@/components/ui/Tile";
 import { useEarnings } from "@/api/hosting";

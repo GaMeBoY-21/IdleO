@@ -32,12 +32,5 @@ export function blockedWords(blockedBy: string | null | undefined): string | nul
   return blockedBy ? (BLOCKED[blockedBy] ?? "You can't be paid yet: check Payout details.") : null;
 }
 
-/** "ABCPE1234F": what a PAN looks like, checked again by the server, which says why it's refused. */
-export const PAN_SHAPE = /^[A-Z]{3}[PHCFATBLJ][A-Z][0-9]{4}[A-Z]$/;
-
 /** "name@bank": RazorpayX's rule for a UPI ID, letters, digits, dots and hyphens with one @, 3 to 100 long. */
 export const UPI_SHAPE = /^[A-Za-z0-9.-]{1,98}@[A-Za-z0-9.-]{1,98}$/;
-
-export function maskedPan(last4: string): string {
-  return `••••••${last4}`;
-}

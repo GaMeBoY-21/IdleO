@@ -15,6 +15,7 @@ const screens = {
   "/account/keys/": screen(() => import("@/features/account/ApiKeys").then((m) => m.ApiKeys)),
   "/account/reports/": screen(() => import("@/features/account/Reports").then((m) => m.Reports)),
   "/account/images/": screen(() => import("@/features/account/MyImages").then((m) => m.MyImages)),
+  "/account/pan/": screen(() => import("@/features/account/YourPan").then((m) => m.YourPan)),
   "/cli-login/": screen(() => import("@/features/cli-login/CliLogin").then((m) => m.CliLogin)),
 };
 
@@ -30,6 +31,7 @@ export const { App, preloadScreen } = defineSite({
     "/account/keys/",
     "/account/reports/",
     "/account/images/",
+    "/account/pan/",
   ],
   signedOut: ["/welcome/"],
   standalone: ["/cli-login/"],
