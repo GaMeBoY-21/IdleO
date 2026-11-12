@@ -1,4 +1,5 @@
 import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
+import { FilterBar } from "@/components/ui/FilterBar";
 import { useMemo, useState } from "react";
 import { KeyValueList } from "@/components/ui/KeyValues";
 import { StatusChip } from "@/components/ui/StatusChip";
@@ -13,7 +14,6 @@ import {
   AdminPage,
   Cell,
   Empty,
-  Filters,
   Id,
   PagedView,
   QueryView,
@@ -134,7 +134,7 @@ function SessionSearch({ user, host }: { user: string; host: string }) {
           </Link>
         </p>
       )}
-      <Filters
+      <FilterBar
         onSubmit={() =>
           setAsked({ ...form, session: form.session.trim(), user: form.user.trim(), host: form.host.trim() })
         }
@@ -150,7 +150,7 @@ function SessionSearch({ user, host }: { user: string; host: string }) {
         />
         <SmallField label="Booked from" type="date" value={form.from} onChange={set("from")} width="w-40" />
         <SmallField label="Booked before" type="date" value={form.to} onChange={set("to")} width="w-40" />
-      </Filters>
+      </FilterBar>
       <PagedView
         query={sessions}
         what="sessions"

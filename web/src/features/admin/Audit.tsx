@@ -1,4 +1,5 @@
 import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
+import { FilterBar } from "@/components/ui/FilterBar";
 import { count } from "@/lib/format";
 import { useState } from "react";
 import { Banner } from "@/components/ui/Banner";
@@ -7,19 +8,7 @@ import { ADMIN, adminApi, adminData, type AuditStanding } from "./api";
 import { ActionButton } from "./permissions";
 import { ListBar } from "./Lists";
 import { ListScope, useListView } from "./listView";
-import {
-  AdminPage,
-  Cell,
-  Empty,
-  Filters,
-  PagedView,
-  Row,
-  Section,
-  SmallField,
-  Table,
-  QueryView,
-  Problem,
-} from "./ui";
+import { AdminPage, Cell, Empty, PagedView, Row, Section, SmallField, Table, QueryView, Problem } from "./ui";
 import { Reveal } from "./Reveal";
 
 const ACCESS_COLUMNS = ["When", "Admin", "Whose", "Field", "Why"];
@@ -66,7 +55,7 @@ export function Audit() {
   return (
     <AdminPage title="Audit log">
       <Standing />
-      <Filters
+      <FilterBar
         onSubmit={() =>
           setAsked(
             Object.fromEntries(
@@ -82,7 +71,7 @@ export function Audit() {
         <SmallField label="Request" value={form.requestId} onChange={set("requestId")} width="w-72" />
         <SmallField label="From" value={form.from} onChange={set("from")} placeholder="2026-11-01" />
         <SmallField label="To" value={form.to} onChange={set("to")} placeholder="2026-11-30" />
-      </Filters>
+      </FilterBar>
       <Section title="Entries">
         <ListBar
           list="audit"
@@ -243,9 +232,9 @@ function AccessLog() {
   });
   return (
     <Section title="Access to personal data">
-      <Filters onSubmit={() => setAsked(subject.trim())}>
+      <FilterBar onSubmit={() => setAsked(subject.trim())}>
         <SmallField label="Person's id" value={subject} onChange={setSubject} width="w-72" />
-      </Filters>
+      </FilterBar>
       <ListBar list="access-log" tags={false} extra={asked ? { subject: asked } : {}} />
       <PagedView
         query={entries}

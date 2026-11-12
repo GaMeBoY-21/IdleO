@@ -1,4 +1,5 @@
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
+import { FilterBar } from "@/components/ui/FilterBar";
 import { useState } from "react";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { useSearch } from "wouter";
@@ -11,7 +12,6 @@ import {
   AdminPage,
   Cell,
   Empty,
-  Filters,
   Id,
   PagedView,
   QueryView,
@@ -93,14 +93,14 @@ function Search() {
         list="payments"
         extra={asked ? { [/^[0-9a-f-]{36}$/i.test(asked) ? "id" : "razorpay"]: asked } : {}}
       />
-      <Filters onSubmit={() => setAsked({ query: typed.trim() })}>
+      <FilterBar onSubmit={() => setAsked({ query: typed.trim() })}>
         <SmallField
           label="Renter's id, top-up id, order or payment id"
           value={typed}
           onChange={setTyped}
           width="w-96"
         />
-      </Filters>
+      </FilterBar>
       {asked === "" && view.tag === undefined ? (
         <Empty title="Look a payment up">
           Give a renter&apos;s id, or Razorpay&apos;s order or payment id.

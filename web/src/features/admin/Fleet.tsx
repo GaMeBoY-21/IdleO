@@ -1,4 +1,5 @@
 import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
+import { FilterBar } from "@/components/ui/FilterBar";
 import { useState } from "react";
 import { StatusChip, Tag } from "@/components/ui/StatusChip";
 import type { components } from "@/api/schema.gen";
@@ -12,7 +13,6 @@ import {
   AdminPage,
   Cell,
   Empty,
-  Filters,
   Id,
   PagedView,
   QueryView,
@@ -312,7 +312,7 @@ function Hosts() {
           offline: "offline",
         }}
       />
-      <Filters onSubmit={() => setAsked({ ...draft })}>
+      <FilterBar onSubmit={() => setAsked({ ...draft })}>
         <SmallField
           label="Agent version"
           value={draft.agentVersion}
@@ -351,7 +351,7 @@ function Hosts() {
             ["day", "Not for a day"],
           ]}
         />
-      </Filters>
+      </FilterBar>
       <div className="flex justify-end">
         <ActionButton
           permission="notices.publish"

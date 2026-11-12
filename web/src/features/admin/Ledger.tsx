@@ -1,4 +1,5 @@
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import { FilterBar } from "@/components/ui/FilterBar";
 import { useState } from "react";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { Link, useSearch } from "wouter";
@@ -7,19 +8,7 @@ import { RelativeTime } from "@/components/ui/Time";
 import { ADMIN, adminApi, adminData } from "./api";
 import { word } from "./words";
 import { recordHref } from "./links";
-import {
-  AdminPage,
-  Cell,
-  Empty,
-  Filters,
-  Id,
-  PagedView,
-  QueryView,
-  Row,
-  Section,
-  SmallField,
-  Table,
-} from "./ui";
+import { AdminPage, Cell, Empty, Id, PagedView, QueryView, Row, Section, SmallField, Table } from "./ui";
 import { ListBar } from "./Lists";
 import { useListView } from "./listView";
 
@@ -92,7 +81,7 @@ function Chart() {
   });
   return (
     <Section title="Chart of accounts">
-      <Filters onSubmit={() => setAsked({ at: form.at.trim(), owner: form.owner.trim() })}>
+      <FilterBar onSubmit={() => setAsked({ at: form.at.trim(), owner: form.owner.trim() })}>
         <SmallField
           label="At the end of (YYYY-MM-DD, empty for now)"
           value={form.at}
@@ -105,7 +94,7 @@ function Chart() {
           onChange={(owner) => setForm({ ...form, owner })}
           width="w-72"
         />
-      </Filters>
+      </FilterBar>
       <QueryView query={accounts} what="the chart of accounts">
         {(chart) => (
           <Table caption="Chart of accounts" columns={ACCOUNT_COLUMNS}>
@@ -152,14 +141,14 @@ function TrialBalance() {
   });
   return (
     <Section title="Trial balance">
-      <Filters onSubmit={() => setAsked(form.trim())}>
+      <FilterBar onSubmit={() => setAsked(form.trim())}>
         <SmallField
           label="At the end of (YYYY-MM-DD, empty for now)"
           value={form}
           onChange={setForm}
           width="w-64"
         />
-      </Filters>
+      </FilterBar>
       <QueryView query={trial} what="the trial balance">
         {(balance) => (
           <>
@@ -271,7 +260,7 @@ function Entries({ initial }: { initial: EntryFilters }) {
   });
   return (
     <Section title="Entries">
-      <Filters
+      <FilterBar
         onSubmit={() =>
           setAsked(Object.fromEntries(Object.entries(form).map(([k, v]) => [k, v.trim()])) as EntryFilters)
         }
@@ -287,7 +276,7 @@ function Entries({ initial }: { initial: EntryFilters }) {
         <SmallField label="Cause (ref type)" value={form.refType} onChange={set("refType")} />
         <SmallField label="From (ISO moment)" value={form.from} onChange={set("from")} />
         <SmallField label="To (ISO moment, not included)" value={form.to} onChange={set("to")} />
-      </Filters>
+      </FilterBar>
       {ready && <ListBar list="ledger" tags={false} extra={query} />}
       {ready ? (
         <PagedView

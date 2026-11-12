@@ -1,4 +1,5 @@
 import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
+import { FilterBar } from "@/components/ui/FilterBar";
 import { useMemo, useState } from "react";
 import { KeyValueList } from "@/components/ui/KeyValues";
 import { StatusChip } from "@/components/ui/StatusChip";
@@ -13,7 +14,6 @@ import {
   AdminPage,
   Cell,
   Empty,
-  Filters,
   Id,
   PagedView,
   QueryView,
@@ -71,10 +71,10 @@ function HostSearch() {
   return (
     <AdminPage title="Hosts">
       <ListBar list="hosts" filters={{ query: "query", status: "status" }} />
-      <Filters onSubmit={() => setAsked({ query: query.trim(), status })}>
+      <FilterBar onSubmit={() => setAsked({ query: query.trim(), status })}>
         <SmallField label="Name, host id or owner id" value={query} onChange={setQuery} width="w-72" />
         <SmallSelect label="Status" value={status} onChange={setStatus} options={STATUSES} />
-      </Filters>
+      </FilterBar>
       <PagedView
         query={hosts}
         what="hosts"

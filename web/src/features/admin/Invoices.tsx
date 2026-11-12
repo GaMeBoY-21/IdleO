@@ -1,4 +1,5 @@
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
+import { FilterBar } from "@/components/ui/FilterBar";
 import { useState } from "react";
 import { useSearch } from "wouter";
 import { ApiError } from "@/api/errors";
@@ -7,7 +8,7 @@ import { parseRupees } from "@/lib/money";
 import { formatDay } from "@/lib/time";
 import { ActionSheet, SheetProblem } from "./ActionSheet";
 import { ADMIN, adminApi, adminData, type AdminInvoice } from "./api";
-import { AdminPage, Cell, Empty, Filters, Id, PagedView, Row, Section, SmallField, Table } from "./ui";
+import { AdminPage, Cell, Empty, Id, PagedView, Row, Section, SmallField, Table } from "./ui";
 import { ActionButton } from "./permissions";
 import { PlainRecord } from "./Records";
 import { ListBar } from "./Lists";
@@ -83,7 +84,7 @@ function InvoiceSearch() {
   return (
     <AdminPage title="Invoices">
       <ListBar list="invoices" filters={{ number: "number", userId: "user" }} />
-      <Filters onSubmit={() => setAsked({ number: form.number.trim(), userId: form.userId.trim() })}>
+      <FilterBar onSubmit={() => setAsked({ number: form.number.trim(), userId: form.userId.trim() })}>
         <SmallField
           label="Number"
           value={form.number}
@@ -96,7 +97,7 @@ function InvoiceSearch() {
           onChange={(userId) => setForm({ ...form, userId })}
           width="w-80"
         />
-      </Filters>
+      </FilterBar>
       {asked.number === "" && asked.userId === "" && view.tag === undefined ? (
         <Empty title="Look a document up">Give its number, or the renter&apos;s id for all of theirs.</Empty>
       ) : (
