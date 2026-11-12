@@ -55,7 +55,8 @@ export function StatsPanel({ session, signals }: { session: Session; signals: Lo
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-inner bg-panel-2 p-4">
+    // Its label and figure are single words: in four narrow tiles they never break mid-word, whatever the page's rule.
+    <div className="rounded-inner bg-panel-2 p-4 wrap-normal">
       <span className="block text-caption text-text-3">{label}</span>
       <span className="text-figure tabular">{value}</span>
     </div>

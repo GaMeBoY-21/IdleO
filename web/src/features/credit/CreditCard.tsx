@@ -3,7 +3,7 @@ import type { Wallet } from "@/api/queries";
 import { StatGrid, StatTile } from "@/components/ui/KeyValues";
 import { Money } from "@/components/ui/Money";
 import { SkeletonLine } from "@/components/ui/Skeleton";
-import { ErrorState } from "@/components/ui/States";
+import { ErrorState, InShape } from "@/components/ui/States";
 import { Tile } from "@/components/ui/Tile";
 import { formatDay, formatTime } from "@/lib/time";
 
@@ -58,12 +58,14 @@ export function CreditCard({ wallet, wide = false }: { wallet: UseQueryResult<Wa
           </StatGrid>
         </>
       ) : wallet.isError ? (
-        <ErrorState
-          error={wallet.error}
-          what="your credit"
-          onRetry={() => void wallet.refetch()}
-          retrying={wallet.isFetching}
-        />
+        <InShape shape={<CreditSkeleton />}>
+          <ErrorState
+            error={wallet.error}
+            what="your credit"
+            onRetry={() => void wallet.refetch()}
+            retrying={wallet.isFetching}
+          />
+        </InShape>
       ) : (
         <CreditSkeleton />
       )}
