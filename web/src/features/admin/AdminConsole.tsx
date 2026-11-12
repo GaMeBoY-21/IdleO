@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import "./states";
-import { Suspense } from "react";
+import { Suspense, useState } from "react";
 import { Toasts } from "@/components/shell/Toasts";
 import { Link, Route, Switch, useLocation } from "wouter";
 import { Wordmark } from "@/brand/Wordmark";
@@ -132,14 +132,17 @@ const GROUPS: { label: string; hrefs: readonly string[] }[] = [
 
 /**
  * The console's frame (web/DESIGN.md "Account, sign-in and the rest"): the app's sidebar, denser: 240 px wide, its
- * sections in eight groups with items 36 px tall from 768 px (44 px on a phone, where they scroll sideways), and the
- * sidebar itself scrolls when the window is shorter than the list.
+ * sections in eight groups with items 36 px tall from 768 px, and the sidebar itself scrolls when the window is shorter
+ * than the list. On a phone it's one bar, the sections (44 px items) behind Menu, so each screen starts with its own content.
  */
 function Layout({ children }: { children: React.ReactNode }) {
   const [path] = useLocation();
   const client = useQueryClient();
   const can = useCan();
   const screens = ADMIN_SCREENS.filter((screen) => can(screen.needs));
+  // On a phone the sections are behind Menu, so a screen starts with its own content; going anywhere closes it.
+  const [menu, setMenu] = useState<string | null>(null);
+  const menuOpen = menu === path;
   const waiting = useQuery({
     queryKey: [ADMIN, "approvals-count"],
     queryFn: () => adminData(adminApi.GET("/admin/v1/approvals/count")),
@@ -200,24 +203,37 @@ function Layout({ children }: { children: React.ReactNode }) {
   };
   return (
     <div className="flex min-h-dvh flex-col md:flex-row">
-      <header className="flex flex-col gap-2 border-b border-line bg-sidebar px-4 py-4 md:sticky md:top-0 md:h-dvh md:w-sidebar-admin md:shrink-0 md:overflow-y-auto md:border-r md:border-b-0 md:py-6">
-        <div className="flex items-center justify-between gap-2 md:flex-col md:items-start">
+      <header className="flex flex-wrap items-center gap-2 border-b border-line bg-sidebar px-4 py-2 md:sticky md:top-0 md:h-dvh md:w-sidebar-admin md:shrink-0 md:flex-col md:flex-nowrap md:items-stretch md:overflow-y-auto md:border-r md:border-b-0 md:py-6">
+        <div className="flex basis-full items-center gap-2 md:basis-auto md:flex-col md:items-start">
           <Link
             href="/admin/"
-            className="flex items-center gap-2 md:px-4"
+            className="flex min-h-touch items-center gap-2 md:min-h-0 md:px-4"
             aria-label="IdleO admin, control room"
           >
             <Wordmark />
           </Link>
           <span className="text-caption font-bold tracking-wider text-text-3 uppercase md:px-4">Admin</span>
         </div>
-        <div className="flex flex-col gap-2">
+        <div className="flex gap-2 md:flex-col">
           <PaletteButton />
-          <HelpButton />
+          <div className="hidden md:contents">
+            <HelpButton />
+          </div>
         </div>
-        <nav aria-label="Admin" className="-mx-1 overflow-x-auto md:mx-0 md:mt-4">
-          <ul className="flex gap-1 md:hidden">{screens.map(item)}</ul>
-          <div className="hidden flex-col gap-4 md:flex">
+        <nav aria-label="Admin" className={cn("md:mt-4", menuOpen && "basis-full")}>
+          <Button
+            variant="ghost"
+            className="md:hidden"
+            aria-expanded={menuOpen}
+            aria-controls="admin-sections"
+            onClick={() => setMenu(menuOpen ? null : path)}
+          >
+            Menu
+          </Button>
+          <div
+            id="admin-sections"
+            className={cn(menuOpen ? "flex" : "hidden", "flex-col gap-4 pt-4 md:flex md:pt-0")}
+          >
             {GROUPS.filter((group) => screens.some((screen) => group.hrefs.includes(screen.href))).map(
               (group) => (
                 <section key={group.label} aria-label={group.label} className="flex flex-col gap-1">
@@ -232,8 +248,8 @@ function Layout({ children }: { children: React.ReactNode }) {
             )}
           </div>
         </nav>
-        <Button variant="quiet" className="self-start md:mt-auto" onClick={() => void leave()}>
-          Leave the console
+        <Button variant="quiet" className="md:mt-auto md:self-start" onClick={() => void leave()}>
+          Leave<span className="sr-only md:not-sr-only"> the console</span>
         </Button>
       </header>
       <main className="min-w-0 flex-1 px-4 py-6 md:px-8 md:py-8">{children}</main>
