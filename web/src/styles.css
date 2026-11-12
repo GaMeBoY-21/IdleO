@@ -104,12 +104,6 @@
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 23.75rem), 1fr));
 }
 
-/* A table of sessions on Home: what, GPU, how long, cost, and the action. */
-@utility cols-recent {
-  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1.2fr) var(--spacing-24) var(--spacing-24) var(
-      --container-price
-    );
-}
 
 /* A tile that is a link or a button lifts a little on hover (a laptop) and presses in on tap (a phone), in 120 ms.
    Nothing else moves, and nothing under reduced motion. */

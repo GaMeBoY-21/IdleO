@@ -1,11 +1,11 @@
 import { Link } from "wouter";
 import { isLive, type Session } from "@/api/queries";
 import type { components } from "@/api/schema.gen";
+import { DataCell, DataRow, DataTable } from "@/components/ui/DataTable";
 import { Money } from "@/components/ui/Money";
 import { Tile } from "@/components/ui/Tile";
 import { Elapsed } from "@/components/ui/Time";
 import { offeredServices, serviceOf } from "@/lib/catalog";
-import { cn } from "@/lib/cn";
 import { gpuName } from "@/lib/gpu";
 import { bookFrom, costSoFar } from "@/lib/sessions";
 import { formatDuration } from "@/lib/time";
@@ -31,7 +31,6 @@ export function sessionLabel(session: Session, catalog: Catalog): string {
 }
 
 /** The row's grid: what, GPU, ran, cost and the action. */
-const COLUMNS = "cols-recent grid items-center gap-x-2";
 
 /**
  * "Recent sessions", a panel under the credit (approved reference `AppHome`): a table of the last
@@ -60,49 +59,42 @@ export function RecentSessions({ sessions, catalog }: { sessions: Session[]; cat
       {shown.length === 0 ? (
         <p className="py-6 text-body text-text-2">No sessions yet. Pick a service above to start.</p>
       ) : (
-        <div role="table" aria-label="Recent sessions" className="flex flex-col">
-          <div
-            role="row"
-            className={cn(
-              COLUMNS,
-              "border-b border-line py-2 text-caption font-semibold tracking-wider text-text-3 uppercase",
-            )}
-          >
-            <span role="columnheader">What</span>
-            <span role="columnheader">GPU</span>
-            <span role="columnheader">Ran</span>
-            <span role="columnheader">Cost</span>
-            <span role="columnheader" className="sr-only">
-              Action
-            </span>
-          </div>
+        <DataTable
+          caption="Recent sessions"
+          columns={[
+            { label: "What" },
+            { label: "GPU" },
+            { label: "Ran", numeric: true },
+            { label: "Cost", numeric: true },
+            { label: "Action", hidden: true },
+          ]}
+        >
           {shown.map((session) => {
             const live = isLive(session);
             const service = serviceOf(catalog, session.templateId);
             const again = !live && service !== undefined && offered.has(service.id);
+            const label = sessionLabel(session, catalog);
             return (
-              <div
-                key={session.id}
-                role="row"
-                className={cn(COLUMNS, "border-b border-line py-2 text-body tabular last:border-b-0")}
-              >
-                <Link
-                  role="cell"
-                  href={`/session/?id=${session.id}`}
-                  className="flex min-w-0 items-center gap-2 font-bold hover:underline"
-                >
-                  {live && (
-                    <span
-                      aria-hidden="true"
-                      className="size-2.5 shrink-0 rounded-full bg-running-dot ring-1 ring-ink/30 motion-safe:animate-pulse"
-                    />
-                  )}
-                  <span className="truncate">{sessionLabel(session, catalog)}</span>
-                </Link>
-                <span role="cell" className="truncate text-text-2">
+              <DataRow key={session.id} className="text-body">
+                <DataCell className="max-w-0 w-2/5">
+                  <Link
+                    href={`/session/?id=${session.id}`}
+                    title={label}
+                    className="flex min-w-0 items-center gap-2 font-bold hover:underline"
+                  >
+                    {live && (
+                      <span
+                        aria-hidden="true"
+                        className="size-2.5 shrink-0 rounded-full bg-running-dot ring-1 ring-ink/30 motion-safe:animate-pulse"
+                      />
+                    )}
+                    <span className="truncate">{label}</span>
+                  </Link>
+                </DataCell>
+                <DataCell className="max-w-0 truncate text-text-2">
                   {session.gpu ? gpuName(session.gpu.model) : "—"}
-                </span>
-                <span role="cell">
+                </DataCell>
+                <DataCell numeric>
                   {session.startedAt ? (
                     live ? (
                       <Elapsed from={session.startedAt} />
@@ -112,32 +104,32 @@ export function RecentSessions({ sessions, catalog }: { sessions: Session[]; cat
                   ) : (
                     "—"
                   )}
-                </span>
-                <span role="cell">
+                </DataCell>
+                <DataCell numeric>
                   <Money paise={live ? costSoFar(session) : session.chargedPaise} />
                   {live && <span className="sr-only"> so far</span>}
-                </span>
-                <span role="cell" className="flex justify-end">
+                </DataCell>
+                <DataCell className="text-right">
                   {live ? (
                     <Link
                       href={`/session/?id=${session.id}`}
-                      className="flex min-h-touch items-center rounded-control bg-panel-2 px-4 text-small font-bold hover:bg-line"
+                      className="inline-flex min-h-touch items-center rounded-control bg-panel-2 px-4 text-small font-bold hover:bg-line"
                     >
                       Open
                     </Link>
                   ) : again ? (
                     <Link
                       href={bookFrom(session)}
-                      className="flex min-h-touch items-center rounded-control bg-panel-2 px-4 text-small font-bold hover:bg-line"
+                      className="inline-flex min-h-touch items-center rounded-control bg-panel-2 px-4 text-small font-bold hover:bg-line"
                     >
                       Run again
                     </Link>
                   ) : null}
-                </span>
-              </div>
+                </DataCell>
+              </DataRow>
             );
           })}
-        </div>
+        </DataTable>
       )}
     </Tile>
   );
