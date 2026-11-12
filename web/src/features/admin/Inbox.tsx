@@ -23,6 +23,7 @@ import {
   SmallSelect,
   Table,
   Problem,
+  Below,
 } from "./ui";
 
 type Item = Schemas["AdminQueueItem"];
@@ -284,8 +285,10 @@ export function Inbox() {
           }
         }}
       />
-      {can("macros.manage") && <Macros />}
-      {can("queues.read") && <Targets />}
+      <Below query={items}>
+        {can("macros.manage") && <Macros />}
+        {can("queues.read") && <Targets />}
+      </Below>
     </AdminPage>
   );
 }

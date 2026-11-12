@@ -106,6 +106,20 @@ export function TableSkeleton({ what, rows = 5 }: { what: string; rows?: number 
  * One query's states around its content: loading, error with a retry, empty, and stale. `isEmpty` says when the data
  * has nothing to show.
  */
+/**
+ * What a screen shows under its main list or record, drawn once that has arrived (or failed), so it never sits under the
+ * loading skeleton and then jumps down the page.
+ */
+export function Below({
+  query,
+  children,
+}: {
+  query: UseQueryResult | UseInfiniteQueryResult;
+  children: ReactNode;
+}) {
+  return query.isPending ? null : <>{children}</>;
+}
+
 export function QueryView<T>({
   query,
   what,

@@ -510,10 +510,11 @@ function HostRecord({ id }: { id: string }) {
                 </Table>
               )}
             </Section>
+            {/* Under the record once it's in, so it doesn't sit under the loading one and then jump down. */}
+            <HostTabs id={id} />
           </>
         )}
       </QueryView>
-      <HostTabs id={id} />
     </AdminPage>
   );
 }

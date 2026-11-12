@@ -392,7 +392,14 @@ function ConsoleSet() {
       <TableSkeleton what="users" rows={3} />
       <Empty title="Nobody matches">Try a shorter part of their email, or their phone number.</Empty>
       <Problem
-        error={new ApiError(409, null, "Conflict", "Someone else changed this user. Open it again.")}
+        error={
+          new ApiError(
+            409,
+            "/problems/version-stale",
+            "Changed elsewhere",
+            "Someone else changed this user. Open it again.",
+          )
+        }
       />
       <div className="flex flex-wrap gap-2">
         <Button variant="ghost" onClick={() => setOpen(true)}>

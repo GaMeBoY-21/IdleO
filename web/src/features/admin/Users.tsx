@@ -352,7 +352,8 @@ function UserRecord({ id }: { id: string }) {
           </>
         )}
       </QueryView>
-      {can("money.read") && (
+      {/* What's under the record waits for it, so it doesn't sit under the loading one and then jump down. */}
+      {user.data && can("money.read") && (
         <Section title="Credit grants">
           <QueryView
             query={grants}
@@ -427,7 +428,7 @@ function UserRecord({ id }: { id: string }) {
           }}
         />
       )}
-      <UserTabs id={id} can={can} />
+      {user.data && <UserTabs id={id} can={can} />}
     </AdminPage>
   );
 }
