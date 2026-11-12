@@ -20,7 +20,8 @@ import { Tile, TileLabel, type TileTone } from "@/components/ui/Tile";
 import { Elapsed, RelativeTime } from "@/components/ui/Time";
 import { motion, radii, spacing, themes, typeScale } from "@/design/tokens";
 import { STATE_DOMAINS, type StateDomain } from "@/lib/states";
-import { Sheet } from "@/features/admin/Sheet";
+import { ConfirmDialog, Sheet } from "@/components/ui/Sheet";
+import { toast, Toaster } from "@/components/ui/Toast";
 import { Empty, Filters, Id, Problem, Section, SmallField, TableSkeleton } from "@/features/admin/ui";
 
 /**
@@ -368,6 +369,7 @@ function Pieces() {
 
 function ConsoleSet() {
   const [open, setOpen] = useState(false);
+  const [confirming, setConfirming] = useState(false);
   return (
     <div className="flex flex-col gap-6">
       <Section title="A section's header" action={<Button variant="ghost">Export</Button>}>
@@ -389,10 +391,29 @@ function ConsoleSet() {
       <Problem
         error={new ApiError(409, null, "Conflict", "Someone else changed this user. Open it again.")}
       />
-      <div>
+      <div className="flex flex-wrap gap-2">
         <Button variant="ghost" onClick={() => setOpen(true)}>
           Open a sheet
         </Button>
+        <Button variant="ghost" onClick={() => setConfirming(true)}>
+          Open a confirm
+        </Button>
+        <Button
+          variant="ghost"
+          onClick={() => toast({ message: "Asha Rao is suspended.", undo: () => undefined })}
+        >
+          Show a toast with Undo
+        </Button>
+        <ConfirmDialog
+          open={confirming}
+          onOpenChange={setConfirming}
+          title="Suspend Asha Rao?"
+          description="She can't book until you lift it. Her running session finishes first."
+          keep="Keep her active"
+          confirm="Suspend Asha Rao"
+          onConfirm={() => setConfirming(false)}
+          busy={false}
+        />
         <Sheet
           open={open}
           onOpenChange={setOpen}
@@ -450,6 +471,7 @@ export function Gallery() {
           <Body />
         </Group>
       ))}
+      <Toaster />
     </main>
   );
 }

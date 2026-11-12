@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { problemMessage } from "@/lib/problems";
 import { formatDateTime } from "@/lib/time";
 import { cn } from "@/lib/cn";
-import { Sheet, SheetClose } from "./Sheet";
+import { Sheet, SheetClose } from "@/components/ui/Sheet";
 import { Problem } from "./ui";
 import { ADMIN, asAction, type AdminApproval } from "./api";
 import { REASON_MAX, reasonProblem } from "./rules";
