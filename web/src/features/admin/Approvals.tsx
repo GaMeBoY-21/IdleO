@@ -4,9 +4,10 @@ import { StatusChip } from "@/components/ui/StatusChip";
 import { Button } from "@/components/ui/Button";
 import { RelativeTime } from "@/components/ui/Time";
 import { formatDateTime } from "@/lib/time";
-import { ActionSheet, shownValue } from "./ActionSheet";
+import { ActionSheet } from "./ActionSheet";
 import { ADMIN, adminApi, adminData, adminFile, type AdminApproval } from "./api";
 import { ActionButton } from "./permissions";
+import { actionWords, approvalValue, shortIds } from "./words";
 import { useMe } from "@/api/queries";
 import { ListBar } from "./Lists";
 import { useListView } from "./listView";
@@ -18,8 +19,8 @@ function Changes({ request }: { request: AdminApproval }) {
     <ul className="flex flex-col gap-1 text-caption">
       {request.changes.map((change) => (
         <li key={change.what}>
-          <span className="font-medium">{change.what}</span>: {shownValue(change.from)} →{" "}
-          {shownValue(change.to)}
+          <span className="font-medium">{shortIds(change.what)}</span>:{" "}
+          {approvalValue(change.what, change.from)} → {approvalValue(change.what, change.to)}
         </li>
       ))}
     </ul>
@@ -117,7 +118,9 @@ export function Approvals() {
                       {request.requestedBy}
                     </span>
                   </Cell>
-                  <Cell className="font-medium">{request.kind}</Cell>
+                  <Cell className="font-medium">
+                    <span title={request.kind}>{actionWords(request.kind)}</span>
+                  </Cell>
                   <Cell className="max-w-64">
                     <Changes request={request} />
                   </Cell>
@@ -182,7 +185,7 @@ export function Approvals() {
           deciding ? (
             <div className="flex flex-col gap-2">
               <span>
-                {deciding.request.kind}, asked because: {deciding.request.reason}
+                {actionWords(deciding.request.kind)}, asked because: {deciding.request.reason}
               </span>
               <Changes request={deciding.request} />
               {deciding.kind === "approve" && <span>It runs now, as it was asked.</span>}

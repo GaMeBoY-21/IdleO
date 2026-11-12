@@ -202,7 +202,8 @@ export function Inbox() {
                 <Cell>{item.assigneeName ? `${item.assigneeName} is on it` : "No one yet"}</Cell>
                 <Cell>{item.moneyPaise > 0 ? <Money paise={item.moneyPaise} /> : "—"}</Cell>
                 <Cell>
-                  <div className="flex flex-wrap gap-1">
+                  {/* Two by two, so all four fit beside the row at every width rather than run off its edge. */}
+                  <div className="grid w-max grid-cols-2 gap-1">
                     {item.assigneeId ? (
                       <ActionButton
                         permission="queues.claim"
@@ -546,6 +547,23 @@ const minutes = (value: number | null | undefined) => {
       : count(value, "minute");
 };
 
+/** What each target is for, in words; a target the console doesn't know yet is read out from its name. */
+const TARGET_WORDS: Record<string, string> = {
+  grievance: "A grievance",
+  ticket: "A support ticket",
+  chargeback: "A chargeback",
+  report: "A report on a session",
+  abuse: "An abuse review",
+  "abuse-running": "An abuse review, session running",
+  appeal: "An appeal",
+  approval: "An approval",
+  "data-request": "A request for someone's data",
+  settlement: "A settlement mismatch",
+  verification: "A PAN or UPI check",
+  "review-minute": "A minute held for review",
+};
+const targetWords = (sla: string) => TARGET_WORDS[sla] ?? sla.replaceAll("-", " ");
+
 /** The targets the timers run to. The Owner can change them; the ones a law sets say so. */
 function Targets() {
   const client = useQueryClient();
@@ -563,7 +581,7 @@ function Targets() {
           <Table caption="Targets" columns={["For", "First reply", "To resolve", "Pauses", "", ""]}>
             {found.targets.map((target) => (
               <Row key={target.sla}>
-                <Cell className="font-medium">{target.sla.replace("-", " ")}</Cell>
+                <Cell className="font-medium">{targetWords(target.sla)}</Cell>
                 <Cell>{minutes(target.firstMinutes)}</Cell>
                 <Cell>{minutes(target.resolveMinutes)}</Cell>
                 <Cell>{target.pauses ? "While waiting on the person" : "Never"}</Cell>
@@ -578,7 +596,7 @@ function Targets() {
                       setChanging(target);
                     }}
                   >
-                    Change<span className="sr-only"> {target.sla}</span>
+                    Change<span className="sr-only"> {targetWords(target.sla).toLowerCase()}</span>
                   </ActionButton>
                 </Cell>
               </Row>

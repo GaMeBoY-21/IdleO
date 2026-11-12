@@ -1,4 +1,4 @@
-import { createContext, useContext, useId, type ComponentProps, type ReactNode } from "react";
+import { createContext, useContext, type ComponentProps, type ReactNode } from "react";
 import { Button } from "@/components/ui/Button";
 import { PageTitle } from "@/components/ui/Headers";
 
@@ -29,29 +29,21 @@ export function useCan(): (permission: string) => boolean {
 export function ActionButton({
   permission,
   disabled,
-  title,
   children,
   ...button
 }: ComponentProps<typeof Button> & { permission: string }) {
   const can = useCan();
-  const id = useId();
   if (can(permission)) {
     return (
-      <Button disabled={disabled} title={title} {...button}>
+      <Button disabled={disabled} {...button}>
         {children}
       </Button>
     );
   }
-  const why = `You need the ${permission} permission for this.`;
   return (
-    <>
-      <Button disabled title={why} aria-describedby={id} {...button}>
-        {children}
-      </Button>
-      <span id={id} className="sr-only">
-        {why}
-      </span>
-    </>
+    <Button {...button} disabled why={`You need the ${permission} permission for this.`}>
+      {children}
+    </Button>
   );
 }
 

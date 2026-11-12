@@ -17,6 +17,7 @@ import {
   type ReactElement,
   type ReactNode,
 } from "react";
+import { Money } from "@/components/ui/Money";
 import { cn } from "@/lib/cn";
 import { useBulkActions, BulkBar } from "./Bulk";
 import { useListRegistration } from "./Keys";
@@ -40,15 +41,72 @@ const MOST_SELECTED = 500;
 const FLICK_PX = 400;
 
 const MIN_WIDTH = 48;
+
+/** A row's tick box, its whole cell a touch target on a phone. */
+const TICK = "flex min-h-touch min-w-touch cursor-pointer items-center justify-center md:min-h-8 md:min-w-8";
 const WIDTH_STEP = 24;
 
 type Shape = {
   order: readonly number[];
   pins: ReadonlyMap<number, number>;
   compact: boolean;
+  /** The columns of numbers, aligned right in tabular figures, heading and cells (`numberColumns`). */
+  numeric: ReadonlySet<number>;
 };
 
-const TableShape = createContext<Shape>({ order: [], pins: new Map(), compact: false });
+const TableShape = createContext<Shape>({ order: [], pins: new Map(), compact: false, numeric: new Set() });
+
+// A cell's text that is a number: money, a count, a share or a size ("₹1,200.00", "42", "−3", "12%", "4.5 GB").
+const NUMBER_TEXT = /^[−+-]?₹?\d[\d,]*(?:\.\d+)?\s?(?:%|×|GB|MB|KB|min|h|s|ms)?$/;
+
+/** What a cell holds, as far as aligning it goes: a number, nothing ("—" or empty), or anything else. */
+function cellKind(node: ReactNode): "number" | "empty" | "other" {
+  if (node === null || node === undefined || typeof node === "boolean") {
+    return "empty";
+  }
+  if (typeof node === "number" || typeof node === "bigint") {
+    return "number";
+  }
+  if (typeof node === "string") {
+    const text = node.trim();
+    return text === "" || text === "—" ? "empty" : NUMBER_TEXT.test(text) ? "number" : "other";
+  }
+  if (Array.isArray(node)) {
+    const kinds = (node as ReactNode[]).map(cellKind);
+    return kinds.includes("other") ? "other" : kinds.includes("number") ? "number" : "empty";
+  }
+  if (isValidElement(node)) {
+    if (node.type === Money) {
+      return "number";
+    }
+    const children = (node.props as { children?: ReactNode }).children;
+    return children === undefined ? "other" : cellKind(children);
+  }
+  return "other";
+}
+
+/**
+ * Which columns hold numbers, read from the rows the table is given, so every table aligns its numbers right without
+ * each one saying so: a column is one when its cells are all money, counts or empty, and at least one isn't empty.
+ */
+function numberColumns(rows: readonly ReactNode[], width: number): ReadonlySet<number> {
+  const kinds: ("number" | "empty" | "other")[] = Array.from({ length: width }, () => "empty");
+  for (const row of rows.slice(0, 200)) {
+    if (!isValidElement(row) || row.type !== Row) {
+      continue;
+    }
+    Children.toArray((row.props as { children?: ReactNode }).children).forEach((cell, index) => {
+      if (index >= width || kinds[index] === "other") {
+        return;
+      }
+      const kind = cellKind(cell);
+      if (kind !== "empty") {
+        kinds[index] = kind;
+      }
+    });
+  }
+  return new Set(kinds.flatMap((kind, index) => (kind === "number" ? [index] : [])));
+}
 
 type RowState = {
   rowKey: string | null;
@@ -113,7 +171,11 @@ export function Table({
       now.size === next.size && [...next].every(([index, at]) => now.get(index) === at) ? now : next,
     );
   }, [pinned, settings.widths, rows.length]);
-  const shape = useMemo<Shape>(() => ({ order, pins: pinWidths, compact }), [order, pinWidths, compact]);
+  const numeric = useMemo(() => numberColumns(rows, columns.length), [rows, columns.length]);
+  const shape = useMemo<Shape>(
+    () => ({ order, pins: pinWidths, compact, numeric }),
+    [order, pinWidths, compact, numeric],
+  );
 
   // While a long list flicks past faster than anyone can read, its rows are plain placeholders: building a whole screen
   // of real rows every frame is what makes a slow machine stutter. They come back as soon as it slows.
@@ -302,22 +364,24 @@ export function Table({
         onPointerDownCapture={touch}
       >
         <table
-          className="admin-table w-full min-w-max border-collapse text-small"
+          className="admin-table tabular w-full min-w-max border-collapse text-small"
           {...(windowed ? { "aria-rowcount": rows.length + 1 } : {})}
         >
           <caption className="sr-only">{caption}</caption>
           <thead>
             <tr className="border-b border-line text-left text-caption tracking-wider text-text-3 uppercase">
               {selectable && (
-                <th scope="col" className="sticky top-0 z-sticky bg-panel px-2 py-2">
-                  <input
-                    type="checkbox"
-                    aria-label={`Select every row shown, up to ${MOST_SELECTED}`}
-                    checked={allSelected}
-                    onChange={() =>
-                      setSelected(allSelected ? new Set() : new Set(everyKey.slice(0, MOST_SELECTED)))
-                    }
-                  />
+                <th scope="col" className="sticky top-0 z-sticky bg-panel px-0 py-0">
+                  <label className={TICK}>
+                    <input
+                      type="checkbox"
+                      aria-label={`Select every row shown, up to ${MOST_SELECTED}`}
+                      checked={allSelected}
+                      onChange={() =>
+                        setSelected(allSelected ? new Set() : new Set(everyKey.slice(0, MOST_SELECTED)))
+                      }
+                    />
+                  </label>
                 </th>
               )}
               {order.map((index) => {
@@ -345,6 +409,7 @@ export function Table({
                     }}
                     className={cn(
                       "group sticky top-0 bg-panel px-2 py-2 font-semibold",
+                      numeric.has(index) && "text-right",
                       pin === undefined ? "z-raised" : "z-sticky",
                     )}
                   >
@@ -353,7 +418,7 @@ export function Table({
                         type="button"
                         title="Shift-click to sort by this as well"
                         onClick={(event) => view.sortBy(key, event.shiftKey)}
-                        className="uppercase underline"
+                        className="-my-2 inline-flex min-h-touch items-center uppercase underline md:min-h-0"
                       >
                         {column}
                         {now === "asc" ? " ↑" : now === "desc" ? " ↓" : ""}
@@ -410,7 +475,7 @@ export function Table({
 }
 
 export function Row({ children, className }: { children: ReactNode; className?: string }) {
-  const { order, pins } = useContext(TableShape);
+  const { order, pins, numeric } = useContext(TableShape);
   const row = useContext(ThisRow);
   const cells = Children.toArray(children);
   // A row that doesn't fill the table's columns (one cell spanning them) stays as it was written.
@@ -420,13 +485,17 @@ export function Row({ children, className }: { children: ReactNode; className?: 
       : order.map((index) => {
           const cell = cells[index];
           const pin = pins.get(index);
-          if (pin === undefined || !isValidElement(cell)) {
+          if ((pin === undefined && !numeric.has(index)) || !isValidElement(cell)) {
             return cell;
           }
           const element = cell as ReactElement<{ className?: string; style?: CSSProperties }>;
           return cloneElement(element, {
-            className: cn(element.props.className, "sticky z-raised bg-panel"),
-            style: { ...element.props.style, left: pin },
+            className: cn(
+              element.props.className,
+              numeric.has(index) && NUMERIC,
+              pin !== undefined && "sticky z-raised bg-panel",
+            ),
+            style: pin === undefined ? element.props.style : { ...element.props.style, left: pin },
           });
         });
   return (
@@ -441,13 +510,15 @@ export function Row({ children, className }: { children: ReactNode; className?: 
       )}
     >
       {row.selectable && (
-        <td className="px-2 py-2">
-          <input
-            type="checkbox"
-            aria-label={`Select this row${row.rowKey ? ` …${row.rowKey.slice(-8)}` : ""}`}
-            checked={row.selected}
-            onChange={row.toggle}
-          />
+        <td className="px-0 py-0">
+          <label className={TICK}>
+            <input
+              type="checkbox"
+              aria-label={`Select this row${row.rowKey ? ` …${row.rowKey.slice(-8)}` : ""}`}
+              checked={row.selected}
+              onChange={row.toggle}
+            />
+          </label>
         </td>
       )}
       {shown}
@@ -535,7 +606,7 @@ function TableControls({
               const pinnedNow = settings.pinned.includes(ids[index] ?? "");
               return (
                 <div key={ids[index]} className="flex items-center gap-1 whitespace-nowrap">
-                  <label className="flex min-w-40 items-center gap-2">
+                  <label className="flex min-h-touch min-w-40 items-center gap-2 md:min-h-0">
                     <input
                       type="checkbox"
                       aria-label={`Show the ${column} column`}

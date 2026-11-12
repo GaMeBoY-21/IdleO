@@ -64,7 +64,7 @@ async function answerStepUp(page: Page, secret: string) {
     // A code works once for its step, and the sign-in may have spent this one.
     await page.waitForTimeout(31_000);
     await dialog.getByLabel("Code from your authenticator app").fill(await freshCode(secret, page));
-    await dialog.getByRole("button", { name: "Confirm" }).click();
+    await dialog.getByRole("button", { name: "Check the code" }).click();
     await expect(dialog).toBeHidden({ timeout: 30_000 });
   });
 }
@@ -74,7 +74,7 @@ async function enrol(page: Page): Promise<string> {
   await expect(page.getByRole("heading", { level: 1, name: "Set up your authenticator" })).toBeVisible();
   const secret = (await page.getByText(/^[A-Z2-7]{32}$/).textContent())!;
   await page.getByLabel("Code from your authenticator app").fill(await freshCode(secret, page));
-  await page.getByRole("button", { name: "Confirm" }).click();
+  await page.getByRole("button", { name: "Check the code" }).click();
   await expect(page.getByRole("list", { name: "Recovery codes" }).getByRole("listitem")).toHaveCount(10);
   await page.getByRole("button", { name: "I've saved them" }).click();
   await answerStepUp(page, secret);
@@ -86,7 +86,7 @@ async function enterAgain(page: Page, secret: string) {
   await expect(page.getByRole("heading", { level: 1, name: "Admin sign-in" })).toBeVisible();
   await page.waitForTimeout(31_000);
   await page.getByLabel("Code from your authenticator app").fill(await freshCode(secret, page));
-  await page.getByRole("button", { name: "Continue" }).click();
+  await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page.getByRole("navigation", { name: "Admin" })).toBeVisible();
 }
 
@@ -195,7 +195,7 @@ test("an admin enrols a second factor, then activates a host, grants credit and 
       .getByRole("table", { name: "Approval requests" })
       .getByRole("row")
       .filter({ hasText: "end-to-end admin grant" });
-    await expect(request).toContainText("credit.grant");
+    await expect(request).toContainText("Credit: grant");
     await request.getByRole("button", { name: "Approve" }).click();
     await confirmIn(approverPage, "Approve this?", "Approve and run it", "the second admin checked it");
 
@@ -215,9 +215,9 @@ test("an admin enrols a second factor, then activates a host, grants credit and 
       .getByRole("row")
       .filter({ hasText: "end-to-end admin grant" });
     await expect(row).toHaveCount(1);
-    await expect(row).toContainText("credit.grant");
+    await expect(row).toContainText("Credit: grant");
     await expect(row).toContainText(masked(adminUser!));
-    await expect(row).toContainText('"amountPaise":125');
+    await expect(row).toContainText("Amount: ₹1.25");
     report.granted = { user: `${webUser}@example.com`, paise: 125 };
   });
 

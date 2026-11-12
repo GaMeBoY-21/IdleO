@@ -199,7 +199,7 @@ function Enrol() {
         />
         <Problem error={error} />
         <Button type="submit" large block busy={busy} disabled={secret.data === undefined}>
-          Confirm
+          Check the code
         </Button>
       </form>
     </GateFrame>
@@ -291,7 +291,7 @@ function Check({ passkeys }: { passkeys: number }) {
         />
         <Problem error={error} />
         <Button type="submit" large block busy={busy}>
-          Continue
+          Sign in
         </Button>
         <Button
           variant="quiet"

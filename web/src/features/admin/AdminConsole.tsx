@@ -179,7 +179,11 @@ function Layout({ children }: { children: React.ReactNode }) {
               className="tabular ml-auto text-caption font-bold"
               aria-label={`${counts.data.mine} mine, ${counts.data.unassigned} unassigned, ${counts.data.breaching} breaching`}
             >
-              {counts.data.mine} · {counts.data.unassigned} · {counts.data.breaching}
+              {/* In words: what's an admin's own, and what's past its target, when anything is. */}
+              {counts.data.mine} mine
+              {counts.data.breaching > 0 && (
+                <span className="text-danger"> · {counts.data.breaching} late</span>
+              )}
             </span>
           )}
           {screen.href === "/admin/approvals/" && (waiting.data?.pending ?? 0) > 0 && (

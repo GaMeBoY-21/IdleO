@@ -358,7 +358,7 @@ function AbuseRecord({ id }: { id: string }) {
                     variant="ghost"
                     onClick={() => setDeciding("confirm")}
                   >
-                    Confirm
+                    Keep the suspension
                   </ActionButton>
                 )}
                 {!found.item.banned && (
@@ -376,13 +376,13 @@ function AbuseRecord({ id }: { id: string }) {
               onOpenChange={(next) => !next && setDeciding(null)}
               record={found.item}
               typed={deciding === "ban" ? found.item.id.slice(0, 8) : undefined}
-              title={deciding === "ban" ? "Confirm and ban this account?" : "Confirm this review?"}
+              title={deciding === "ban" ? "Confirm and ban this account?" : "Keep the suspension?"}
               change={
                 deciding === "ban"
                   ? "The account is banned: refused like a suspension, and lifted only by clearing this review. The person is told the same either way, and can still see their data, delete the account and write to us."
                   : "The suspension stays. Nothing else changes; you can ban the account later."
               }
-              confirm={deciding === "ban" ? "Confirm and ban" : "Confirm"}
+              confirm={deciding === "ban" ? "Confirm and ban" : "Keep the suspension"}
               destructive={deciding === "ban"}
               onConfirm={async (reason) => {
                 await adminData(

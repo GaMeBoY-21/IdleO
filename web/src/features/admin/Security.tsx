@@ -138,7 +138,13 @@ function Passkeys() {
       {passkeysAvailable() ? (
         <div className="flex flex-wrap items-end gap-2">
           <SmallField label="Name this passkey" value={name} onChange={setName} placeholder="My phone" />
-          <Button variant="ghost" busy={busy} disabled={name.trim() === ""} onClick={() => void add()}>
+          <Button
+            variant="ghost"
+            busy={busy}
+            disabled={name.trim() === ""}
+            why="Name it first, so you can tell your passkeys apart."
+            onClick={() => void add()}
+          >
             Add a passkey
           </Button>
         </div>

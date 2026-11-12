@@ -269,7 +269,8 @@ export async function audit(
           add("buttons-say-what-they-do", "P1", `a button says "${name}"`);
         }
         const disabled = button.hasAttribute("disabled") || button.getAttribute("aria-disabled") === "true";
-        if (disabled && visible(button)) {
+        // A busy button is disabled while it works, and its spinner says so.
+        if (disabled && visible(button) && button.getAttribute("aria-busy") !== "true") {
           const why =
             button.getAttribute("title") ||
             button.getAttribute("aria-describedby") ||
@@ -306,7 +307,11 @@ export async function audit(
           if (!visible(control) || control.closest("p, li > span, td")) {
             continue;
           }
-          const rect = control.getBoundingClientRect();
+          // A tick box or a radio is reached through its label as well: the label is what a thumb hits.
+          const target = control.matches("input[type='checkbox'], input[type='radio']")
+            ? (control.closest("label") ?? control)
+            : control;
+          const rect = target.getBoundingClientRect();
           if (rect.height < 43.5 || rect.width < 43.5) {
             add(
               "touch-targets",

@@ -1,3 +1,6 @@
+import { formatPaise } from "@/lib/money";
+import { readable } from "@/lib/states";
+
 /**
  * What the console shows for a code (ADR 0057): a state, a ledger account, a reason. No code goes on a screen as it is. A
  * test reads every code the database's own rules allow, so a new one needs its words here in the same change; a code
@@ -97,4 +100,69 @@ export function word(code: string): string {
     return spaced.charAt(0).toUpperCase() + spaced.slice(1);
   }
   return code.replace(/\b[a-z0-9]+(?:_[a-z0-9]+)+\b/g, (found) => WORDS[found] ?? found.replaceAll("_", " "));
+}
+
+// Records in words (web/DESIGN.md "Formats"): an action's code, a change's fields and values, ids inside a sentence.
+// The codes stay where an admin types them (the Audit's Action filter) and in each one's tooltip.
+
+const UUID = /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi;
+
+/** Whole ids in a sentence, each cut to its last eight characters ("user …00000001"), as the console's ids show. */
+export const shortIds = (text: string) => text.replace(UUID, (id) => `…${id.slice(-8)}`);
+
+/** An action's code in words: `host.activate` reads "Host: activate", `credit.grant` "Credit: grant". */
+export function actionWords(code: string): string {
+  const [what = "", ...verb] = code.split(".");
+  const object = readable(what.replaceAll("-", " "));
+  return verb.length === 0 ? object : `${object}: ${verb.join(" ").replaceAll(/[-_]/g, " ")}`;
+}
+
+/** A field's name in words: `amountPaise` reads "Amount", `suspension_cause` "Suspension cause". */
+const fieldWords = (field: string) =>
+  readable(
+    field
+      .replace(/Paise$/, "")
+      .replaceAll(/([a-z])([A-Z])/g, "$1 $2")
+      .replaceAll(/[-_]/g, " "),
+  );
+
+function valueWords(field: string, value: unknown): string {
+  if (value === null || value === undefined || value === "") {
+    return "none";
+  }
+  if (typeof value === "number" && field.endsWith("Paise")) {
+    return formatPaise(value);
+  }
+  if (typeof value === "boolean") {
+    return value ? "yes" : "no";
+  }
+  if (typeof value === "string") {
+    return shortIds(value.replaceAll("_", " ").toLowerCase());
+  }
+  if (typeof value === "number") {
+    return value.toLocaleString("en-IN");
+  }
+  return Array.isArray(value) ? `${value.length} items` : "changed";
+}
+
+/** A record's fields, as the Audit keeps them before and after an action: "Status: pending; Paused: no". */
+export function changeWords(value: Record<string, unknown> | null | undefined): string {
+  if (!value) {
+    return "—";
+  }
+  const parts = Object.entries(value).map(
+    ([field, each]) => `${fieldWords(field)}: ${valueWords(field, each)}`,
+  );
+  return parts.length === 0 ? "—" : parts.join("; ");
+}
+
+// An approval's change of money, named by what it's for: the server gives the amount in paise.
+const MONEY_CHANGE = /^(free credit|refund)\b/;
+
+/** One value of an approval's change: money in rupees where the change is money, words otherwise. */
+export function approvalValue(what: string, value: unknown): string {
+  if (typeof value === "number" && MONEY_CHANGE.test(what)) {
+    return formatPaise(value);
+  }
+  return valueWords("", value);
 }

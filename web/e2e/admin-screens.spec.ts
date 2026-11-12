@@ -72,10 +72,10 @@ test.describe("the way in", () => {
 
     const field = page.getByLabel("Code from your authenticator app");
     await field.fill("2870");
-    await page.getByRole("button", { name: "Confirm" }).click();
+    await page.getByRole("button", { name: "Check the code" }).click();
     await expect(page.getByText("Type the 6 digits your app shows.")).toBeVisible();
     await field.fill("287 082");
-    await page.getByRole("button", { name: "Confirm" }).click();
+    await page.getByRole("button", { name: "Check the code" }).click();
 
     await expect(page.getByRole("heading", { level: 1, name: "Save your recovery codes" })).toBeVisible();
     await expect(page.getByRole("list", { name: "Recovery codes" }).getByRole("listitem")).toHaveCount(10);
@@ -93,7 +93,7 @@ test.describe("the way in", () => {
     await page.getByRole("button", { name: "Use a recovery code instead" }).click();
     await expect(page.getByLabel("Recovery code")).toBeVisible();
     await page.getByLabel("Recovery code").fill("K7Q2M-9XD4");
-    await page.getByRole("button", { name: "Continue" }).click();
+    await page.getByRole("button", { name: "Sign in" }).click();
     await expect(page.getByText("A recovery code is 10 letters and digits.")).toBeVisible();
   });
 
@@ -105,7 +105,7 @@ test.describe("the way in", () => {
           : { json: admin.enrolled },
     });
     await page.getByLabel("Code from your authenticator app").fill("123456");
-    await page.getByRole("button", { name: "Continue" }).click();
+    await page.getByRole("button", { name: "Sign in" }).click();
     await expect(page.getByRole("alert")).toContainText("That code isn't right, or was already used.");
     await expectAccessible(page);
     await capture(page, info, "admin-check-wrong");
@@ -1153,7 +1153,7 @@ test.describe("the console", () => {
   test("reads the audit log", async ({ page }, info) => {
     await open(page, "/admin/audit/");
     await expect(page.getByRole("table", { name: "Audit log" }).getByRole("row")).toHaveCount(3);
-    await expect(page.getByRole("table", { name: "Audit log" })).toContainText("host.activate");
+    await expect(page.getByRole("table", { name: "Audit log" })).toContainText("Host: activate");
     await expectAccessible(page);
     await capture(page, info, "admin-audit");
   });

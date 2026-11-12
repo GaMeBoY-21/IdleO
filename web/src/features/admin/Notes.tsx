@@ -319,7 +319,7 @@ export function RecordNotes({ subject, id }: { subject: NoteSubject; id: string 
               className="rounded-control bg-raised px-4 py-2 text-small text-text"
             />
             <div className="flex flex-wrap items-center gap-4 text-small">
-              <label className="flex items-center gap-2">
+              <label className="flex min-h-touch items-center gap-2 md:min-h-0">
                 <input
                   type="checkbox"
                   checked={pinned}
@@ -327,7 +327,7 @@ export function RecordNotes({ subject, id }: { subject: NoteSubject; id: string 
                 />
                 Pin it to the top
               </label>
-              <label className="flex items-center gap-2">
+              <label className="flex min-h-touch items-center gap-2 md:min-h-0">
                 <input
                   type="checkbox"
                   checked={investigation}

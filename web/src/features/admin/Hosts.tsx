@@ -355,6 +355,7 @@ function HostRecord({ id }: { id: string }) {
                 variant="ghost"
                 onClick={() => setAction("activate")}
                 disabled={found.status === "active" || found.status === "removed"}
+                why={found.status === "active" ? "It's active already." : "It was removed."}
               >
                 Activate
               </ActionButton>
@@ -363,6 +364,7 @@ function HostRecord({ id }: { id: string }) {
                 variant="ghost"
                 onClick={() => setAction("suspend")}
                 disabled={found.status === "suspended" || found.status === "removed"}
+                why={found.status === "suspended" ? "It's suspended already." : "It was removed."}
               >
                 Suspend
               </ActionButton>
@@ -371,6 +373,7 @@ function HostRecord({ id }: { id: string }) {
                 variant="ghost"
                 onClick={() => setAction("revoke-certificates")}
                 disabled={found.certificates.every((certificate) => certificate.revokedAt !== null)}
+                why="Every certificate it has is revoked already."
               >
                 Revoke certificates
               </ActionButton>
