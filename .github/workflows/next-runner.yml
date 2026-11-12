@@ -40,12 +40,19 @@ jobs:
           node-version-file: web/.node-version
           cache: pnpm
           cache-dependency-path: web/pnpm-lock.yaml
+      # Only installs buf, as proto.yml does.
+      - uses: bufbuild/buf-action@37ac33d8960807670a6e9719080e885197b09cc6 # v1.7.0
+        with:
+          version: 1.73.0
+          setup_only: true
+      # The Rust suites' build part only: their deny part reads advisories, not the runner, and runs in cargo-deny's
+      # action in agent.yml, cli.yml and scanner.yml.
       - name: The fast suites, as scripts/check-all.sh runs them
         run: |
           status=0
-          for suite in agent cli scanner proto sdk web control-plane; do
-            if "scripts/checks/$suite.sh"; then echo "$suite PASS"; else echo "$suite FAIL"; status=1; fi
-          done
+          run() { if "scripts/checks/$1.sh" "${@:2}"; then echo "$* PASS"; else echo "$* FAIL"; status=1; fi; }
+          for suite in agent cli scanner; do run "$suite" build; done
+          for suite in proto sdk web control-plane; do run "$suite"; done
           exit "$status"
       # To Grafana Cloud: a red week, or a silent one, is a ticket (ADR 0050).
       - name: Report
