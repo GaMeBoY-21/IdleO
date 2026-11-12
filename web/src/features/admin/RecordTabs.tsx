@@ -36,7 +36,7 @@ export function RecordTabs({ label, tabs }: { label: string; tabs: RecordTab[] }
             key={tab.id}
             value={tab.id}
             className={cn(
-              "min-h-touch px-3 text-small font-medium whitespace-nowrap text-text-2 md:min-h-9",
+              "min-h-touch px-4 text-small font-medium whitespace-nowrap text-text-2 md:min-h-9",
               "data-[state=active]:border-b-2 data-[state=active]:border-progress data-[state=active]:font-semibold data-[state=active]:text-text",
             )}
           >

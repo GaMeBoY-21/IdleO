@@ -37,20 +37,20 @@ export function ManageMachine({ host }: { host: Host }) {
         : undefined;
 
   return (
-    <section aria-label="Rename or remove" className="flex flex-col gap-2.5">
+    <section aria-label="Rename or remove" className="flex flex-col gap-2">
       <button
         type="button"
         aria-expanded={open}
         onClick={() => setOpen(!open)}
-        className="tile-motion flex min-h-18 w-full items-center gap-3.5 rounded-panel bg-panel px-4.5 py-3.5 text-left"
+        className="tile-motion flex min-h-18 w-full items-center gap-4 rounded-panel bg-panel px-4 py-4 text-left"
       >
-        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <span className="flex min-w-0 flex-1 flex-col gap-1">
           <span className="text-body font-semibold">Rename or remove</span>
           <span className="text-small text-text-2">Removing it stops all new sessions</span>
         </span>
         <ChevronRight
           aria-hidden="true"
-          className={cn("size-5 shrink-0 transition-transform duration-120", open && "rotate-90")}
+          className={cn("size-5 shrink-0 transition-transform duration-press", open && "rotate-90")}
           strokeWidth={2}
         />
       </button>

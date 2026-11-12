@@ -15,10 +15,10 @@ export function StatsPanel({ session, signals }: { session: Session; signals: Lo
   const saved = session.checkpoints.length;
   const last = session.checkpoints.at(-1);
   return (
-    <Tile as="section" aria-label="The GPU" size="lg" className="flex flex-col gap-3.5">
+    <Tile as="section" aria-label="The GPU" size="lg" className="flex flex-col gap-4">
       {gpu && (
         <>
-          <span className="flex items-baseline justify-between gap-3 text-caption text-text-2">
+          <span className="flex items-baseline justify-between gap-2 text-caption text-text-2">
             <span>The GPU</span>
             <span>someone&apos;s gaming laptop</span>
           </span>
@@ -27,7 +27,7 @@ export function StatsPanel({ session, signals }: { session: Session; signals: Lo
           </span>
         </>
       )}
-      <div className="grid grid-cols-2 gap-2.5 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2 xl:grid-cols-4">
         {gpu && (
           <>
             <Stat label="GPU busy" value={gpu.utilPct == null ? "—" : `${gpu.utilPct}%`} />
@@ -55,7 +55,7 @@ export function StatsPanel({ session, signals }: { session: Session; signals: Lo
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-inner bg-panel-2 p-3.5">
+    <div className="rounded-inner bg-panel-2 p-4">
       <span className="block text-caption text-text-3">{label}</span>
       <span className="text-figure tabular">{value}</span>
     </div>

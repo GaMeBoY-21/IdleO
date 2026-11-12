@@ -100,8 +100,8 @@ function ImageItem({ image }: { image: Image }) {
   const [sure, setSure] = useState(false);
   return (
     <li className={ROW}>
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex min-w-0 flex-col gap-0.5">
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex min-w-0 flex-col gap-1">
           <p className="text-option font-semibold break-all">{image.reference}</p>
           <p className="text-small text-text-2 first-letter:uppercase">
             <RelativeTime
@@ -146,7 +146,7 @@ function Vulnerabilities({ id }: { id: string }) {
             </p>
             <ul className="flex flex-col divide-y divide-line text-small">
               {list.data.vulnerabilities.map((v) => (
-                <li key={v.id + v.packageName} className="flex flex-col gap-0.5 py-2">
+                <li key={v.id + v.packageName} className="flex flex-col gap-1 py-2">
                   <span className="font-semibold">
                     {v.severity.toLowerCase()} · {v.id} · {v.packageName} {v.installed}
                   </span>

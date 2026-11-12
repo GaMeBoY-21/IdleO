@@ -112,7 +112,7 @@ export function BulkBar({
   };
   return (
     <Section title={`${ids.length} selected`}>
-      <div className="flex flex-wrap items-end gap-3">
+      <div className="flex flex-wrap items-end gap-2">
         <SmallSelect
           label="Do"
           value={kind}

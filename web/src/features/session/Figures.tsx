@@ -35,7 +35,7 @@ export function RunningTile({
   const percent = Math.min(100, Math.floor((cost * 100) / Math.max(1, session.maxSpendPaise)));
   const price = session.pricePaisePerMin == null ? null : <Money paise={session.pricePaisePerMin * 60} />;
   return (
-    <Tile tone="night" className="flex flex-col gap-5">
+    <Tile tone="night" className="flex flex-col gap-4">
       <div className="flex flex-col gap-2">
         <span className="self-start">
           <StateChip state={session.state} />
@@ -88,7 +88,7 @@ export function GpuTile({ gpu }: { gpu: NonNullable<Session["gpu"]> }) {
     gpu.utilPct == null || gpu.tempC == null ? "Reading its use…" : `${gpu.utilPct}% busy · ${gpu.tempC}°C`;
   return (
     <Tile className="flex flex-col gap-1">
-      <TileLabel className="flex items-center gap-1.5">
+      <TileLabel className="flex items-center gap-1">
         <Cpu aria-hidden="true" className="size-4" strokeWidth={1.75} />
         GPU
       </TileLabel>
@@ -102,5 +102,5 @@ export function GpuTile({ gpu }: { gpu: NonNullable<Session["gpu"]> }) {
 
 /** The running screen's small tiles side by side: the GPU, and the checkpoints beside it. */
 export function SmallTiles({ children }: { children: ReactNode }) {
-  return <div className="grid grid-cols-2 gap-2.5 md:gap-3.5">{children}</div>;
+  return <div className="grid grid-cols-2 gap-2 md:gap-4">{children}</div>;
 }

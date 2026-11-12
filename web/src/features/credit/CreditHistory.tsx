@@ -25,7 +25,7 @@ import { cn } from "@/lib/cn";
 import { useWide } from "@/lib/media";
 import { useTitle } from "@/lib/title";
 
-const ROW = "flex min-h-18 items-center gap-3 py-4";
+const ROW = "flex min-h-18 items-center gap-2 py-4";
 
 /** The entries as days, in the order they came (newest first): a day's entries are consecutive. */
 function byDay(entries: HistoryEntry[]): { day: string; first: string; entries: HistoryEntry[] }[] {
@@ -98,7 +98,7 @@ export function CreditHistory() {
                   <h3 className="px-1 text-small font-semibold text-text-2">
                     {dayHeading(group.first, now)}
                   </h3>
-                  <Tile as="div" className="px-4.5 py-0">
+                  <Tile as="div" className="px-4 py-0">
                     <ul className="flex flex-col divide-y divide-line">
                       {group.entries.map((entry) => (
                         <HistoryRow key={entry.id} entry={entry} />
@@ -134,13 +134,13 @@ export function CreditHistory() {
         ) : (
           <Tile
             as="div"
-            className="flex flex-col divide-y divide-line px-4.5 py-0"
+            className="flex flex-col divide-y divide-line px-4 py-0"
             role="status"
             aria-label="Loading your credit history"
           >
             {[0, 1, 2, 3].map((key) => (
               <div key={key} className={ROW}>
-                <div className="flex flex-1 flex-col gap-0.5">
+                <div className="flex flex-1 flex-col gap-1">
                   <SkeletonLine size="option" width="w-1/2" />
                   <SkeletonLine size="small" width="w-1/3" />
                 </div>
@@ -207,7 +207,7 @@ function HistoryRow({ entry }: { entry: HistoryEntry }) {
   const isSession = ["session", "session_refund", "dispute_refund"].includes(entry.reference.type);
   const content = (
     <>
-      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
         <p className="text-option font-semibold">{creditKind(entry.kind)}</p>
         <p className="text-small text-text-2 first-letter:uppercase">
           <RelativeTime value={entry.createdAt} />

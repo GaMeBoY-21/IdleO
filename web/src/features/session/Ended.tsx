@@ -90,7 +90,7 @@ export function Ended({
   );
 
   const charge = (
-    <Tile tone="night" className="flex flex-col gap-5">
+    <Tile tone="night" className="flex flex-col gap-4">
       <div className="flex flex-col gap-2">
         {!done && (
           <span className="self-start">
@@ -158,7 +158,7 @@ export function Ended({
       right={
         <>
           {done && <Outputs id={session.id} />}
-          {feedback && <div className="grid gap-4 md:grid-cols-2 2xl:gap-5">{feedback}</div>}
+          {feedback && <div className="grid gap-4 md:grid-cols-2 2xl:gap-4">{feedback}</div>}
           {session.startedAt && <LogsLater id={session.id} settled={session.settled} laptop={false} />}
         </>
       }

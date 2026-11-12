@@ -72,11 +72,11 @@ export function DeleteAccount() {
       <Tile
         as="section"
         aria-labelledby="what-title"
-        className="flex flex-col gap-3 md:p-6 xl:col-span-3 xl:p-7"
+        className="flex flex-col gap-2 md:p-6 xl:col-span-3 xl:p-8"
       >
         <SectionTitle id="what-title">What happens</SectionTitle>
         <p className="text-option font-semibold">We erase</p>
-        <ul className="flex flex-col gap-1.5">
+        <ul className="flex flex-col gap-1">
           {ERASED.map((line) => (
             <li key={line} className={LINE}>
               <span aria-hidden="true">·</span>
@@ -88,7 +88,7 @@ export function DeleteAccount() {
         {/* Kept for as long as the server's periods say, which arrive with the rest: the list's room is kept for it
             from the start, so nothing below moves when it does. */}
         {standing.data ? (
-          <ul className={`flex flex-col gap-1.5 ${KEPT_ROOM}`}>
+          <ul className={`flex flex-col gap-1 ${KEPT_ROOM}`}>
             {kept(standing.data).map((line) => (
               <li key={line} className={LINE}>
                 <span aria-hidden="true">·</span>
@@ -97,7 +97,7 @@ export function DeleteAccount() {
             ))}
           </ul>
         ) : (
-          <div className={`flex flex-col gap-1.5 ${KEPT_ROOM}`} role="status" aria-label="Loading">
+          <div className={`flex flex-col gap-1 ${KEPT_ROOM}`} role="status" aria-label="Loading">
             {[0, 1, 2, 3].map((key) => (
               <SkeletonLine key={key} size="small" width="w-5/6" />
             ))}
@@ -107,7 +107,7 @@ export function DeleteAccount() {
       <Tile
         as="section"
         aria-labelledby="delete-title"
-        className="flex flex-col gap-3 md:p-6 xl:col-span-2 xl:p-7"
+        className="flex flex-col gap-2 md:p-6 xl:col-span-2 xl:p-8"
       >
         <SectionTitle id="delete-title">Your account</SectionTitle>
         {standing.data ? (
@@ -120,7 +120,7 @@ export function DeleteAccount() {
             retrying={standing.isFetching}
           />
         ) : (
-          <div className="flex flex-col gap-3" role="status" aria-label="Loading where your account stands">
+          <div className="flex flex-col gap-2" role="status" aria-label="Loading where your account stands">
             <SkeletonLine size="small" width="w-full" />
             <SkeletonLine size="small" width="w-2/3" />
             <div className="h-touch" />
@@ -149,7 +149,7 @@ function Deletion({ standing }: { standing: DeletionStanding }) {
   }
   if (request?.state === "scheduled" && request.deleteAfter) {
     return (
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-2">
         <p className="text-option font-semibold">
           Your account will be deleted on {formatDay(request.deleteAfter)}.
         </p>
@@ -173,7 +173,7 @@ function Deletion({ standing }: { standing: DeletionStanding }) {
   const waiting = request?.state === "awaiting_confirmation";
   const blocked = standing.blockers.length > 0;
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-2">
       {waiting ? (
         <p className="text-small">
           Check your email: we sent you a link to confirm. It works for a day. Then we wait{" "}
@@ -192,9 +192,9 @@ function Deletion({ standing }: { standing: DeletionStanding }) {
       ))}
       <Waits waits={standing.waits} />
       {blocked && (
-        <div className="flex flex-col gap-1.5">
+        <div className="flex flex-col gap-1">
           <p className="text-small font-semibold">First, this has to end:</p>
-          <ul className="flex flex-col gap-1.5">
+          <ul className="flex flex-col gap-1">
             {standing.blockers.map((blocker) => (
               <li key={`${blocker.code}${blocker.message}`} className={LINE}>
                 <span aria-hidden="true">·</span>
@@ -242,9 +242,9 @@ function Waits({ waits }: { waits: DeletionStanding["waits"] }) {
     return null;
   }
   return (
-    <div className="flex flex-col gap-1.5">
+    <div className="flex flex-col gap-1">
       <p className="text-small font-semibold">Before it&apos;s deleted:</p>
-      <ul className="flex flex-col gap-1.5">
+      <ul className="flex flex-col gap-1">
         {waits.map((wait) => (
           <li key={wait.code} className={LINE}>
             <span aria-hidden="true">·</span>

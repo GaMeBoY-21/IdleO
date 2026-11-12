@@ -77,7 +77,7 @@ export function RequestButton({
   }
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-2">
       {error !== null && !settingsRefused(error) && <Banner tone="danger">{problemMessage(error)}</Banner>}
       <p className="text-center text-caption text-on-night-2">
         Hosts are people at home, so don&apos;t send secret data. What isn&apos;t allowed is in{" "}

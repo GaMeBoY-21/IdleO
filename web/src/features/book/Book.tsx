@@ -137,7 +137,7 @@ function Waiting(): never {
 
 function StepsSkeleton({ count }: { count: number }) {
   return (
-    <div role="status" aria-label="Loading" className="flex flex-col gap-2.5 md:gap-3.5">
+    <div role="status" aria-label="Loading" className="flex flex-col gap-2 md:gap-4">
       {Array.from({ length: Math.max(1, count) }, (_, key) => (
         <Skeleton key={key} tile className="h-24 w-full" />
       ))}

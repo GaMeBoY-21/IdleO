@@ -91,7 +91,7 @@ function TicketQueue() {
         filters={{ topic: "topic", status: "status" }}
         extra={age ? { before: new Date(now - Number(age) * 86_400_000).toISOString() } : {}}
       />
-      <div className="flex flex-wrap gap-3">
+      <div className="flex flex-wrap gap-2">
         <SmallSelect label="Topic" value={topic} onChange={setTopic} options={TOPICS} />
         <SmallSelect
           label="Status"
@@ -238,7 +238,7 @@ function TicketRecord({ id }: { id: string }) {
                   ],
                 ]}
               />
-              <div className="flex flex-wrap gap-3">
+              <div className="flex flex-wrap gap-2">
                 {STATUSES.filter((status) => status !== ticket.status).map((status) => (
                   <ActionButton
                     permission="tickets.reply"
@@ -255,7 +255,7 @@ function TicketRecord({ id }: { id: string }) {
               (ticket.topic === "privacy" || ticket.topic === "grievance") &&
               ticket.userId && <PrivacyRequest userId={ticket.userId} onExport={() => setExporting(true)} />}
             <Section title="Messages">
-              <ol className="flex flex-col gap-3">
+              <ol className="flex flex-col gap-2">
                 {messages.map((message) => (
                   <li
                     key={`${message.createdAt}${message.author}`}
@@ -273,7 +273,7 @@ function TicketRecord({ id }: { id: string }) {
             <Section title="Answer">
               <form
                 noValidate
-                className="flex flex-col gap-3"
+                className="flex flex-col gap-2"
                 onSubmit={(event) => {
                   event.preventDefault();
                   if (answer.trim() === "") {

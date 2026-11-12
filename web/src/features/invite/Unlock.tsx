@@ -13,9 +13,9 @@ export function Unlock() {
   useTitle(nav.locked.title);
   return (
     <Page title={nav.locked.title}>
-      <Tile as="section" aria-labelledby="unlock-title" className="flex flex-col gap-5 md:p-6 xl:p-7">
-        <div className="flex items-start gap-3">
-          <KeyRound aria-hidden="true" className="mt-0.5 size-6 shrink-0" strokeWidth={1.75} />
+      <Tile as="section" aria-labelledby="unlock-title" className="flex flex-col gap-4 md:p-6 xl:p-8">
+        <div className="flex items-start gap-2">
+          <KeyRound aria-hidden="true" className="mt-1 size-6 shrink-0" strokeWidth={1.75} />
           <div className="flex flex-col gap-1">
             <h2 id="unlock-title" className="text-section">
               Enter an invite code for {nav.side}

@@ -38,7 +38,7 @@ export function AskForm({ refundablePaise, onDone }: { refundablePaise: number; 
         event.preventDefault();
         submit();
       }}
-      className="flex flex-col gap-3"
+      className="flex flex-col gap-2"
       noValidate
     >
       <Field

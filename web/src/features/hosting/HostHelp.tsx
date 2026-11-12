@@ -19,7 +19,7 @@ import { useHosts } from "@/api/hosting";
 import { DownloadButton } from "./AddMachine";
 import { WhatEachNeeds } from "./laptop/AtAGlance";
 
-const ROW = "flex min-h-touch items-center gap-3 py-3 text-body hover:underline";
+const ROW = "flex min-h-touch items-center gap-2 py-4 text-body hover:underline";
 
 /** What a host most often needs to fix, each to the page that explains it. */
 const TROUBLES = [
@@ -31,11 +31,11 @@ const TROUBLES = [
 /** The questions hosts ask first, the earn page's own list, each opening in place. */
 function Questions() {
   return (
-    <Tile as="section" aria-labelledby="questions-title" className="flex flex-col gap-1 xl:col-span-3 xl:p-7">
+    <Tile as="section" aria-labelledby="questions-title" className="flex flex-col gap-1 xl:col-span-3 xl:p-8">
       <SectionTitle id="questions-title">Questions hosts ask</SectionTitle>
       <div className="grid gap-x-6 xl:grid-cols-2">
         {HOST_QUESTIONS.map((item) => (
-          <details key={item.question} className="border-b border-line py-3">
+          <details key={item.question} className="border-b border-line py-4">
             <summary className="min-h-touch cursor-pointer content-center text-body font-semibold">
               {item.question}
             </summary>
@@ -60,7 +60,7 @@ export function HostHelp() {
   const wide = useWide();
   const tiles = (
     <>
-      <Tile as="section" aria-labelledby="app-title" className="flex flex-col gap-3 md:p-6">
+      <Tile as="section" aria-labelledby="app-title" className="flex flex-col gap-2 md:p-6">
         <SectionTitle id="app-title">The Windows app</SectionTitle>
         <p className="text-small text-text-2">
           It runs renters&apos; jobs in a sealed sandbox, pauses the moment you use the laptop, and updates by
@@ -110,7 +110,7 @@ export function HostHelp() {
             </ul>
           )
         ) : (
-          <div role="status" aria-label="Loading your notices" className="flex flex-col gap-2 py-3">
+          <div role="status" aria-label="Loading your notices" className="flex flex-col gap-2 py-4">
             <SkeletonLine size="body" width="w-3/4" />
             <SkeletonLine size="body" width="w-1/2" />
           </div>

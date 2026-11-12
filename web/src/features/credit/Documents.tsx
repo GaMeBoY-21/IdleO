@@ -9,7 +9,7 @@ import { SectionTitle, Tile } from "@/components/ui/Tile";
 import { problemMessage } from "@/lib/problems";
 import { formatDay } from "@/lib/time";
 
-const ROW = "flex min-h-18 items-center gap-3 py-4";
+const ROW = "flex min-h-18 items-center gap-2 py-4";
 
 /**
  * Invoices, receipts and credit notes (ADR 0039), newest first, in a box of one height above the history, each a PDF
@@ -30,7 +30,7 @@ export function Documents({ invoices }: { invoices: UseQueryResult<{ invoices: I
               Each time you add credit, its receipt is here to download.
             </EmptyState>
           ) : (
-            <Tile as="div" className="px-4.5 py-0">
+            <Tile as="div" className="px-4 py-0">
               <ul className="flex flex-col divide-y divide-line">
                 {invoices.data.invoices.map((invoice) => (
                   <DocumentRow key={invoice.id} invoice={invoice} />
@@ -48,13 +48,13 @@ export function Documents({ invoices }: { invoices: UseQueryResult<{ invoices: I
         ) : (
           <Tile
             as="div"
-            className="flex flex-col divide-y divide-line px-4.5 py-0"
+            className="flex flex-col divide-y divide-line px-4 py-0"
             role="status"
             aria-label="Loading your invoices"
           >
             {[0, 1].map((key) => (
               <div key={key} className={ROW}>
-                <div className="flex flex-1 flex-col gap-0.5">
+                <div className="flex flex-1 flex-col gap-1">
                   <SkeletonLine size="option" width="w-1/2" />
                   <SkeletonLine size="small" width="w-1/3" />
                 </div>
@@ -84,7 +84,7 @@ function DocumentRow({ invoice }: { invoice: Invoice }) {
   };
   return (
     <li className={ROW}>
-      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
         <p className="text-option font-semibold">{invoice.title}</p>
         <p className="text-small text-text-2">
           <span className="tabular">{invoice.number}</span> · {formatDay(invoice.issuedAt)}

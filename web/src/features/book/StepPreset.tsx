@@ -53,7 +53,7 @@ export function StepPreset({
   };
 
   return (
-    <Tile as="section" aria-labelledby={id} className="flex flex-col gap-3">
+    <Tile as="section" aria-labelledby={id} className="flex flex-col gap-2">
       <StepTitle id={id} number={number}>
         {label}
       </StepTitle>
@@ -68,7 +68,7 @@ export function StepPreset({
               aria-pressed={selected}
               onClick={() => choose(option)}
               className={cn(
-                "relative flex min-w-0 flex-col items-start gap-1 rounded-control p-3.5 text-left transition-colors",
+                "relative flex min-w-0 flex-col items-start gap-1 rounded-control p-4 text-left transition-colors",
                 selected ? "bg-volt text-ink" : "bg-panel-2 hover:bg-line",
               )}
             >

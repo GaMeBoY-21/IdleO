@@ -64,7 +64,7 @@ function WeeksOnTheWay({ enabled }: { enabled: boolean }) {
   const earnings = useEarnings(false, enabled);
   const owner = earnings.data?.pages[0];
   return (
-    <Tile as="section" aria-labelledby="weeks-paid-title" className="flex flex-col gap-3 xl:p-7">
+    <Tile as="section" aria-labelledby="weeks-paid-title" className="flex flex-col gap-2 xl:p-8">
       <SectionTitle id="weeks-paid-title">Earned, the last 8 weeks</SectionTitle>
       <div className="h-18">
         {owner ? <WeeksBars weeks={owner.weeks} tone="panel" /> : <BarsSkeleton count={8} tone="panel" />}
@@ -88,7 +88,7 @@ function WhereTile({ enabled }: { enabled: boolean }) {
       ]
     : null;
   return (
-    <Tile as="section" aria-labelledby="where-title" className="flex flex-col gap-2 xl:p-7">
+    <Tile as="section" aria-labelledby="where-title" className="flex flex-col gap-2 xl:p-8">
       <SectionTitle
         id="where-title"
         action={
@@ -106,7 +106,7 @@ function WhereTile({ enabled }: { enabled: boolean }) {
             { label: "UPI ID", value: null },
           ]
         ).map((row) => (
-          <div key={row.label} className="flex min-h-touch items-center justify-between gap-3">
+          <div key={row.label} className="flex min-h-touch items-center justify-between gap-2">
             <dt className="text-small text-text-2">{row.label}</dt>
             <dd className="min-w-0 truncate text-body font-semibold">
               {row.value ?? <SkeletonLine size="body" width="w-1/2" />}

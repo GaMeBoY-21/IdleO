@@ -76,7 +76,7 @@ export function TemplateChoice({
             aria-pressed={chosen}
             onClick={() => onPick(template.id)}
             className={cn(
-              "flex flex-col gap-0.5 rounded-panel px-4.5 py-3 text-left transition-colors",
+              "flex flex-col gap-1 rounded-panel px-4 py-4 text-left transition-colors",
               chosen ? "bg-volt text-ink" : "bg-panel hover:bg-raised",
             )}
           >

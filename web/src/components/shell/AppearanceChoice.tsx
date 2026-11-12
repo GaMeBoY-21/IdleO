@@ -18,11 +18,11 @@ const choices: { value: ThemeChoice; label: string; icon: typeof Sun }[] = [
 export function AppearanceChoice() {
   const [theme, setTheme] = useState<ThemeChoice>(readThemeChoice);
   return (
-    <Tile as="div" className="flex flex-col gap-2 p-2.5">
+    <Tile as="div" className="flex flex-col gap-2 p-2">
       <p id="appearance-title" className="px-4 pt-2 text-caption font-medium text-text-2">
         Appearance
       </p>
-      <div role="radiogroup" aria-labelledby="appearance-title" className="flex flex-col gap-0.5">
+      <div role="radiogroup" aria-labelledby="appearance-title" className="flex flex-col gap-1">
         {choices.map(({ value, label, icon: Icon }) => (
           <button
             key={value}
@@ -34,7 +34,7 @@ export function AppearanceChoice() {
               applyThemeChoice(value, config.siteUrl);
             }}
             className={cn(
-              "flex min-h-touch items-center gap-3 rounded-control px-4 text-small",
+              "flex min-h-touch items-center gap-2 rounded-control px-4 text-small",
               theme === value ? "bg-raised font-bold" : "font-semibold text-text-2 hover:text-text",
             )}
           >

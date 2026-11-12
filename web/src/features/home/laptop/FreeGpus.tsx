@@ -62,7 +62,7 @@ export function FreeGpus({ enabled }: { enabled: boolean }) {
   const availability = useAvailability(enabled, AVAILABILITY_EVERY_MS);
   const rows = availability.data ? classRows(availability.data.gpus) : [];
   return (
-    <Tile size="lg" aria-labelledby="free-gpus" className="flex min-h-0 flex-1 flex-col gap-3">
+    <Tile size="lg" aria-labelledby="free-gpus" className="flex min-h-0 flex-1 flex-col gap-2">
       <div className="flex items-center justify-between text-caption text-text-2">
         <h2
           id="free-gpus"
@@ -89,7 +89,7 @@ export function FreeGpus({ enabled }: { enabled: boolean }) {
             <li
               key={row.gb}
               className={cn(
-                "flex flex-1 items-center gap-3 border-b border-line py-2 text-body tabular last:border-b-0",
+                "flex flex-1 items-center gap-2 border-b border-line py-2 text-body tabular last:border-b-0",
                 row.free === 0 && "text-text-2",
               )}
             >

@@ -36,7 +36,7 @@ export function AccountRail({
         </>
       }
       right={
-        <div className={cn("flex flex-col gap-4 2xl:gap-5", className)}>
+        <div className={cn("flex flex-col gap-4 2xl:gap-4", className)}>
           <h1 className="sr-only">{title}</h1>
           {children}
         </div>
@@ -55,7 +55,7 @@ function ProfileTile() {
       ? (kept.displayName ?? kept.emailName ?? "You")
       : null;
   return (
-    <Tile tone="night" size="lg" aria-label="You" className="flex flex-col gap-3.5">
+    <Tile tone="night" size="lg" aria-label="You" className="flex flex-col gap-4">
       <span
         aria-hidden="true"
         className="flex size-16 items-center justify-center rounded-full bg-volt text-headline font-bold text-ink"
@@ -80,8 +80,8 @@ function ProfileTile() {
 function SectionNav() {
   const [pathname] = useLocation();
   return (
-    <Tile as="div" className="p-2.5">
-      <nav aria-label="Account" className="flex flex-col gap-0.5">
+    <Tile as="div" className="p-2">
+      <nav aria-label="Account" className="flex flex-col gap-1">
         {nav.accountSections.map(({ href, label }) => {
           const current = pathname === href || (href === "/account/" && pathname === "/account");
           return (

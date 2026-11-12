@@ -24,7 +24,7 @@ export function BookLayout({
   if (laptop) {
     return (
       <div className={cn(FRAME, GRID, "flex-1 items-start pt-4 pb-12 md:pt-8")}>
-        <div className="col-span-6 flex min-w-0 flex-col gap-3.5 xl:col-span-7">{left}</div>
+        <div className="col-span-6 flex min-w-0 flex-col gap-4 xl:col-span-7">{left}</div>
         <section
           aria-label={service ? "Your request" : "What happens next"}
           className="sticky top-8 col-span-6 flex flex-col xl:col-span-5"
@@ -40,8 +40,8 @@ export function BookLayout({
       <div
         className={
           service
-            ? "flex flex-1 flex-col gap-2.5 px-3.5 pt-3.5 pb-3.5 md:px-6"
-            : "flex flex-1 flex-col gap-3.5 px-3.5 pb-8 md:px-6"
+            ? "flex flex-1 flex-col gap-2 px-4 pt-4 pb-4 md:px-6"
+            : "flex flex-1 flex-col gap-4 px-4 pb-8 md:px-6"
         }
       >
         {left}

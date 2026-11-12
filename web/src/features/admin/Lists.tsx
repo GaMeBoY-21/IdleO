@@ -98,7 +98,7 @@ export function ListBar({
   };
   const mine = views.data?.views ?? [];
   return (
-    <div className="flex flex-wrap items-end gap-3 text-small">
+    <div className="flex flex-wrap items-end gap-2 text-small">
       {tags && can("notes.read") && (vocabulary.data?.tags.length ?? 0) > 0 && (
         <label className="flex flex-col gap-1 text-caption text-text-2">
           Tag

@@ -18,7 +18,7 @@ export function MachineChip({ state }: { state: MachineState }) {
     <span
       data-testid="machine-chip"
       className={cn(
-        "inline-flex items-center gap-2 self-start rounded-full px-3 py-1.5 text-small font-semibold whitespace-nowrap",
+        "inline-flex items-center gap-2 self-start rounded-full px-4 py-2 text-small font-semibold whitespace-nowrap",
         tones[state.kind],
       )}
     >

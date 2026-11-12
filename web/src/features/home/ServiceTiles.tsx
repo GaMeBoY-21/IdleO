@@ -21,7 +21,7 @@ export function MainServiceTile({ service }: { service: Service }) {
   return (
     <TileLink href={bookHref(service.id)} tone={serviceTone(0)} className="row-span-2">
       <Icon aria-hidden="true" className="size-7.5" strokeWidth={1.6} />
-      <span className="flex flex-col gap-0.5">
+      <span className="flex flex-col gap-1">
         <span className="font-title text-display-card break-words">{service.name}</span>
         <TileLabel tone="ember">{sentence(service.tagline)}</TileLabel>
       </span>
@@ -37,9 +37,9 @@ export function WideServiceTile({ service, index = 1 }: { service: Service; inde
     <TileLink
       href={bookHref(service.id)}
       tone={tone}
-      className="col-span-2 flex-row items-center justify-between gap-3"
+      className="col-span-2 flex-row items-center justify-between gap-2"
     >
-      <span className="flex min-w-0 flex-col gap-0.5">
+      <span className="flex min-w-0 flex-col gap-1">
         <span className="font-title text-display-card break-words">{service.name}</span>
         <TileLabel tone={tone}>{sentence(service.tagline)}</TileLabel>
       </span>
@@ -62,7 +62,7 @@ export function QuestionTile({ services }: { services: Service[] }) {
       <h1 id="question" className="font-title text-display-card">
         What do you want to run?
       </h1>
-      <div className="mt-3 flex flex-col gap-2">
+      <div className="mt-4 flex flex-col gap-2">
         {services.map((service, index) => {
           const Icon = SERVICE_ICONS[service.icon];
           return (

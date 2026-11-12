@@ -41,7 +41,7 @@ export function YourRequestTile({
     ];
   });
   return (
-    <Tile as="section" aria-labelledby="request-title" size="lg" className="flex flex-col gap-3 xl:p-6">
+    <Tile as="section" aria-labelledby="request-title" size="lg" className="flex flex-col gap-2 xl:p-6">
       <h2 id="request-title" className="text-section">
         Your request
       </h2>
@@ -49,19 +49,19 @@ export function YourRequestTile({
         {[...inputs, ...presets].map((row) => (
           <div
             key={row.label}
-            className="flex items-baseline justify-between gap-4 border-b border-line py-2.5 text-body"
+            className="flex items-baseline justify-between gap-4 border-b border-line py-2 text-body"
           >
             <dt className="shrink-0 text-text-2">{row.label}</dt>
             <dd className="min-w-0 flex-1 text-right font-semibold break-words">{row.value}</dd>
           </div>
         ))}
-        <div className="flex items-baseline justify-between gap-4 border-b border-line py-2.5 text-body">
+        <div className="flex items-baseline justify-between gap-4 border-b border-line py-2 text-body">
           <dt className="text-text-2">Spending cap</dt>
           <dd className="font-semibold">
             <Money paise={session.maxSpendPaise} />
           </dd>
         </div>
-        <div className="flex items-baseline justify-between gap-4 py-2.5 text-body">
+        <div className="flex items-baseline justify-between gap-4 py-2 text-body">
           <dt className="text-text-2">Held until it runs</dt>
           <dd className="font-semibold">
             <Money paise={session.reservedPaise} />

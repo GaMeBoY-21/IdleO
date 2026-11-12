@@ -145,7 +145,7 @@ function Tick({
 }) {
   const id = useId();
   return (
-    <div className="flex min-h-touch items-center gap-3">
+    <div className="flex min-h-touch items-center gap-2">
       <input
         id={id}
         type="checkbox"

@@ -168,7 +168,7 @@ function Enrol() {
         shows.
       </p>
       {secret.data ? (
-        <div className="flex flex-col items-start gap-3">
+        <div className="flex flex-col items-start gap-2">
           <QrCode value={secret.data.otpauthUri} label="QR code of your authenticator secret" />
           <p className="text-caption text-text-2">Or type this secret into the app:</p>
           <p className="tabular text-small font-medium break-all">{secret.data.secret}</p>

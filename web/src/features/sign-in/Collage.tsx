@@ -7,15 +7,15 @@ export function Collage() {
   return (
     <aside
       aria-label="About the product"
-      className="hidden xl:col-span-7 xl:grid xl:grid-cols-2 xl:gap-4 2xl:gap-5"
+      className="hidden xl:col-span-7 xl:grid xl:grid-cols-2 xl:gap-4 2xl:gap-4"
     >
       <Tile
         tone="night"
         size="lg"
-        className="flex min-h-session-tile flex-col justify-between gap-3 xl:row-span-2 xl:p-8"
+        className="flex min-h-session-tile flex-col justify-between gap-2 xl:row-span-2 xl:p-8"
       >
         <Icon icon={Cpu} onDark />
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-2">
           <h2 className="font-title text-display-panel">Rent a GPU by the minute</h2>
           <p className="text-body text-on-night-2">
             Paid in rupees, and only for the minutes it ran. We provide the GPU; you bring your own model,
@@ -30,7 +30,7 @@ export function Collage() {
           <p className="text-body text-ink">Upload your model and examples, and download the adapter.</p>
         </div>
       </Tile>
-      <div className="grid grid-cols-2 gap-4 2xl:gap-5">
+      <div className="grid grid-cols-2 gap-4 2xl:gap-4">
         <Tile tone="ember" size="lg" className="flex flex-col justify-between gap-2 xl:p-6">
           <Icon icon={Zap} />
           <div className="flex flex-col gap-1">

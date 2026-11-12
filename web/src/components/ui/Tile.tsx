@@ -40,8 +40,8 @@ export type TileSize = "md" | "lg" | "feature";
 
 export function tileClasses(tone: TileTone = "panel", size: TileSize = "md") {
   return cn(
-    size === "feature" ? "rounded-feature p-6 xl:px-8 xl:py-7" : "rounded-panel",
-    size === "lg" ? "p-6 xl:p-7" : size === "md" ? "p-4.5" : "",
+    size === "feature" ? "rounded-feature p-6 xl:px-8 xl:py-8" : "rounded-panel",
+    size === "lg" ? "p-6 xl:p-8" : size === "md" ? "p-4" : "",
     surfaces[tone],
   );
 }

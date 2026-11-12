@@ -21,7 +21,7 @@ export function AccountLink() {
       href="/account/"
       aria-current={current ? "page" : undefined}
       className={cn(
-        "flex min-h-touch min-w-0 flex-1 items-center gap-3 rounded-control px-3.5 py-2 text-small font-semibold",
+        "flex min-h-touch min-w-0 flex-1 items-center gap-2 rounded-control px-4 py-2 text-small font-semibold",
         current ? "bg-raised" : "hover:bg-raised",
       )}
     >

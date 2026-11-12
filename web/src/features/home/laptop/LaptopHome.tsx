@@ -52,7 +52,7 @@ export function LaptopHome({
     : "";
   return (
     <div className={HOME}>
-      {banners && <div className="flex flex-col gap-2.5">{banners}</div>}
+      {banners && <div className="flex flex-col gap-2">{banners}</div>}
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div className="flex flex-col gap-1">
           <span className="text-body text-text-3">Or drop a folder anywhere on this page</span>

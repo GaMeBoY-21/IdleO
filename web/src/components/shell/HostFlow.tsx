@@ -36,7 +36,7 @@ export function HostFlow({
   const pill = (
     <Link
       href={back}
-      className="flex min-h-touch items-center gap-1 self-start rounded-full bg-panel px-3.5 text-small font-semibold hover:bg-raised"
+      className="flex min-h-touch items-center gap-1 self-start rounded-full bg-panel px-4 text-small font-semibold hover:bg-raised"
     >
       <ChevronLeft aria-hidden="true" className="size-4" strokeWidth={2} />
       {backLabel}
@@ -45,7 +45,7 @@ export function HostFlow({
   const head =
     summary ??
     (title && (
-      <Tile tone="night" size="lg" className="flex flex-col gap-3 xl:p-7">
+      <Tile tone="night" size="lg" className="flex flex-col gap-2 xl:p-8">
         <h1 className="font-title text-display-feature">{title}</h1>
         {lede && <p className="text-body text-on-night-2">{lede}</p>}
       </Tile>
@@ -60,14 +60,14 @@ export function HostFlow({
             {head}
           </>
         }
-        right={<div className={cn("flex flex-col gap-4 2xl:gap-5", className)}>{children}</div>}
+        right={<div className={cn("flex flex-col gap-4 2xl:gap-4", className)}>{children}</div>}
       />
     );
   }
   return (
     <div className="flex flex-1 flex-col">
       <FlowHeader back={back} title={backLabel} />
-      <div className="mx-auto flex w-full max-w-card flex-1 flex-col gap-3.5 px-3.5 pt-1 pb-8">
+      <div className="mx-auto flex w-full max-w-card flex-1 flex-col gap-4 px-4 pt-1 pb-8">
         {title && !summary ? <h1 className="font-title text-display-feature">{title}</h1> : summary}
         {children}
       </div>

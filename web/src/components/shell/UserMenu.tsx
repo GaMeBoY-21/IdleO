@@ -7,7 +7,7 @@ import { nav } from "@site/site";
 import { Avatar, MoreFace } from "./UserMenuButton";
 
 const item =
-  "flex min-h-touch cursor-default items-center gap-3 rounded-control px-3 text-small outline-none select-none data-highlighted:bg-raised";
+  "flex min-h-touch cursor-default items-center gap-2 rounded-control px-4 text-small outline-none select-none data-highlighted:bg-raised";
 
 /**
  * Who's signed in, Account, the site's own items, the one quiet link to the other site (ADR 0058) and signing out. On a
@@ -23,7 +23,7 @@ export function UserMenu({ defaultOpen = false, tab = false }: { defaultOpen?: b
       <DropdownMenu.Trigger
         className={
           tab
-            ? "flex h-full w-full flex-col items-center justify-center gap-0.5 rounded-bar text-text-2 data-[state=open]:text-text"
+            ? "flex h-full w-full flex-col items-center justify-center gap-1 rounded-bar text-text-2 data-[state=open]:text-text"
             : "flex size-touch items-center justify-center rounded-full"
         }
         aria-label={tab ? "More" : "Your account and settings"}
@@ -36,10 +36,10 @@ export function UserMenu({ defaultOpen = false, tab = false }: { defaultOpen?: b
           side={tab ? "top" : "bottom"}
           sideOffset={tab ? 12 : 4}
           data-tile=""
-          className="appear z-20 w-menu rounded-panel border border-edge bg-panel p-2 ring-1 ring-line"
+          className="appear z-popover w-menu rounded-panel border border-edge bg-panel p-2 ring-1 ring-line"
         >
           {email && (
-            <DropdownMenu.Label className="truncate px-3 py-2 text-caption text-text-2">
+            <DropdownMenu.Label className="truncate px-4 py-2 text-caption text-text-2">
               Signed in as {email}
             </DropdownMenu.Label>
           )}

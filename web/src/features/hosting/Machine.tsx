@@ -87,7 +87,7 @@ export function Machine() {
       backLabel="Hosting"
       className="xl:grid xl:grid-cols-2 xl:items-start"
       summary={
-        <Tile tone="night" size="lg" className="flex flex-col gap-2 xl:p-7">
+        <Tile tone="night" size="lg" className="flex flex-col gap-2 xl:p-8">
           <MachineChip state={state} />
           <h1 className="font-title text-display-feature break-words">{machine.name}</h1>
           <p className="min-h-5 text-small text-on-night-2">
@@ -112,7 +112,7 @@ export function Machine() {
       <GpuLine host={machine} />
       <RightNow host={machine} />
       <PrivacyLine host={machine} />
-      <div className="flex flex-col gap-2.5 xl:col-span-2">
+      <div className="flex flex-col gap-2 xl:col-span-2">
         <MachineLink
           href={pricePath(machine.id)}
           title="Price and limits"
@@ -147,7 +147,7 @@ export function Machine() {
 /** The machine's frame before it arrives: the same blocks, the same heights. */
 function MachineSkeleton() {
   return (
-    <div role="status" aria-label="Loading this machine" className="flex flex-col gap-3.5">
+    <div role="status" aria-label="Loading this machine" className="flex flex-col gap-4">
       <Tile tone="night" className="flex flex-col gap-2">
         <Skeleton className="h-9 w-1/3 rounded-full" />
         <SkeletonLine size="title" width="w-2/3" onDark />

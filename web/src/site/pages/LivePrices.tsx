@@ -2,7 +2,7 @@ import { GPU_CLASSES } from "../gpus";
 import { sectionTitle } from "../ui";
 
 /** A row's place on the page, 96 px high whatever it holds, so what arrives never moves anything. */
-const ROW = "flex h-24 flex-col justify-center rounded-panel bg-panel px-5 text-text";
+const ROW = "flex h-24 flex-col justify-center rounded-panel bg-panel px-6 text-text";
 
 /**
  * The live prices by GPU memory (ADR 0029): one row each, filled by src/site/islands/pricing.ts from
@@ -16,7 +16,7 @@ export function LivePrices({ title = "What a GPU costs" }: { title?: string }) {
       <h2 id="prices" className={sectionTitle}>
         {title}
       </h2>
-      <ul className="mt-4 grid gap-2.5 md:grid-cols-2 md:gap-3.5">
+      <ul className="mt-4 grid gap-2 md:grid-cols-2 md:gap-4">
         {GPU_CLASSES.map((gpu) => (
           <li key={gpu.gb} className={ROW} data-class-row={gpu.gb} data-state="loading">
             <p className="flex items-center justify-between text-option font-semibold">
@@ -34,7 +34,7 @@ export function LivePrices({ title = "What a GPU costs" }: { title?: string }) {
         ))}
       </ul>
       <div
-        className="mt-2 flex min-h-14 items-start justify-between gap-x-3 text-caption text-text-2"
+        className="mt-2 flex min-h-14 items-start justify-between gap-x-2 text-caption text-text-2"
         aria-live="polite"
       >
         <p data-role="status" className="flex-1">

@@ -47,7 +47,7 @@ export function Months() {
                     )}
                   </Cell>
                   <Cell>
-                    <ul className="flex flex-col gap-0.5 text-small">
+                    <ul className="flex flex-col gap-1 text-small">
                       {period.checklist.map((item) => (
                         <li key={item.name} className={item.done ? "" : "text-danger"}>
                           <span aria-hidden="true">{item.done ? "✓" : "✗"}</span> {item.name}
@@ -61,7 +61,7 @@ export function Months() {
                     {period.events.length === 0 ? (
                       <span className="text-text-2">—</span>
                     ) : (
-                      <ul className="flex flex-col gap-0.5 text-small">
+                      <ul className="flex flex-col gap-1 text-small">
                         {period.events.map((event, index) => (
                           <li key={index}>
                             {event.action} by {event.actor} <RelativeTime value={event.at} />

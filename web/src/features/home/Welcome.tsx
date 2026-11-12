@@ -42,7 +42,7 @@ function WelcomeCard() {
 
   return (
     <SignInFrame title={`Welcome to ${brand.name}`}>
-      <div className="flex flex-col gap-7">
+      <div className="flex flex-col gap-6">
         <p className="text-body text-text-2">
           Run your code on someone&apos;s idle gaming GPU, by the minute, paid in rupees. You&apos;re only
           charged for the minutes your session runs.
@@ -63,7 +63,7 @@ function WelcomeCard() {
         </div>
         <ol className="flex flex-col gap-4">
           {STEPS.map((step, index) => (
-            <li key={step.title} className="flex gap-3">
+            <li key={step.title} className="flex gap-2">
               <span
                 aria-hidden="true"
                 className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary text-small font-semibold text-primary-fg"

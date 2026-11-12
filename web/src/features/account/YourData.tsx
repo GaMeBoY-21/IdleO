@@ -30,7 +30,7 @@ export const GROUP_TITLES: Record<string, string> = {
   reports: "Reports and ratings",
 };
 
-const ROW = "flex min-h-18 flex-col justify-center gap-0.5 py-3";
+const ROW = "flex min-h-18 flex-col justify-center gap-1 py-4";
 
 /**
  * Account → Your data (ADR 0037): everything we hold about the person, by kind, with how much and since when; the
@@ -57,7 +57,7 @@ export function YourData() {
       <Tile
         as="section"
         aria-labelledby="held-title"
-        className="flex flex-col gap-1 md:p-6 xl:col-span-3 xl:p-7"
+        className="flex flex-col gap-1 md:p-6 xl:col-span-3 xl:p-8"
       >
         <SectionTitle id="held-title">What we hold</SectionTitle>
         <p className="mb-2 max-w-prose text-small text-text-2">
@@ -85,7 +85,7 @@ export function YourData() {
         )}
       </Tile>
       <div className="flex flex-col gap-4 xl:col-span-2">
-        <Tile as="section" aria-labelledby="download-title" className="flex flex-col gap-3 md:p-6 xl:p-7">
+        <Tile as="section" aria-labelledby="download-title" className="flex flex-col gap-2 md:p-6 xl:p-8">
           <SectionTitle id="download-title">Download my data</SectionTitle>
           <p className="max-w-prose text-small text-text-2">
             One file with all of it, and links to your files that work for 7 days. We make it in the
@@ -93,9 +93,9 @@ export function YourData() {
           </p>
           <ExportBox exports={exports} />
         </Tile>
-        <Tile as="section" aria-labelledby="delete-title" className="flex flex-col gap-1 md:p-6 xl:p-7">
+        <Tile as="section" aria-labelledby="delete-title" className="flex flex-col gap-1 md:p-6 xl:p-8">
           <SectionTitle id="delete-title">Delete my account</SectionTitle>
-          <Link href="/account/delete/" className="flex min-h-touch items-center gap-3 hover:bg-panel-2">
+          <Link href="/account/delete/" className="flex min-h-touch items-center gap-2 hover:bg-panel-2">
             <p className="flex-1 text-small text-text-2">
               What&apos;s erased, what we must keep, and the 7 days you have to change your mind.
             </p>
@@ -174,11 +174,11 @@ function ExportBox({ exports }: { exports: ReturnType<typeof useExports> }) {
       ? problemMessage(download.error)
       : undefined;
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-2">
       <p className="min-h-10 text-small" aria-live="polite">
         {status ?? <SkeletonLine size="small" width="w-2/3" />}
       </p>
-      <div className="flex flex-wrap gap-3">
+      <div className="flex flex-wrap gap-2">
         {latest?.state === "ready" ? (
           <Button busy={download.isPending} onClick={() => save(latest.id)}>
             Download

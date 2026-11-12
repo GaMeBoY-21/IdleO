@@ -173,7 +173,7 @@
 }
 
 @utility appear {
-  animation: idleo-appear 180ms var(--ease-enter) both;
+  animation: idleo-appear var(--duration-appear) var(--ease-enter) both;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -217,7 +217,7 @@
 }
 
 @utility rise {
-  animation: idleo-rise 240ms var(--ease-enter) both;
+  animation: idleo-rise var(--duration-large) var(--ease-enter) both;
 }
 
 @keyframes idleo-spin {

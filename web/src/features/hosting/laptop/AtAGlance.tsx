@@ -18,7 +18,7 @@ export function AtAGlance({ machines, enabled }: { machines: Host[]; enabled: bo
     earnings.data?.pages[0]?.machines.map((machine) => [machine.hostId, machine.earnedPaise]),
   );
   return (
-    <Tile as="section" aria-labelledby="glance-title" className="flex flex-col gap-2 xl:p-7">
+    <Tile as="section" aria-labelledby="glance-title" className="flex flex-col gap-2 xl:p-8">
       <SectionTitle id="glance-title">At a glance</SectionTitle>
       <table className="w-full text-left text-small">
         <thead className="text-caption text-text-2">
@@ -65,7 +65,7 @@ export function AtAGlance({ machines, enabled }: { machines: Host[]; enabled: bo
 export function WhatEachNeeds({ machines }: { machines: Host[] | undefined }) {
   const now = useNow("half-minute");
   return (
-    <Tile as="section" aria-labelledby="needs-title" className="flex flex-col gap-1 xl:col-span-3 xl:p-7">
+    <Tile as="section" aria-labelledby="needs-title" className="flex flex-col gap-1 xl:col-span-3 xl:p-8">
       <SectionTitle id="needs-title">Your laptops</SectionTitle>
       {machines && machines.length === 0 ? (
         <p className="text-small text-text-2">No laptop linked yet. Download the app above to add one.</p>

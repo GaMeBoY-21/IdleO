@@ -32,7 +32,7 @@ const variants: Record<ButtonVariant, string> = {
 export function buttonClasses(variant: ButtonVariant = "primary", block = false, large = false) {
   return cn(
     "inline-flex items-center justify-center gap-2 font-semibold",
-    "transition-colors duration-120 select-none disabled:cursor-not-allowed disabled:opacity-60",
+    "transition-colors duration-press select-none disabled:cursor-not-allowed disabled:opacity-60",
     // One least height each: with both, the stylesheet's order, not this line, would decide which wins.
     large
       ? "min-h-14 rounded-control-lg px-6 text-option md:min-h-15"

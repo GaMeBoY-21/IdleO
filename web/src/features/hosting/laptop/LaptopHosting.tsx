@@ -12,17 +12,17 @@ import { HOST_PATHS } from "@/sites/host/paths";
 /** The apricot tile: what a machine needs, and that a one-time code links it. */
 export function AddTile({ className }: { className?: string }) {
   return (
-    <TileLink href={HOST_PATHS.add} tone="ember" size="lg" className={cn("gap-4 xl:p-7", className)}>
+    <TileLink href={HOST_PATHS.add} tone="ember" size="lg" className={cn("gap-4 xl:p-8", className)}>
       <span aria-hidden="true" className="flex size-14 items-center justify-center rounded-icon bg-ink/10">
         <Plus className="size-6" strokeWidth={2} />
       </span>
-      <span className="flex flex-col gap-3">
+      <span className="flex flex-col gap-2">
         <ul className="flex flex-col gap-1 text-small text-ink">
           <li>Windows 10 or 11</li>
           <li>An NVIDIA RTX graphics card</li>
           <li>Plugged in, with an internet connection that stays on</li>
         </ul>
-        <span className="flex flex-col gap-1.5">
+        <span className="flex flex-col gap-1">
           <span className="font-title text-display-card">Add a machine</span>
           <span className="text-body text-ink">
             A one-time code links your laptop. Takes about 5 minutes.

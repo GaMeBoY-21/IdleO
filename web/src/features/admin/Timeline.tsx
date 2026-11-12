@@ -45,7 +45,7 @@ export function Timeline({ subject, id }: { subject: Subject; id: string }) {
   const kinds = events.data?.pages[0]?.kinds ?? [];
   const unanswered = events.data?.pages[0]?.unanswered ?? [];
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-2">
       {kinds.length > 1 && (
         <div role="group" aria-label="Show only" className="flex flex-wrap gap-1">
           {kinds.map((kind) => {
@@ -57,7 +57,7 @@ export function Timeline({ subject, id }: { subject: Subject; id: string }) {
                 aria-pressed={on}
                 onClick={() => setOnly(on ? only.filter((other) => other !== kind) : [...only, kind])}
                 className={cn(
-                  "min-h-touch rounded-full px-3 text-caption font-medium md:min-h-9",
+                  "min-h-touch rounded-full px-4 text-caption font-medium md:min-h-9",
                   on ? "bg-primary text-on-primary" : "bg-raised text-text-2",
                 )}
               >
@@ -83,7 +83,7 @@ export function Timeline({ subject, id }: { subject: Subject; id: string }) {
             {rows.map((event) => (
               <li
                 key={event.key}
-                className="flex flex-col gap-0.5 border-b border-line py-2 md:flex-row md:items-baseline md:gap-4"
+                className="flex flex-col gap-1 border-b border-line py-2 md:flex-row md:items-baseline md:gap-4"
               >
                 <span className="tabular w-48 shrink-0 text-caption text-text-2">
                   {IST.format(new Date(event.at))} IST · <RelativeTime value={event.at} />

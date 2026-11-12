@@ -32,7 +32,7 @@ export function Route({
       {stops.map((stop, index) => {
         const last = index === stops.length - 1;
         return (
-          <li key={index} className={cn("flex", compact ? "gap-3.5" : "gap-5")}>
+          <li key={index} className={cn("flex", compact ? "gap-4" : "gap-4")}>
             <div
               aria-hidden="true"
               className={cn("flex shrink-0 flex-col items-center", compact ? "w-4" : "w-5.5")}
@@ -40,7 +40,7 @@ export function Route({
               <Marker state={stop.state} compact={compact} />
               {!last && <span className={cn("flex-1 bg-text", compact ? "min-h-4 w-0.5" : "min-h-10 w-1")} />}
             </div>
-            <div className={cn("flex min-w-0 flex-col gap-1", !last && (compact ? "pb-3.5" : "pb-7"))}>
+            <div className={cn("flex min-w-0 flex-col gap-1", !last && (compact ? "pb-4" : "pb-8"))}>
               {/* Compact, it's a one-glance recap (Book's summary on a phone): one line, so it never changes height. */}
               <span
                 className={cn("font-semibold", compact ? "truncate text-small" : "text-option break-words")}
@@ -62,7 +62,7 @@ export function Route({
 
 function Marker({ state, compact }: { state: Stop["state"]; compact: boolean }) {
   if (state === "end") {
-    return <span className={cn("bg-text", compact ? "mt-0.5 size-3.5" : "size-4.5")} />;
+    return <span className={cn("bg-text", compact ? "mt-1 size-3.5" : "size-4.5")} />;
   }
   if (state === "done") {
     return (
@@ -93,7 +93,7 @@ function RouteAcross({ stops }: { stops: Stop[] }) {
       {stops.map((stop, index) => {
         const last = index === stops.length - 1;
         return (
-          <li key={index} className="flex min-w-0 flex-1 basis-0 flex-col gap-3">
+          <li key={index} className="flex min-w-0 flex-1 basis-0 flex-col gap-2">
             <div aria-hidden="true" className="flex h-5.5 items-center">
               {stop.state === "end" ? (
                 <span className="size-4.5 border-4 border-line" />
@@ -104,7 +104,7 @@ function RouteAcross({ stops }: { stops: Stop[] }) {
               )}
               {!last && <span className={cn("h-1 flex-1", stop.state === "done" ? "bg-text" : "bg-line")} />}
             </div>
-            <div className="flex flex-col gap-1 pr-3">
+            <div className="flex flex-col gap-1 pr-4">
               <span className={cn("text-body font-semibold", stop.state === "end" && "text-text-2")}>
                 {stop.title}
               </span>

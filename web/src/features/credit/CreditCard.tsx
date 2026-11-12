@@ -22,7 +22,7 @@ export function CreditCard({ wallet, wide = false }: { wallet: UseQueryResult<Wa
       tone="night"
       size={wide ? "lg" : "md"}
       aria-labelledby="credit-title"
-      className="flex flex-col gap-5"
+      className="flex flex-col gap-4"
     >
       <h2 id="credit-title" className="sr-only">
         Your credit
@@ -45,7 +45,7 @@ export function CreditCard({ wallet, wide = false }: { wallet: UseQueryResult<Wa
               )}
             </p>
           </div>
-          <dl className="grid grid-cols-2 gap-2.5">
+          <dl className="grid grid-cols-2 gap-2">
             <Figure
               label="On hold"
               paise={wallet.data.reservedPaise}
@@ -80,9 +80,9 @@ function freeNote(wallet: Wallet): string {
 
 function Figure({ label, paise, note }: { label: string; paise: number; note: string }) {
   return (
-    <div className="flex flex-col gap-0.5 rounded-control bg-on-night/10 px-4 py-3.5">
+    <div className="flex flex-col gap-1 rounded-control bg-on-night/10 px-4 py-4">
       <dt className="text-small text-on-night-2">{label}</dt>
-      <dd className="flex flex-col gap-0.5">
+      <dd className="flex flex-col gap-1">
         <Money paise={paise} className="block text-option font-semibold" />
         <span className="min-h-9 text-caption text-on-night-2">{note}</span>
       </dd>
@@ -93,7 +93,7 @@ function Figure({ label, paise, note }: { label: string; paise: number; note: st
 /** Exactly the loaded figures' shape, line for line, so nothing below them moves when they arrive. */
 function CreditSkeleton() {
   return (
-    <div className="flex flex-col gap-5" role="status" aria-label="Loading your credit">
+    <div className="flex flex-col gap-4" role="status" aria-label="Loading your credit">
       <div className="flex flex-col gap-1">
         <SkeletonLine size="small" width="w-1/4" onDark />
         {/* The big figure's line: text-timer, and text-timer-lg from 1200 px, as the figure itself. */}
@@ -102,9 +102,9 @@ function CreditSkeleton() {
         </div>
         <SkeletonLine size="caption" width="w-1/3" onDark />
       </div>
-      <div className="grid grid-cols-2 gap-2.5">
+      <div className="grid grid-cols-2 gap-2">
         {[0, 1, 2, 3].map((key) => (
-          <div key={key} className="flex flex-col gap-0.5 rounded-control bg-on-night/10 px-4 py-3.5">
+          <div key={key} className="flex flex-col gap-1 rounded-control bg-on-night/10 px-4 py-4">
             <SkeletonLine size="small" width="w-1/2" onDark />
             <SkeletonLine size="option" width="w-2/3" onDark />
             <div className="min-h-9">

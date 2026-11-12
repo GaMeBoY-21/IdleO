@@ -34,7 +34,7 @@ export function LossChart({ losses }: { losses: number[] }) {
   const latest = losses[losses.length - 1]!;
   const fmt = (value: number) => value.toFixed(2);
   return (
-    <Tile as="section" aria-labelledby="loss-title" size="lg" className="flex flex-col gap-3.5">
+    <Tile as="section" aria-labelledby="loss-title" size="lg" className="flex flex-col gap-4">
       <div className="flex items-baseline justify-between">
         <h2 id="loss-title" className="text-section">
           Training loss
@@ -46,7 +46,7 @@ export function LossChart({ losses }: { losses: number[] }) {
       <div
         role="img"
         aria-label={`Training loss, from ${fmt(first)} to ${fmt(latest)}`}
-        className="flex h-loss items-end gap-1.25 rounded-inner bg-canvas p-4.5"
+        className="flex h-loss items-end gap-1 rounded-inner bg-canvas p-4"
       >
         {heights.map((height, index) => (
           <span

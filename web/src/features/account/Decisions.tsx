@@ -25,7 +25,7 @@ export function Decisions() {
           <li key={decision.id}>
             <Link
               href={`/account/appeal/?id=${decision.id}`}
-              className="flex min-h-touch flex-col justify-center gap-0.5 py-3"
+              className="flex min-h-touch flex-col justify-center gap-1 py-4"
             >
               <span className="text-option font-semibold">{decision.title}</span>
               <span className="text-small text-text-2">

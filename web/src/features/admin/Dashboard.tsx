@@ -80,7 +80,7 @@ export function Dashboard() {
           query={room}
           what="the control room"
           skeleton={
-            <div role="status" aria-label="Loading the control room" className="grid gap-3 lg:grid-cols-2">
+            <div role="status" aria-label="Loading the control room" className="grid gap-2 lg:grid-cols-2">
               {["money", "marketplace", "supply", "funnels"].map((part) => (
                 <Skeleton key={part} className="h-56 w-full" />
               ))}
@@ -139,7 +139,7 @@ function Panels({ figures }: { figures: ControlRoom }) {
         )}
         {market && (
           <Panel title="Marketplace" at={figures.computedAt.marketplace} stale={stale("marketplace")}>
-            <ul aria-label="The marketplace now" className="grid grid-cols-2 gap-3 md:grid-cols-3">
+            <ul aria-label="The marketplace now" className="grid grid-cols-2 gap-2 md:grid-cols-3">
               <Figure
                 label="Sessions running"
                 value={market.sessionsRunning}
@@ -261,7 +261,7 @@ function Panels({ figures }: { figures: ControlRoom }) {
         <Panel title="Health" at={figures.computedAt.health} stale={stale("health")}>
           <ul aria-label="The control plane's checks" className="flex flex-col gap-2">
             {figures.health.map((check) => (
-              <li key={check.name} className="flex items-start gap-3 text-small">
+              <li key={check.name} className="flex items-start gap-2 text-small">
                 <Pill tone={check.ok ? "running" : "danger"}>{check.ok ? "ok" : "look"}</Pill>
                 <span>
                   {HEALTH_LINKS[check.name] !== undefined ? (
@@ -536,7 +536,7 @@ function Figure({
   href: string;
 }) {
   return (
-    <li className="flex h-24 flex-col justify-between rounded-inner border border-edge bg-panel p-3">
+    <li className="flex h-24 flex-col justify-between rounded-inner border border-edge bg-panel p-4">
       <Link href={href} className="min-h-6 text-small font-medium underline-offset-4 hover:underline">
         {label}
       </Link>
@@ -725,8 +725,8 @@ function InstallRow({ install }: { install: Install }) {
       </Row>
       {open && (
         <tr id={panel} className="border-b border-line bg-panel-2">
-          <td colSpan={7} className="px-2 py-3">
-            <ul className="flex flex-col gap-3">
+          <td colSpan={7} className="px-2 py-4">
+            <ul className="flex flex-col gap-2">
               {install.details.map((each) => (
                 <li key={`${each.step}-${each.reason ?? ""}-${each.at}`} className="flex flex-col gap-1">
                   <p className="text-caption text-text-2">

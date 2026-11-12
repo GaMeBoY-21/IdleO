@@ -43,8 +43,8 @@ export function Section({
 }) {
   const id = useId();
   return (
-    <section aria-labelledby={id} className="flex flex-col gap-3">
-      <div className="flex min-h-touch items-center justify-between gap-3">
+    <section aria-labelledby={id} className="flex flex-col gap-2">
+      <div className="flex min-h-touch items-center justify-between gap-2">
         <h2 id={id} className="text-section">
           {title}
         </h2>
@@ -100,7 +100,7 @@ export function QueryView<T>({
   }
   const stale = staleSince(query);
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-2">
       {stale !== null && <StaleNotice updatedAt={stale} />}
       {isEmpty?.(query.data) ? empty : children(query.data)}
       {"hasNextPage" in query && query.hasNextPage && (
@@ -147,7 +147,7 @@ export function PagedView<P, T>({
   const rows = query.data.pages.flatMap(items);
   const stale = staleSince(query);
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-2">
       {stale !== null && <StaleNotice updatedAt={stale} />}
       {rows.length === 0 ? empty : children(rows)}
       {query.hasNextPage && (
@@ -265,7 +265,7 @@ export function Pill({
   return (
     <span
       className={cn(
-        "inline-flex rounded-full px-2.5 py-0.5 text-caption font-medium",
+        "inline-flex rounded-full px-2 py-1 text-caption font-medium",
         tone === "plain" && "bg-raised text-text",
         tone === "running" && "bg-ok text-ok-fg",
         tone === "danger" && "bg-danger-soft text-danger",
@@ -281,7 +281,7 @@ export function Filters({ onSubmit, children }: { onSubmit: () => void; children
   return (
     <form
       role="search"
-      className="flex flex-wrap items-end gap-3"
+      className="flex flex-wrap items-end gap-2"
       onSubmit={(event) => {
         event.preventDefault();
         onSubmit();
@@ -327,7 +327,7 @@ export function SmallField({
         placeholder={placeholder}
         onChange={(event) => onChange(event.target.value)}
         className={cn(
-          "min-h-touch rounded-control border border-edge bg-panel px-3 text-small text-text placeholder:text-text-2",
+          "min-h-touch rounded-control border border-edge bg-panel px-4 text-small text-text placeholder:text-text-2",
           width,
         )}
       />
@@ -357,7 +357,7 @@ export function SmallSelect({
         id={id}
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="min-h-touch rounded-control border border-edge bg-panel px-3 text-small text-text"
+        className="min-h-touch rounded-control border border-edge bg-panel px-4 text-small text-text"
       >
         {options.map(([option, text]) => (
           <option key={option} value={option}>
@@ -378,7 +378,7 @@ export function Timeline({
   return (
     <ol className="flex flex-col gap-2 text-small">
       {events.map((event, index) => (
-        <li key={`${event.at}-${index}`} className="flex flex-wrap gap-x-3">
+        <li key={`${event.at}-${index}`} className="flex flex-wrap gap-x-2">
           <time dateTime={event.at} className="tabular text-text-2">
             {formatDateTime(event.at)}
           </time>

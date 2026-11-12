@@ -30,13 +30,13 @@ export function AppShell({ children }: { children: ReactNode }) {
     <div className={cn("flex min-h-dvh flex-col", SIDEBAR_PUSH)}>
       <a
         href="#main"
-        className="sr-only z-30 rounded-full bg-panel px-4 py-3 focus:not-sr-only focus:fixed focus:top-2 focus:left-2"
+        className="sr-only z-toast rounded-full bg-panel px-4 py-4 focus:not-sr-only focus:fixed focus:top-2 focus:left-2"
       >
         Skip to content
       </a>
       <Sidebar />
-      <header className={cn("sticky top-0 z-10 bg-canvas md:hidden", flow && "hidden")}>
-        <div className="flex h-16 items-center justify-between gap-6 px-3.5">
+      <header className={cn("sticky top-0 z-raised bg-canvas md:hidden", flow && "hidden")}>
+        <div className="flex h-16 items-center justify-between gap-6 px-4">
           <Link href="/" className="flex min-h-touch items-center" aria-label={`${brand.name} home`}>
             <Wordmark />
           </Link>
@@ -51,7 +51,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       <nav
         aria-label="Main"
         className={cn(
-          "fixed inset-x-3.5 bottom-tab z-10 h-16 rounded-bar border border-line bg-panel md:hidden",
+          "fixed inset-x-3.5 bottom-tab z-raised h-16 rounded-bar border border-line bg-panel md:hidden",
           flow && "hidden",
         )}
       >
@@ -64,7 +64,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                   href={href}
                   aria-current={current ? "page" : undefined}
                   className={cn(
-                    "relative flex flex-1 flex-col items-center justify-center gap-0.5 rounded-bar",
+                    "relative flex flex-1 flex-col items-center justify-center gap-1 rounded-bar",
                     current ? "font-semibold text-text" : "font-medium text-text-2",
                   )}
                 >
@@ -103,7 +103,7 @@ export function ShellSkeleton({ children }: { children?: ReactNode }) {
  */
 export function Page({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <div className="w-full px-3.5 pt-2 pb-8 md:px-8 md:pt-8 xl:px-10 md:pb-12">
+    <div className="w-full px-4 pt-2 pb-8 md:px-8 md:pt-8 xl:px-10 md:pb-12">
       <div className="mx-auto flex w-full max-w-card flex-col gap-6 xl:w-7/12 xl:max-w-none">
         <PageHeading>{title}</PageHeading>
         {children}
@@ -115,7 +115,7 @@ export function Page({ title, children }: { title: string; children: ReactNode }
 /** A flow's back button on a phone (Book, the session screen), where the bars give way to the flow. */
 export function FlowHeader({ back, title }: { back: string; title?: string }) {
   return (
-    <div className="flex h-16 items-center gap-3 px-3.5 md:hidden">
+    <div className="flex h-16 items-center gap-2 px-4 md:hidden">
       <Link
         href={back}
         aria-label="Back"

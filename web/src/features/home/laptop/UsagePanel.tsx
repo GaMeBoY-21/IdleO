@@ -18,7 +18,7 @@ export function UsagePanel({ enabled }: { enabled: boolean }) {
   const usage = useUsage(enabled);
   const month = usage.data;
   return (
-    <Tile size="lg" aria-labelledby="usage-title" className="flex flex-col gap-3">
+    <Tile size="lg" aria-labelledby="usage-title" className="flex flex-col gap-2">
       <h2 id="usage-title" className="text-caption font-bold tracking-wider text-text-2 uppercase">
         This month
       </h2>
@@ -31,7 +31,7 @@ export function UsagePanel({ enabled }: { enabled: boolean }) {
             </button>
           </p>
         ) : month ? (
-          <p className="flex flex-wrap items-baseline gap-x-3 tabular">
+          <p className="flex flex-wrap items-baseline gap-x-2 tabular">
             <span className="font-title text-display-figure">
               <Money paise={month.spentPaise} />
             </span>

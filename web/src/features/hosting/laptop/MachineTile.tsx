@@ -27,7 +27,7 @@ export function MachineTile({ host, className }: { host: Host; className?: strin
   return (
     <Tile size="lg" className={cn("flex min-h-0 flex-col justify-between gap-4 xl:p-6", className)}>
       <Link href={laptopPath(host.id)} className="flex flex-1 flex-col justify-between gap-4 hover:underline">
-        <span className="flex items-center justify-between gap-3 text-caption">
+        <span className="flex items-center justify-between gap-2 text-caption">
           <span
             className={cn(
               "flex items-center gap-2 font-bold",
@@ -58,7 +58,7 @@ export function MachineTile({ host, className }: { host: Host; className?: strin
                   : "offline"}
           </span>
         </span>
-        <span className="flex flex-col gap-3">
+        <span className="flex flex-col gap-2">
           <span className="flex flex-col gap-1 text-small text-text-2">
             {host.currentSession && (
               <span>
@@ -81,7 +81,7 @@ export function MachineTile({ host, className }: { host: Host; className?: strin
             </span>
           </span>
         </span>
-        <span className="flex flex-col gap-0.5">
+        <span className="flex flex-col gap-1">
           <span className="text-section break-words">{host.name}</span>
           <span className="text-small text-text-2 tabular">
             {gpu ? `${gpuName(gpu.model)} · ${gigabytes(gpu.vramMb)}` : "No GPU reported yet"}
@@ -95,7 +95,7 @@ export function MachineTile({ host, className }: { host: Host; className?: strin
           <Money paise={host.currentSession.earnedSoFarPaise} className="text-title text-text" />
         </span>
       ) : host.paused ? (
-        <span className="flex items-center justify-between gap-3">
+        <span className="flex items-center justify-between gap-2">
           <span className="text-caption text-text-2">No new sessions while paused</span>
           <Button variant="ghost" busy={resume.isPending} onClick={() => resume.mutate()}>
             Resume

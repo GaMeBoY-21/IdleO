@@ -120,7 +120,7 @@ function PanTile({ details }: { details: Details }) {
     <Tile as="section" aria-labelledby="pan-title" className="flex flex-col gap-4">
       <SectionTitle id="pan-title">PAN</SectionTitle>
       {pan && (
-        <div className="flex flex-col gap-0.5">
+        <div className="flex flex-col gap-1">
           <p className="text-option font-semibold tabular">
             {maskedPan(pan.last4)} · {pan.name}
           </p>
@@ -161,7 +161,7 @@ function PanTile({ details }: { details: Details }) {
             hint="Your UPI ID must be registered in this name."
             onChange={(event) => setName(event.target.value)}
           />
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             <Button type="submit" variant="ghost" busy={submit.isPending}>
               Save PAN
             </Button>
@@ -235,7 +235,7 @@ function UpiTile({ details }: { details: Details }) {
           }
           onChange={(event) => setVpa(event.target.value)}
         />
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           <Button type="submit" variant="ghost" busy={check.isPending} disabled={!panReady}>
             Check it
           </Button>
@@ -272,7 +272,7 @@ export function InUse({ upi }: { upi: UpiView }) {
   const now = useNow("half-minute");
   const held = upi.holdUntil != null && Date.parse(upi.holdUntil) > now;
   return (
-    <div className="flex flex-col gap-0.5">
+    <div className="flex flex-col gap-1">
       <p className="text-option font-semibold break-all">{upi.vpa}</p>
       {upi.registeredName && <p className="text-small text-text-2">Registered to {upi.registeredName}</p>}
       <p className={upi.state === "active" && !held ? "text-small text-running" : "text-small text-warn-fg"}>
@@ -350,7 +350,7 @@ function GiveUp({ enabled, details }: { enabled: boolean; details: Details }) {
     ) : null;
   }
   return (
-    <Tile as="section" aria-labelledby="give-up-title" className="flex flex-col gap-3">
+    <Tile as="section" aria-labelledby="give-up-title" className="flex flex-col gap-2">
       <SectionTitle id="give-up-title">Deleting your account without a UPI ID?</SectionTitle>
       <p className="text-small text-text-2">
         Your machines have earned <Money paise={unpaid} /> that hasn&apos;t been paid. Add a UPI ID above and
@@ -364,7 +364,7 @@ function GiveUp({ enabled, details }: { enabled: boolean; details: Details }) {
         hint="For example: I give up my unpaid earnings to delete my account."
         onChange={(event) => setStatement(event.target.value)}
       />
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2">
         <Button
           variant="danger"
           disabled={statement.trim().length < 10}

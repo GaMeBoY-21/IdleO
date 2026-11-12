@@ -50,7 +50,7 @@ export function MyFiles() {
           </EmptyState>
         ) : (
           <div className="flex flex-col gap-4">
-            <Tile as="div" className="px-4.5 py-0">
+            <Tile as="div" className="px-4 py-0">
               <ul aria-label="Your files" className="flex flex-col divide-y divide-line">
                 {uploads.map((upload) => (
                   <FileRow key={upload.id} upload={upload} now={now} />
@@ -84,14 +84,14 @@ export function MyFiles() {
       ) : (
         <Tile
           as="div"
-          className="flex flex-col divide-y divide-line px-4.5 py-0"
+          className="flex flex-col divide-y divide-line px-4 py-0"
           role="status"
           aria-label="Loading your files"
         >
           {[0, 1, 2].map((key) => (
-            <div key={key} className="flex items-center gap-3.5 py-4">
+            <div key={key} className="flex items-center gap-4 py-4">
               <span aria-hidden="true" className="size-5.5 shrink-0" />
-              <div className="flex flex-1 flex-col gap-0.5">
+              <div className="flex flex-1 flex-col gap-1">
                 <SkeletonLine size="option" width="w-1/2" />
                 <SkeletonLine size="small" width="w-2/3" />
               </div>
@@ -123,14 +123,14 @@ type Upload = components["schemas"]["UploadResponse"];
 function FilesSummary({ uploads }: { uploads: Upload[] | undefined }) {
   const next = uploads ? [...uploads].sort((a, b) => a.expiresAt.localeCompare(b.expiresAt))[0] : undefined;
   return (
-    <Tile as="section" aria-labelledby="files-summary-title" className="flex flex-col gap-3 xl:p-7">
+    <Tile as="section" aria-labelledby="files-summary-title" className="flex flex-col gap-2 xl:p-8">
       <SectionTitle id="files-summary-title">Kept for you</SectionTitle>
       <dl className="grid grid-cols-2 gap-2">
-        <div className="flex min-h-18 flex-col justify-center rounded-control bg-panel-2 px-4 py-3">
+        <div className="flex min-h-18 flex-col justify-center rounded-control bg-panel-2 px-4 py-4">
           <dt className="text-small text-text-2">Uploads</dt>
           <dd className="text-option font-semibold tabular">{uploads ? uploads.length : "…"}</dd>
         </div>
-        <div className="flex min-h-18 flex-col justify-center rounded-control bg-panel-2 px-4 py-3">
+        <div className="flex min-h-18 flex-col justify-center rounded-control bg-panel-2 px-4 py-4">
           <dt className="text-small text-text-2">In all</dt>
           <dd className="text-option font-semibold tabular">
             {uploads ? formatBytes(uploads.reduce((sum, upload) => sum + upload.sizeBytes, 0)) : "…"}

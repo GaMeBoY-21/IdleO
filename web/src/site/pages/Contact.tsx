@@ -20,7 +20,7 @@ export function Contact({ apiUrl }: { apiUrl: string | null }) {
       </p>
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-5">
         <form
-          className={`${tile} flex flex-col gap-3 xl:col-span-3`}
+          className={`${tile} flex flex-col gap-2 xl:col-span-3`}
           data-contact=""
           data-api={apiUrl ?? ""}
           noValidate
@@ -44,7 +44,7 @@ export function Contact({ apiUrl }: { apiUrl: string | null }) {
               rows={6}
               maxLength={MAX_MESSAGE}
               required
-              className={`${field} py-3`}
+              className={`${field} py-4`}
             />
           </div>
           <div className="flex flex-col gap-2">

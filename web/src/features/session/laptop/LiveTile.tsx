@@ -34,9 +34,9 @@ export function LiveTile({
   const price = session.pricePaisePerMin == null ? null : <Money paise={session.pricePaisePerMin * 60} />;
   return (
     <Tile tone="night" size="feature" className="flex flex-wrap items-center justify-between gap-x-8 gap-y-6">
-      <div className="flex min-w-0 flex-col gap-2.5">
+      <div className="flex min-w-0 flex-col gap-2">
         <span
-          className="flex items-center gap-2.5 text-caption font-bold tracking-wider text-volt uppercase"
+          className="flex items-center gap-2 text-caption font-bold tracking-wider text-volt uppercase"
           data-testid="state-chip"
         >
           <span
@@ -71,8 +71,8 @@ export function LiveTile({
           )}
         </p>
       </div>
-      <div className="flex flex-wrap items-center gap-x-7 gap-y-4">
-        <div className="flex flex-col gap-0.5">
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-4">
+        <div className="flex flex-col gap-1">
           <span className="text-caption text-on-night-3">Time</span>
           <p className="font-title text-display-figure">
             <span className="sr-only">Running for </span>
@@ -80,7 +80,7 @@ export function LiveTile({
           </p>
           <p className="min-h-4.5 text-caption text-on-night-3">{about && `of ${about}`}</p>
         </div>
-        <div className="flex flex-col gap-0.5">
+        <div className="flex flex-col gap-1">
           <span className="text-caption text-on-night-3">
             Spent<span className="sr-only"> so far</span> · stops at <Money paise={session.maxSpendPaise} />
           </span>

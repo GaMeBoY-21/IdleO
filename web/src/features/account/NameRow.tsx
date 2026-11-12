@@ -44,7 +44,7 @@ export function NameRow({ name }: { name: string }) {
   if (!editing) {
     return (
       <div className={ROW}>
-        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
           <p className="text-caption text-text-2">Name</p>
           <p className="truncate text-option font-semibold" title={name}>
             {name}
@@ -107,4 +107,4 @@ export function NameRow({ name }: { name: string }) {
 }
 
 /** A row of the account's facts: a caption and the value. Edit rows share its height. */
-export const ROW = "flex min-h-18 items-center gap-3 py-3";
+export const ROW = "flex min-h-18 items-center gap-2 py-4";

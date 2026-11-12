@@ -50,15 +50,15 @@ export function Advanced({
   const more = GPU_CLASSES_GB.map(classMb).filter((mb) => mb > neededMb);
 
   return (
-    <Tile as="section" className="flex flex-col gap-5">
+    <Tile as="section" className="flex flex-col gap-4">
       <button
         type="button"
         aria-expanded={open}
         aria-controls="advanced"
         onClick={onToggle}
-        className="flex w-full items-center gap-3.5 rounded-control text-left"
+        className="flex w-full items-center gap-4 rounded-control text-left"
       >
-        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <span className="flex min-w-0 flex-1 flex-col gap-1">
           <span className="text-section">Advanced</span>
           <span className="text-small text-text-2">{advancedSummary(template)}</span>
         </span>
@@ -70,7 +70,7 @@ export function Advanced({
       </button>
       {/* Its fields are drawn only once it's opened: the screen's first paint doesn't wait on them, and their
           values are kept in the form meanwhile. */}
-      <div id="advanced" hidden={!open} className="flex flex-col gap-5">
+      <div id="advanced" hidden={!open} className="flex flex-col gap-4">
         {open && (
           <>
             {advancedParams(template).length > 0 && <ParamFields params={advancedParams(template)} />}
@@ -102,7 +102,7 @@ export function Advanced({
             />
             <fieldset className="flex flex-col gap-2">
               <legend className="mb-2 text-small font-medium">Time limit</legend>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-2">
                 {(["runtimeHours", "runtimeMinutes"] as const).map((name) => (
                   <Field
                     key={name}

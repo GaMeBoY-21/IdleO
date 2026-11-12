@@ -29,12 +29,12 @@ export function Bars({
   const biggest = Math.max(0, ...bars.map((bar) => bar.value));
   const night = tone === "night";
   return (
-    <ul aria-label={label} className={cn("flex items-end", tall ? "h-chart gap-3" : "h-18 gap-2")}>
+    <ul aria-label={label} className={cn("flex items-end", tall ? "h-chart gap-2" : "h-18 gap-2")}>
       {bars.map((bar, index) => {
         const percent = barPercent(bar.value, biggest);
         const now = index === bars.length - 1;
         return (
-          <li key={bar.key} className="flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-1.5">
+          <li key={bar.key} className="flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-1">
             <span className="sr-only">{bar.spoken}</span>
             <span
               aria-hidden="true"

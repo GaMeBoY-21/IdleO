@@ -37,7 +37,7 @@ export function Finding({
     <Tile
       tone="night"
       className={cn(
-        "flex flex-col items-center justify-center gap-7 px-5 py-10 text-center",
+        "flex flex-col items-center justify-center gap-6 px-6 py-10 text-center",
         laptop && "min-h-panel xl:flex-1",
       )}
     >
@@ -57,7 +57,7 @@ export function Finding({
     </Tile>
   );
   const asked = (
-    <Tile className="flex flex-col gap-3">
+    <Tile className="flex flex-col gap-2">
       <TileLabel>What you asked for</TileLabel>
       <ul className="flex w-full flex-col gap-2 text-left">
         {inputs.map((input) => (
@@ -106,7 +106,7 @@ export function Finding({
 
 function Row({ done, children }: { done: boolean; children: ReactNode }) {
   return (
-    <li className="flex items-center gap-3 rounded-control bg-panel-2 px-4 py-3.5">
+    <li className="flex items-center gap-2 rounded-control bg-panel-2 px-4 py-4">
       {done ? (
         <Check aria-hidden="true" className="size-5 shrink-0 text-running" strokeWidth={2.5} />
       ) : (
@@ -123,7 +123,7 @@ function Row({ done, children }: { done: boolean; children: ReactNode }) {
 export function FindingRing() {
   return (
     <div aria-hidden="true" className="rounded-full bg-on-night/5 p-6">
-      <div className="rounded-full bg-on-night/10 p-5">
+      <div className="rounded-full bg-on-night/10 p-6">
         <div className="flex size-finding items-center justify-center rounded-full bg-on-night/10">
           <svg viewBox="0 0 22 22" className="size-finding-ring motion-safe:animate-breathe">
             <circle

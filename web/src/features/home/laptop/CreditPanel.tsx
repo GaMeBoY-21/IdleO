@@ -15,11 +15,11 @@ export function CreditPanel({ wallet, enabled }: { wallet: UseQueryResult<Wallet
   const last = history.data?.pages[0]?.entries.find((entry) => entry.direction === "debit");
   return (
     <TileLink href="/credit/" tone="ion-deep" size="lg" className="gap-4">
-      <span className="flex items-center justify-between gap-3">
+      <span className="flex items-center justify-between gap-2">
         <TileLabel tone="ion-deep" className="font-bold tracking-wider uppercase">
           Credit
         </TileLabel>
-        <span className="rounded-icon bg-on-ion-deep px-4 py-2.5 text-small font-bold text-ink">
+        <span className="rounded-icon bg-on-ion-deep px-4 py-2 text-small font-bold text-ink">
           Add credit
         </span>
       </span>

@@ -5,7 +5,7 @@ import { cn } from "@/lib/cn";
  * app, written as class strings so the pages are plain HTML with no script. The app's components aren't imported:
  * nothing of the app reaches these pages (ADR 0029).
  */
-const button = "inline-flex min-h-touch items-center justify-center gap-2 rounded-control px-5 text-small";
+const button = "inline-flex min-h-touch items-center justify-center gap-2 rounded-control px-6 text-small";
 
 export const primaryButton = cn(button, "bg-primary font-bold text-primary-fg hover:bg-primary-hover");
 /** The raised button beside the primary one: white with an edge by day. */
@@ -27,7 +27,7 @@ export const tileVolt = "rounded-feature bg-volt p-6 text-ink md:p-8";
 export const tileIon = "rounded-feature bg-ion p-6 text-ink md:p-8";
 export const tileEmber = "rounded-feature bg-ember p-6 text-ink md:p-8";
 /** The grid the pages lay their panels on: 16 px apart, 24 from 768 px. */
-export const grid = "grid gap-4 md:gap-5";
+export const grid = "grid gap-4 md:gap-4";
 
 /** The page's frame, as drawn: 1280 px with 32 px at the sides (16 on a phone). */
 export const column = "mx-auto w-full max-w-site px-4 md:px-8";

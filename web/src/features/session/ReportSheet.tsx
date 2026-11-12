@@ -54,10 +54,10 @@ export function ReportSheet({
   return (
     <Dialog.Root open={open} onOpenChange={close}>
       <Dialog.Portal>
-        <Dialog.Overlay className="appear fixed inset-0 z-30 bg-ink opacity-60" />
+        <Dialog.Overlay className="appear fixed inset-0 z-overlay bg-ink opacity-60" />
         <Dialog.Content
           data-tile=""
-          className="appear fixed inset-x-4 top-4 bottom-4 z-40 mx-auto flex max-w-narrow flex-col gap-4 overflow-y-auto rounded-panel bg-panel p-6 border border-line md:inset-y-auto md:top-12 md:max-h-5/6"
+          className="appear fixed inset-x-4 top-4 bottom-4 z-sheet mx-auto flex max-w-narrow flex-col gap-4 overflow-y-auto rounded-panel bg-panel p-6 border border-line md:inset-y-auto md:top-12 md:max-h-5/6"
         >
           {sent ? (
             <>
@@ -107,7 +107,7 @@ export function ReportSheet({
                     maxLength={REPORT_DETAILS_MAX}
                     onChange={(event) => setDetails(event.target.value)}
                     aria-describedby="report-details-help"
-                    className="rounded-control bg-panel px-4 py-3 text-body text-text"
+                    className="rounded-control bg-panel px-4 py-4 text-body text-text"
                   />
                   <p id="report-details-help" className="text-caption text-text-2">
                     Don&apos;t include passwords or keys. <span className="tabular">{details.length}</span>/
