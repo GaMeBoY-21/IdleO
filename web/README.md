@@ -75,8 +75,8 @@ A production build needs Firebase's settings (`VITE_AUTH=firebase`, `VITE_FIREBA
 | `pnpm size` | Each site's first-load JavaScript budget, on `dist/`, `dist-host/` and `dist-admin/` (or `IDLEO_DIST`'s), that no build holds another site's code, then the public pages' first-load budget |
 | `pnpm e2e` | Playwright: every screen and state, and the journeys; needs the stack and `pnpm serve` |
 | `pnpm lighthouse` | The performance and accessibility budgets on sign-in, Home, Book, the session screen, the host site's home and one laptop (on the host site's address), the 10 MiB log test, then `lhci assert` |
-| `pnpm gallery` | The review gallery (below) |
-| `pnpm screenshots [group…]` | Every screen as a picture, in both themes, into `../private/screens/<date>/<group>/`: `site` (default; at 1440 and 390 px, from `dist-website/`, so `pnpm build:site` first), `app` and `admin` (the browser tests' screens and fixtures, at 1440 and 390 px; they need the app built, the renter app served on :3000 and the admin site on :3004, and the local stack up), `windows-setup` (the setup window's every screen at 720 × 520, from `agent/setup/dev/preview.js`), `emails` and `pdfs` (the control plane's sample tests), `tray` (the tray's icons), and `sheet`, the contact sheet `../private/screens/<date>/index.html` with all of them on one page |
+| `pnpm screenshots <group…>` | What isn't a web page, as pictures, into `../private/screens/<date>/<group>/`: `windows-setup` (the setup window's every screen at 720 × 520, from `agent/setup/dev/preview.js`), `emails` and `pdfs` (the control plane's sample tests), `tray` (the tray's icons), and `sheet`, all of them on one page `../private/screens/<date>/index.html`. The web's screens are `pnpm ui-review`'s |
+| `pnpm ui-review` | The UI review (below): every screen of every site in each state, at five widths and both themes, into `../private/ui-review/<date>/` |
 | `pnpm brand-assets` | Draws the icons (`apple-touch-icon.png`, `icon-192.png`, `icon-512.png`, `favicon.ico`) and the share picture (`og-image.png`) into `public/` from `public/icon.svg`; the output is committed |
 
 CI runs all of them: `.github/workflows/web.yml`, and `scripts/e2e/agent-online.sh --web` for the browser checks against the real stack. The end-to-end workflow runs the web journeys too.
@@ -163,7 +163,7 @@ The wait for the largest paint (`afterPaint`'s `largestPaintSettled`, used by Ad
 ## Looking at the screens by hand
 
 The pictures aren't compared this round (the product owner, Oct 8): look at the screens yourself, in light and dark, at a phone's width and a laptop's.
-- **Every screen and state, from invented data:** with the stack up and `pnpm dev` (or `pnpm build && pnpm serve`) on :3000, `GALLERY_DIR=/tmp/screens pnpm exec playwright test e2e/screens.spec.ts e2e/session-screens.spec.ts e2e/book-screens.spec.ts e2e/files-screens.spec.ts` writes a full-page picture of each into that folder, named `<state>--<phone|laptop>-<light|dark>.png`.
+- **Every screen and state, from invented data:** the UI review (below).
 - **The real thing:** sign in at http://localhost:3000 as a user with credit, with an agent online (docs/runbooks/local-stack.md), and use the browser's device toolbar at 390 px and a window of 1280 px. The theme is in the account menu. How to reach each state:
   - **Finding and found:** they last well under a second on the local stack; `/session/?id=…` of a session the fixtures hold shows them, as above.
   - **Running:** request "Long run, 10 minutes" from Book.
@@ -187,13 +187,19 @@ Comparing pictures is off for now (`VISUAL_COMPARE=1` turns it back on). When it
 
 Locally, pictures are rendered differently from CI's Linux, so compare against your own: `VISUAL_BASELINE_DIR=visual-baseline pnpm e2e -- --update-snapshots=missing` once, then `pnpm e2e`. Or skip comparing with `SKIP_VISUAL=1`.
 
-## The review gallery
+## The UI review
 
-`pnpm gallery`, with the stack running and both builds served, writes every screen and state in light and dark, at 390 and 1280 px, plus recordings (sign-in to Home and stopping a session on a phone; a booking from template to outputs on a laptop), into `../private/review/web-booking/` (or `GALLERY_DIR`) with an `index.html` that lays them out side by side. With `BEFORE_DIR` (by default `../private/review/web-foundations/`), the fixes from the last review are shown beside how they looked before. The builds:
-- `pnpm serve` for the local build;
-- `IDLEO_DIST=dist-firebase PORT=3001 pnpm serve` for a Firebase build with placeholder settings, with `FIREBASE_WEB_URL=http://localhost:3001`.
+`pnpm ui-review` (web/e2e/ui-review.ts) pictures every screen of every site, the renter app, the host site, the admin site and the website, at 1440, 1280, 1024, 768 and 390 px in both themes, into `../private/ui-review/<date>/`: one `index.html` per site, grouped by screen, with filters for the theme, the width and the state, and one overall page with each site's counts. Each picture is checked as it's taken (e2e/ui-audit.ts: sideways scrolling, text cut off or truncated without its whole value, sizes off the type scale, spacing off the grid, numbers not right-aligned in tabular figures, money not grouped the Indian way, raw times, codes or ids in the text, title case, buttons that say "Submit", disabled controls that don't say why, a blank screen, a spinner standing in for content, the page's one h1 and its tab title, small touch targets on a phone, layout shift, and axe on each full state), and what it found is listed under the screen. It gates nothing: the specs do. The findings a person writes from it are `../private/ui-review/findings.md`.
 
-It's under the gitignored `private/`, and the data in it is invented.
+Two sources of pictures:
+- **the sweep** (e2e/ui-review.spec.ts): every page of every site (the sites' screen lists, the console's records, the website's built pages) in six states of its data, made from the sites' fixtures (e2e/fixtures-sites.ts, the console's `routes()`) in one place: `full`; `loading` (every request but the frame's held); `error` (every request but the frame's answered 503, once the retries are spent); `empty` (every list emptied); `long` (every name, title and description made long, with a long unbroken word, every email long); and `many` (every list 60 long);
+- **the screens specs** (`*-screens.spec.ts`): every state they draw (a sheet open, a menu, a form's error), each `capture()` pictured and checked instead of failing, at the same widths.
+
+To run it: the development sign-in server (`docker compose -p idleo-review -f ../control-plane/compose.yaml up -d sign-in`), and the four sites built against the fixtures' API, with the settings `.github/workflows/ui-review.yml` uses (`VITE_API_URL=http://localhost:8180` and the rest): `pnpm build && pnpm build:site`. It serves each site that isn't answering from its build. All of it takes about four hours on a laptop; `--widths 1440,390 --themes dark --states full,error --no-specs` narrows it, `--grep` picks pages, `--index-only` lays out the pictures again, and `--before <an earlier run's folder>` adds a before-and-after page per site, the two side by side. On GitHub: Actions → ui-review → Run workflow (with an earlier run's id to compare), one job per width and theme; the `ui-review` artifact holds the pages.
+
+## The component gallery
+
+Each development server (`pnpm dev`, `pnpm dev:host`, `pnpm dev:admin`) serves `/_gallery`: the tokens, then every shared component in each variant and state (the buttons pending and disabled, the form fields with help and errors, the tiles, the loading, empty, error and stale states, the state chips, the console's own set), in the theme chosen at its top, or both side by side (`/_gallery?both`). It's where a pattern is checked and fixed once. It's a development server's alone (vite.config.ts, `galleryPage`, `apply: "serve"`): no build has it, and `scripts/site-modules.ts` fails a build that holds any of `src/gallery/`.
 
 ## Layout
 

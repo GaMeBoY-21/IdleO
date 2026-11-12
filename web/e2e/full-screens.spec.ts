@@ -1,11 +1,9 @@
 import { expect, test, type Page } from "@playwright/test";
 import { writeFileSync } from "node:fs";
-import * as credit from "./fixtures-credit";
 import * as data from "./fixtures";
-import * as publicData from "./fixtures-public";
-import { hostingApi } from "./hosting-api";
+import { hostApi, renterApi } from "./fixtures-sites";
 import { HOST_URL } from "./sites";
-import { fakeApi, signIn, type Answer } from "./support";
+import { fakeApi, signIn } from "./support";
 
 /**
  * "Full" (ADR 0058): at 1440 x 900, the first screen of every main page of both sites holds real content, with no large
@@ -16,21 +14,6 @@ import { fakeApi, signIn, type Answer } from "./support";
 const LEAST = 0.6;
 const COLUMNS = 36;
 const ROWS = 22;
-
-const renter = (): Record<string, Answer> => ({
-  "/v1/me": { json: data.me() },
-  "/v1/templates": { json: data.templates },
-  "/v1/wallet": { json: data.asha.wallet },
-  "/v1/wallet/transactions": { json: data.history(0) },
-  "/v1/sessions": { json: data.sessionsPage(data.asha.sessions) },
-  "/v1/uploads": { json: data.uploadsPage() },
-  "/v1/availability": { json: data.availability },
-  "/v1/usage": { json: data.usageOf(data.asha.sessions) },
-  "/v1/public/availability": { json: publicData.availability() },
-  "/v1/wallet/billing-details": { json: credit.billingDetails },
-  "/v1/wallet/invoices": { json: credit.invoices },
-  "/v1/wallet/refund-requests": { json: credit.noRefunds },
-});
 
 /**
  * `asserted: false`: measured and reported, not held to the bar (ADR 0058): Book's first step is a short chooser by
@@ -98,7 +81,7 @@ for (const screen of PAGES) {
     test.skip(info.project.name !== "screens-laptop-light", "measured once, at the laptop's size");
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.clock.setFixedTime(data.NOW);
-    await fakeApi(page, { ...renter(), ...(screen.site === "host" ? hostingApi() : {}) });
+    await fakeApi(page, screen.site === "host" ? hostApi() : renterApi());
     const origin = screen.site === "host" ? HOST_URL : "";
     await signIn(page, "asha", screen.path, origin);
     await expect(page.getByText(screen.ready).first()).toBeVisible({ timeout: 10_000 });

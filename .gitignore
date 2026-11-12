@@ -70,4 +70,3 @@ ops/postgres/wal-g/
 
 # What the browser tests pressed, for the admin UI coverage check
 web/admin-writes/
-web/contact-sheet/

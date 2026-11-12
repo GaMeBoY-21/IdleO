@@ -87,12 +87,12 @@ Operator commands, the control plane in the ops profile (runs once, starts no we
 Web app, run from web/ (Node 24.21.0 from .node-version, pnpm 12.9.1; web/README.md):
 - pnpm install, then pnpm dev against E2E_SERVE_WEB=0 scripts/e2e/agent-online.sh --keep-running (copy env.local.example to .env.local; a build also needs VITE_STORAGE_URL, storage's origin, for uploads); sign in with any @example.com address
 - pnpm typecheck, pnpm lint, pnpm test (Vitest, run as the renter app and again, for the site tests, as the host site and the admin site), pnpm build (every site of the app, ADR 0058: the renter app into dist/, the host site into dist-host/ and the admin site into dist-admin/, each with pre-rendered frames, its CSP, its headers.json and its redirects; IDLEO_WEB_SITES=app, host or admin builds one), pnpm build:site (the website, apart: dist-website/), pnpm size (each site's first-load budget, that no build holds another site's code, then the website's); pnpm dev, pnpm dev:host and pnpm dev:admin (the development servers on :3000, :3003 and :3004), pnpm serve (the renter app on :3000), pnpm serve:host (the host site on :3003), pnpm serve:admin (the admin site on :3004) and pnpm serve:site (the website on :3002)
-- pnpm e2e, pnpm lighthouse and pnpm gallery need the stack and pnpm serve; scripts/e2e/agent-online.sh --web runs all the browser checks against a fresh stack, as .github/workflows/web.yml does
+- pnpm e2e and pnpm lighthouse need the stack and pnpm serve; scripts/e2e/agent-online.sh --web runs all the browser checks against a fresh stack, as .github/workflows/web.yml does
 - The journeys (web/e2e/journey.spec.ts) need a real agent and a funded E2E_WEB_USER, so they run in scripts/e2e/agent-online.sh; pnpm lighthouse also runs the 10 MiB log test (web/e2e/performance.spec.ts)
 - All invented screen data comes from web/e2e/fixtures.ts, whose figures are derived, not typed; src/test/fixtures.test.ts checks they add up
 - API types come from ../api/openapi.yaml on every build, typecheck and test (src/api/schema.gen.ts, never committed)
 - Visual baselines live in CI's visual-baseline artifact, not git; accept a change by running the web workflow with "update screenshots"
-- The review gallery (pnpm gallery) goes to private/review/web-booking/ (GALLERY_DIR), with the last review's pictures from BEFORE_DIR beside the fixes; never committed
+- The UI review (pnpm ui-review, web/README.md "The UI review") goes to private/ui-review/<date>/, with --before for an earlier run beside it; never committed. The component gallery is /_gallery on each development server
 
 Agent protocol, run from proto/:
 - buf lint: STANDARD + COMMENTS, no exceptions
@@ -105,4 +105,4 @@ Agent protocol, run from proto/:
 - `pnpm exec playwright test admin-actions admin-screens admin-console --project=screens-laptop-light`, then `node scripts/admin-ui-coverage.ts`: which admin writes no browser test has pressed. Clear `web/admin-writes/` first. Run against `scripts/serve.ts` with a production-style build, never `vite preview`, which serves no prerendered pages.
 - `scripts/e2e/console-budgets.sh`: every console screen on the seeded data, in a real browser. Weekly in `.github/workflows/budgets.yml`.
 - `E2E_PARTS=roles-desk scripts/e2e/agent-online.sh` (or `roles-safety`, `roles-ops`, `roles-money`): one part of the role journeys (`web/e2e/admin-roles.spec.ts`), as one of CI's e2e jobs runs it.
-- `gh workflow run contact-sheet.yml`: every console screen on one page, as the `contact-sheet` artifact.
+- `gh workflow run ui-review.yml [-f before_run=<run id>]`: the UI review, every screen of every site in each state at five widths and both themes, one page per site, as the `ui-review` artifact (web/README.md "The UI review").

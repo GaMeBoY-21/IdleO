@@ -16,6 +16,26 @@ const phone = { viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isM
 // 1440 x 900: the size the laptop layout is judged at (web/DESIGN.md "Laptop layout") and the screenshots are taken at.
 const laptop = { viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1 };
 
+/**
+ * The UI review (e2e/ui-review.ts): the sweep and every screens spec at five widths in both themes, only when
+ * UI_REVIEW_DIR is set. 390 is a phone (its name says so, as `onPhone` reads it); 768 and up are not.
+ */
+const REVIEW_WIDTHS = (process.env.UI_REVIEW_WIDTHS ?? "1440,1280,1024,768,390").split(",").map(Number);
+const REVIEW_THEMES = (process.env.UI_REVIEW_THEMES ?? "dark,light").split(",") as ("dark" | "light")[];
+const reviewProjects = process.env.UI_REVIEW_DIR
+  ? REVIEW_WIDTHS.flatMap((width) =>
+      REVIEW_THEMES.map((theme) => ({
+        name: width < 768 ? `ui-review-phone-${width}-${theme}` : `ui-review-${width}-${theme}`,
+        testMatch:
+          process.env.UI_REVIEW_SPECS === "0" ? /ui-review\.spec\.ts/ : /(ui-review|[/-]screens)\.spec\.ts$/,
+        use:
+          width < 768
+            ? { ...phone, viewport: { width, height: 844 }, deviceScaleFactor: 1, colorScheme: theme }
+            : { viewport: { width, height: 900 }, deviceScaleFactor: 1, colorScheme: theme },
+      })),
+    )
+  : [];
+
 export default defineConfig({
   testDir: "e2e",
   fullyParallel: true,
@@ -37,6 +57,7 @@ export default defineConfig({
     ...devices["Desktop Chrome"],
   },
   projects: [
+    ...reviewProjects,
     {
       name: "screens-phone-light",
       testMatch: /(screens|admin-console|admin-actions|admin-first-load|layout-shift|firebase)\.spec\.ts/,
@@ -72,7 +93,6 @@ export default defineConfig({
       use: { ...laptop },
       timeout: 480_000,
     },
-    { name: "contact-sheet", testMatch: "contact-sheet.spec.ts", use: { ...laptop }, timeout: 60_000 },
     {
       name: "admin-roles",
       testMatch: "admin-roles.spec.ts",
