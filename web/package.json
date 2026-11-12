@@ -24,7 +24,7 @@
     "lint": "pnpm prepare-sources && eslint . --max-warnings 0 && prettier --check .",
     "format": "prettier --write .",
     "test": "pnpm prepare-sources && vitest run",
-    "size": "node scripts/first-load.ts && IDLEO_WEB_SITE=host node scripts/first-load.ts && IDLEO_WEB_SITE=admin node scripts/first-load.ts && node scripts/site-modules.ts && node scripts/site-size.ts",
+    "size": "node scripts/first-load.ts && IDLEO_WEB_SITE=host node scripts/first-load.ts && IDLEO_WEB_SITE=admin node scripts/first-load.ts && node scripts/site-modules.ts && node scripts/dev-deps.ts && node scripts/site-size.ts",
     "e2e": "playwright test --project='screens-*' --project=journey",
     "screenshots": "node e2e/screenshots.ts",
     "brand-assets": "node scripts/brand-assets.ts",

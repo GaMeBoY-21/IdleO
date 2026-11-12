@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# ./start.sh, as a person would use it, without a screen: start everything, wait until it says it's ready, book one
-# simulated session through the API as nikki@example.com and see it complete, then ./start.sh --stop from "another
+# ./start.sh, as a person would use it, without a screen: start everything, wait until it says it's ready, open one
+# screen on each site's development server in a browser (web/e2e/dev-servers.spec.ts), book one simulated session
+# through the API as nikki@example.com and see it complete, then ./start.sh --stop from "another
 # terminal", and check nothing it started is left (processes, containers, ports). CI runs it after the e2e
 # (.github/workflows/e2e.yml); so does scripts/check-all.sh's e2e suite.
 set -euo pipefail
@@ -10,6 +11,9 @@ set -- ${QUIET_ARGS[@]+"${QUIET_ARGS[@]}"}
 
 cd "$(dirname "$0")/../.."
 root="$(pwd)"
+# pnpm and Node for the browser step, wherever this machine keeps them, as ./start.sh finds them.
+# shellcheck source=scripts/lib/toolchains.sh
+. "$root/scripts/lib/toolchains.sh"
 out="$root/logs"
 mkdir -p "$out"
 fail() { printf 'start-check: FAIL: %s\n' "$*" >&2; exit 1; }
@@ -35,6 +39,14 @@ ready_in=$((SECONDS - started))
 for line in "Renter app" "Host site" "Website" "Link demo" "Mailpit" "Grafana" "Admin site" "nikki-low@example.com" "logs/"; do
   grep -q "$line" "$out/start-check.log" || fail "the ready block doesn't mention $line"
 done
+
+# Each site's development server, side by side, as a person opens them: one screen each, and every screen's code it
+# fetches after, with no "504 Outdated Optimize Dep" and no "Something went wrong" (each keeps its own dependency
+# cache, web/vite.config.ts).
+(cd web && WEB_URL=http://localhost:3000 HOST_URL=http://localhost:3003 ADMIN_URL=http://localhost:3004 \
+  SIGN_IN_URL="$sign_in" pnpm exec playwright test --project=dev-servers --reporter=line) >"$out/start-check-web.log" 2>&1 ||
+  fail "a site's development server failed its screen; see logs/start-check-web.log"
+grep -Eq '3 passed' "$out/start-check-web.log" || fail "the three sites' screens didn't all run; see logs/start-check-web.log"
 
 token="$(curl -sf -X POST "$sign_in/token" -d grant_type=client_credentials -d client_id=nikki \
   -d client_secret=unused -d scope=openid -d "auth_time=$(date +%s)" | python3 -c 'import json, sys; print(json.load(sys.stdin)["access_token"])')"
@@ -94,5 +106,5 @@ for port in 8080 9443 3000 3002 3003 3004 3300; do
   (exec 3<>"/dev/tcp/127.0.0.1/$port") 2>/dev/null && leftovers+=" port-$port"
 done
 [[ -z "$leftovers" ]] || fail "still running after ./start.sh --stop:$leftovers"
-printf 'start-check: ./start.sh ready in %s s; session %s booked and completed; the link demo laptop approved and online, pending; --stop left nothing running (%s s): PASS\n' \
+printf 'start-check: ./start.sh ready in %s s; a screen on each of the three development servers; session %s booked and completed; the link demo laptop approved and online, pending; --stop left nothing running (%s s): PASS\n' \
   "$ready_in" "$session" $((SECONDS - stop_started))
