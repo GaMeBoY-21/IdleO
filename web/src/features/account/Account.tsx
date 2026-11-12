@@ -1,10 +1,11 @@
 import { useNotifications } from "@/api/account";
 import { useCachedMe, useMeAfterPaint } from "@/api/queries";
+import { SectionHeader } from "@/components/ui/Headers";
 import { signOut } from "@/auth";
 import { AccountFrame } from "@/components/shell/AccountFrame";
 import { AppearanceChoice } from "@/components/shell/AppearanceChoice";
 import { Button } from "@/components/ui/Button";
-import { SectionTitle, Tile } from "@/components/ui/Tile";
+import { Tile } from "@/components/ui/Tile";
 import { Skeleton, SkeletonLine } from "@/components/ui/Skeleton";
 import { EmptyState, ErrorState, StaleNotice, staleSince } from "@/components/ui/States";
 import { useAfterPaint } from "@/lib/after-first-screen";
@@ -38,10 +39,10 @@ export function Account() {
       {since !== null && <StaleNotice updatedAt={since} />}
       <div className="flex min-w-0 flex-col gap-4 xl:col-span-2">
         <Tile as="section" aria-labelledby="you-title" className="flex flex-col gap-1 md:p-6 xl:p-8">
-          <SectionTitle id="you-title">
+          <SectionHeader id="you-title">
             <span className="md:hidden">You</span>
             <span className="hidden md:inline">Profile</span>
-          </SectionTitle>
+          </SectionHeader>
           {me.data || (kept && !me.isError) ? (
             <div className="flex flex-col divide-y divide-line">
               <NameRow
@@ -119,7 +120,7 @@ export function Account() {
         aria-labelledby="notifications-title"
         className="flex flex-col gap-1 md:p-6 xl:col-span-3 xl:p-8"
       >
-        <SectionTitle id="notifications-title">Notifications</SectionTitle>
+        <SectionHeader id="notifications-title">Notifications</SectionHeader>
         <p className="mb-2 max-w-prose text-small text-text-2">
           Choose what we tell you about. Messages about your money and your safety always stay on.
         </p>

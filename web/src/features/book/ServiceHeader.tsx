@@ -1,5 +1,5 @@
+import { PageTitle } from "@/components/ui/Headers";
 import { Link } from "wouter";
-import { PageHeading } from "@/components/ui/Heading";
 
 /**
  * The top of a service's booking screen: back to all services, the
@@ -14,7 +14,7 @@ export function ServiceHeader({ name, description }: { name: string; description
       >
         <span aria-hidden="true">←&nbsp;</span>All services
       </Link>
-      <PageHeading>{name}</PageHeading>
+      <PageTitle>{name}</PageTitle>
       <p className="text-body text-text-2">{description}</p>
     </div>
   );

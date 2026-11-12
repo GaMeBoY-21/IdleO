@@ -1,9 +1,10 @@
 import { ChevronRight, Plus } from "lucide-react";
 import { Link } from "wouter";
+import { SectionHeader } from "@/components/ui/Headers";
 import { useEarnings, useHosts } from "@/api/hosting";
 import { Page } from "@/components/shell/AppShell";
 import { buttonClasses } from "@/components/ui/Button";
-import { SectionTitle, Tile } from "@/components/ui/Tile";
+import { Tile } from "@/components/ui/Tile";
 import { Money } from "@/components/ui/Money";
 import { Skeleton, SkeletonLine } from "@/components/ui/Skeleton";
 import { ErrorState, StaleNotice, staleSince } from "@/components/ui/States";
@@ -116,7 +117,7 @@ export function Hosting() {
             )}
           </Tile>
           <section aria-labelledby="machines-title" className="flex flex-col gap-2">
-            <SectionTitle id="machines-title">Your machines</SectionTitle>
+            <SectionHeader id="machines-title">Your machines</SectionHeader>
             {machines ? (
               <ul className="flex flex-col gap-2">
                 {machines.map((host) => (

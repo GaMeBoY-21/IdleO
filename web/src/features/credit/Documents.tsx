@@ -1,11 +1,12 @@
 import type { UseQueryResult } from "@tanstack/react-query";
 import { useState } from "react";
+import { SectionHeader } from "@/components/ui/Headers";
 import { downloadInvoice, type Invoice } from "@/api/wallet";
 import { Button } from "@/components/ui/Button";
 import { Money } from "@/components/ui/Money";
 import { SkeletonLine } from "@/components/ui/Skeleton";
 import { EmptyState, ErrorState } from "@/components/ui/States";
-import { SectionTitle, Tile } from "@/components/ui/Tile";
+import { Tile } from "@/components/ui/Tile";
 import { problemMessage } from "@/lib/problems";
 import { formatDay } from "@/lib/time";
 
@@ -20,7 +21,7 @@ const ROW = "flex min-h-18 items-center gap-2 py-4";
 export function Documents({ invoices }: { invoices: UseQueryResult<{ invoices: Invoice[] }> }) {
   return (
     <section aria-labelledby="documents-title" className="flex flex-col gap-1">
-      <SectionTitle id="documents-title">Invoices and receipts</SectionTitle>
+      <SectionHeader id="documents-title">Invoices and receipts</SectionHeader>
       {/* One height whatever it holds, three documents' worth, the rest scrolled to: nothing beside or below it moves
           when they arrive (CLS 0). */}
       <div className="h-documents overflow-y-auto rounded-panel">

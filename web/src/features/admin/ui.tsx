@@ -1,5 +1,6 @@
 import type { UseInfiniteQueryResult, UseQueryResult } from "@tanstack/react-query";
 import { Check, Copy } from "lucide-react";
+import { PageHeader, SectionHeader, type Crumb } from "@/components/ui/Headers";
 import { useId, useState, type ReactNode } from "react";
 import { Link } from "wouter";
 import { Banner } from "@/components/ui/Banner";
@@ -8,7 +9,6 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { EmptyState, ErrorState, StaleNotice, staleSince } from "@/components/ui/States";
 import { cn } from "@/lib/cn";
 import { formatDateTime } from "@/lib/time";
-import { useTitle } from "@/lib/title";
 import { recordHref } from "./links";
 import { refusal } from "./ActionSheet";
 import { word } from "./words";
@@ -22,11 +22,30 @@ export { ErrorState };
  * why it's empty, what went wrong with a retry, and a line when the figures shown are stale.
  */
 
-export function AdminPage({ title, children }: { title: string; children: ReactNode }) {
-  useTitle(`${title} · Admin`);
+export function AdminPage({
+  title,
+  description,
+  trail,
+  action,
+  children,
+}: {
+  title: string;
+  description?: ReactNode;
+  /** The pages above a record's: its list, as breadcrumbs. */
+  trail?: Crumb[];
+  action?: ReactNode;
+  children: ReactNode;
+}) {
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="font-display text-headline uppercase">{title}</h1>
+      <PageHeader
+        dense
+        title={title}
+        tabTitle={`${title} · Admin`}
+        description={description}
+        trail={trail}
+        action={action}
+      />
       {children}
     </div>
   );
@@ -43,13 +62,10 @@ export function Section({
 }) {
   const id = useId();
   return (
-    <section aria-labelledby={id} className="flex flex-col gap-2">
-      <div className="flex min-h-touch items-center justify-between gap-2">
-        <h2 id={id} className="text-section">
-          {title}
-        </h2>
-        {action}
-      </div>
+    <section aria-labelledby={id} className="flex flex-col gap-4">
+      <SectionHeader id={id} action={action}>
+        {title}
+      </SectionHeader>
       {children}
     </section>
   );
@@ -179,18 +195,6 @@ export function RowLink({ href, children }: { href: string; children: ReactNode 
     <Link
       href={href}
       className="inline-flex min-h-touch items-center font-semibold underline-offset-4 hover:underline"
-    >
-      {children}
-    </Link>
-  );
-}
-
-/** The way back from a record to its list. */
-export function BackLink({ href, children }: { href: string; children: ReactNode }) {
-  return (
-    <Link
-      href={href}
-      className="inline-flex min-h-touch items-center self-start text-small font-semibold underline-offset-4 hover:underline"
     >
       {children}
     </Link>

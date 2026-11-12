@@ -1,8 +1,8 @@
 import { ChevronLeft } from "lucide-react";
 import { lazy, Suspense } from "react";
+import { PageTitle } from "@/components/ui/Headers";
 import type { ReactNode } from "react";
 import { Wordmark } from "@/brand/Wordmark";
-import { PageHeading } from "@/components/ui/Heading";
 import { Tile } from "@/components/ui/Tile";
 import { cn } from "@/lib/cn";
 import { useLaptop } from "@/lib/media";
@@ -59,7 +59,7 @@ export function SignInFrame({
             size="lg"
             className={cn("flex flex-col", collage ? "xl:col-span-5 xl:justify-center" : "xl:w-7/12")}
           >
-            <PageHeading className="mb-4">{title}</PageHeading>
+            <PageTitle className="mb-4">{title}</PageTitle>
             {children}
           </Tile>
           {collage && laptop && (

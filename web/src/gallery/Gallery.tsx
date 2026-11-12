@@ -1,5 +1,6 @@
 import { Cpu, Layers } from "lucide-react";
 import { useState, type ReactNode } from "react";
+import { PageHeader, PageTitle, SectionHeader } from "@/components/ui/Headers";
 import { ApiError } from "@/api/errors";
 import { Banner } from "@/components/ui/Banner";
 import { Bars, BarsSkeleton } from "@/components/ui/Bars";
@@ -7,7 +8,6 @@ import { Button, type ButtonVariant } from "@/components/ui/Button";
 import { Checklist } from "@/components/ui/Checklist";
 import { CopyButton } from "@/components/ui/CopyButton";
 import { Field } from "@/components/ui/Field";
-import { PageHeading } from "@/components/ui/Heading";
 import { RadioGroup, Select, Switch, TextArea } from "@/components/ui/Inputs";
 import { Money } from "@/components/ui/Money";
 import { IconTile, Option } from "@/components/ui/Option";
@@ -15,7 +15,7 @@ import { ProgressBar } from "@/components/ui/Progress";
 import { Skeleton, SkeletonLine } from "@/components/ui/Skeleton";
 import { StatusChip, Tag } from "@/components/ui/StatusChip";
 import { EmptyState, ErrorState, StaleNotice } from "@/components/ui/States";
-import { SectionTitle, Tile, TileLabel, type TileTone } from "@/components/ui/Tile";
+import { Tile, TileLabel, type TileTone } from "@/components/ui/Tile";
 import { Elapsed, RelativeTime } from "@/components/ui/Time";
 import { motion, radii, spacing, themes, typeScale } from "@/design/tokens";
 import { STATE_DOMAINS, type StateDomain } from "@/lib/states";
@@ -123,8 +123,14 @@ function Tokens() {
           ))}
         </div>
       </Specimen>
-      <Specimen name="Page title (Archivo), PageHeading">
-        <PageHeading>Book a GPU</PageHeading>
+      <Specimen name="Page header: breadcrumbs, title, one line, the primary action">
+        <PageHeader
+          title="Hosts"
+          tabTitle={null}
+          trail={[{ label: "Control room", href: "#" }]}
+          description="Every machine that has linked, its owner and its state."
+          action={<Button>Add a laptop</Button>}
+        />
       </Specimen>
       <Specimen name="Spacing">
         {Object.entries(spacing)
@@ -225,7 +231,7 @@ function Tiles() {
       {TONES.map((tone) => (
         <Tile key={tone} tone={tone}>
           <TileLabel tone={tone}>{tone}</TileLabel>
-          <SectionTitle>A panel's title</SectionTitle>
+          <SectionHeader>A panel's title</SectionHeader>
           <p className="text-small">A line of what it holds, and a figure: ₹1,234.50.</p>
           <Button variant={tone === "night" ? "live" : tone === "volt" ? "ink" : "ghost"}>Open</Button>
         </Tile>
@@ -239,23 +245,23 @@ function States() {
   return (
     <div className="grid gap-4 md:grid-cols-2">
       <Tile>
-        <SectionTitle>Loading: skeleton lines and a tile</SectionTitle>
+        <SectionHeader>Loading: skeleton lines and a tile</SectionHeader>
         <SkeletonLine size="section" width="60%" />
         <SkeletonLine size="body" width="90%" />
         <Skeleton className="h-24" />
       </Tile>
       <Tile>
-        <SectionTitle>Empty</SectionTitle>
+        <SectionHeader>Empty</SectionHeader>
         <EmptyState title="No sessions yet" action={<Button>Book a GPU</Button>}>
           Book a GPU to run your first one. It shows here while it runs and after.
         </EmptyState>
       </Tile>
       <Tile>
-        <SectionTitle>Error, with retry</SectionTitle>
+        <SectionHeader>Error, with retry</SectionHeader>
         <ErrorState error={failed} what="your sessions" onRetry={() => undefined} />
       </Tile>
       <Tile>
-        <SectionTitle>Error, retrying</SectionTitle>
+        <SectionHeader>Error, retrying</SectionHeader>
         <ErrorState error={failed} what="your sessions" onRetry={() => undefined} retrying />
       </Tile>
       <div className="md:col-span-2">
@@ -414,7 +420,7 @@ export function Gallery() {
   return (
     <main className="flex flex-col gap-8 px-4 py-8 md:px-8">
       <header className="flex flex-wrap items-center justify-between gap-4">
-        <PageHeading>Component gallery</PageHeading>
+        <PageTitle tabTitle="Component gallery">Component gallery</PageTitle>
         <ThemeSwitch />
       </header>
       <nav aria-label="Sections" className="flex flex-wrap gap-x-4 text-small">

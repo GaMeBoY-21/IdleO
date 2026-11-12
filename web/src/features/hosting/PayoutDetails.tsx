@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useLocation } from "wouter";
+import { SectionHeader } from "@/components/ui/Headers";
 import { ApiError } from "@/api/errors";
 import {
   useCheckUpi,
@@ -19,7 +20,7 @@ import { Field } from "@/components/ui/Field";
 import { Money } from "@/components/ui/Money";
 import { SkeletonLine } from "@/components/ui/Skeleton";
 import { ErrorState, StaleNotice, staleSince } from "@/components/ui/States";
-import { SectionTitle, Tile } from "@/components/ui/Tile";
+import { Tile } from "@/components/ui/Tile";
 import { useAfterPaint } from "@/lib/after-first-screen";
 import { useNow } from "@/lib/clock";
 import { useWide } from "@/lib/media";
@@ -118,7 +119,7 @@ function PanTile({ details }: { details: Details }) {
   const editable = pan == null || pan.state === "rejected";
   return (
     <Tile as="section" aria-labelledby="pan-title" className="flex flex-col gap-4">
-      <SectionTitle id="pan-title">PAN</SectionTitle>
+      <SectionHeader id="pan-title">PAN</SectionHeader>
       {pan && (
         <div className="flex flex-col gap-1">
           <p className="text-option font-semibold tabular">
@@ -199,7 +200,7 @@ function UpiTile({ details }: { details: Details }) {
   const shapeError = shown && !UPI_SHAPE.test(typed) ? "A UPI ID looks like name@bank." : undefined;
   return (
     <Tile as="section" aria-labelledby="upi-title" className="flex flex-col gap-4">
-      <SectionTitle id="upi-title">UPI ID</SectionTitle>
+      <SectionHeader id="upi-title">UPI ID</SectionHeader>
       {details.inUse && <InUse upi={details.inUse} />}
       {details.inReview && (
         <p className="text-small">
@@ -351,7 +352,7 @@ function GiveUp({ enabled, details }: { enabled: boolean; details: Details }) {
   }
   return (
     <Tile as="section" aria-labelledby="give-up-title" className="flex flex-col gap-2">
-      <SectionTitle id="give-up-title">Deleting your account without a UPI ID?</SectionTitle>
+      <SectionHeader id="give-up-title">Deleting your account without a UPI ID?</SectionHeader>
       <p className="text-small text-text-2">
         Your machines have earned <Money paise={unpaid} /> that hasn&apos;t been paid. Add a UPI ID above and
         it&apos;s paid before the account goes, or give it up in your own words here. Giving it up can&apos;t

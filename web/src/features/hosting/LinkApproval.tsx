@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
+import { PageTitle } from "@/components/ui/Headers";
 import {
   useApproveHostLink,
   useDenyHostLink,
@@ -78,9 +79,9 @@ function Machine({ link }: { link: HostLink | undefined }) {
       className="flex flex-col gap-4"
     >
       <TileLabel tone="night">A laptop is asking to be linked</TileLabel>
-      <h1 id="link-title" className="font-title text-display-feature">
+      <PageTitle variant="panel" id="link-title">
         Link this laptop to your account?
-      </h1>
+      </PageTitle>
       <dl className="flex flex-col gap-2 text-body">
         <Row label="Laptop" value={link?.machineName} />
         {link === undefined ? (

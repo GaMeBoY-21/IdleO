@@ -18,7 +18,6 @@ import {
 } from "./api";
 import {
   AdminPage,
-  BackLink,
   Cell,
   Empty,
   Fields,
@@ -346,8 +345,7 @@ function AbuseRecord({ id }: { id: string }) {
   const [saving, setSaving] = useState(false);
   const refresh = () => client.invalidateQueries({ queryKey: [ADMIN] });
   return (
-    <AdminPage title="Abuse review">
-      <BackLink href="/admin/abuse/">← All reviews</BackLink>
+    <AdminPage title="Abuse review" trail={[{ label: "Abuse", href: "/admin/abuse/" }]}>
       <QueryView query={detail} what="this review">
         {(found) => (
           <>

@@ -1,8 +1,8 @@
 import { lazy, Suspense, use, useEffect } from "react";
 import { useLocation, useSearch } from "wouter";
+import { PageTitle } from "@/components/ui/Headers";
 import { useTemplates } from "@/api/queries";
 import { Banner } from "@/components/ui/Banner";
-import { PageHeading } from "@/components/ui/Heading";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { ErrorState } from "@/components/ui/States";
 import { YourSession } from "@/features/flow/YourSession";
@@ -56,7 +56,7 @@ export function Book() {
         }
         left={
           <>
-            <PageHeading>{QUESTION}</PageHeading>
+            <PageTitle>{QUESTION}</PageTitle>
             {unknown && (
               <Banner tone="info">
                 That isn&apos;t available any more. Choose what to run from the list.

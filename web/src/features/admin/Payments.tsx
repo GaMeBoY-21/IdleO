@@ -9,7 +9,6 @@ import { ADMIN, adminApi, adminData, type AdminPaymentMismatch } from "./api";
 import { downloadAdminInvoice } from "./Invoices";
 import {
   AdminPage,
-  BackLink,
   Cell,
   Empty,
   Filters,
@@ -47,8 +46,7 @@ export const MISMATCH_WORDS: Record<string, string> = {
 export function Payments() {
   const id = new URLSearchParams(useSearch()).get("id");
   return id ? (
-    <AdminPage title="Payment">
-      <BackLink href="/admin/payments/">← All payments</BackLink>
+    <AdminPage title="Payment" trail={[{ label: "Payments", href: "/admin/payments/" }]}>
       <PaymentRecord id={id} />
     </AdminPage>
   ) : (

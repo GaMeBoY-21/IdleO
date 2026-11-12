@@ -1,16 +1,16 @@
 import { ChevronRight } from "lucide-react";
 import { Link } from "wouter";
+import { PageTitle, SectionHeader } from "@/components/ui/Headers";
 import { itemsOf, useInbox } from "@/api/inbox";
 import { Page } from "@/components/shell/AppShell";
 import { AppLink } from "@/components/ui/AppLink";
-import { SectionTitle, Tile } from "@/components/ui/Tile";
+import { Tile } from "@/components/ui/Tile";
 import { SkeletonLine } from "@/components/ui/Skeleton";
 import { RelativeTime } from "@/components/ui/Time";
 import { useAfterPaint } from "@/lib/after-first-screen";
 import { siteLink } from "@/lib/site-links";
 import { useTitle } from "@/lib/title";
 import { FIT_FRAME } from "@/components/shell/Layout";
-import { PageHeading } from "@/components/ui/Heading";
 import { cn } from "@/lib/cn";
 import { useWide } from "@/lib/media";
 import { HOST_QUESTIONS } from "@/site/host-questions";
@@ -32,7 +32,7 @@ const TROUBLES = [
 function Questions() {
   return (
     <Tile as="section" aria-labelledby="questions-title" className="flex flex-col gap-1 xl:col-span-3 xl:p-8">
-      <SectionTitle id="questions-title">Questions hosts ask</SectionTitle>
+      <SectionHeader id="questions-title">Questions hosts ask</SectionHeader>
       <div className="grid gap-x-6 xl:grid-cols-2">
         {HOST_QUESTIONS.map((item) => (
           <details key={item.question} className="border-b border-line py-4">
@@ -61,7 +61,7 @@ export function HostHelp() {
   const tiles = (
     <>
       <Tile as="section" aria-labelledby="app-title" className="flex flex-col gap-2 md:p-6">
-        <SectionTitle id="app-title">The Windows app</SectionTitle>
+        <SectionHeader id="app-title">The Windows app</SectionHeader>
         <p className="text-small text-text-2">
           It runs renters&apos; jobs in a sealed sandbox, pauses the moment you use the laptop, and updates by
           itself.
@@ -69,7 +69,7 @@ export function HostHelp() {
         <DownloadButton />
       </Tile>
       <Tile as="section" aria-labelledby="trouble-title" className="flex flex-col gap-1 md:p-6">
-        <SectionTitle id="trouble-title">When something&apos;s wrong</SectionTitle>
+        <SectionHeader id="trouble-title">When something&apos;s wrong</SectionHeader>
         <ul className="flex flex-col divide-y divide-line">
           {TROUBLES.map((trouble) => (
             <li key={trouble.href}>
@@ -82,7 +82,7 @@ export function HostHelp() {
         </ul>
       </Tile>
       <Tile as="section" aria-labelledby="notices-title" className="flex flex-col gap-1 md:p-6">
-        <SectionTitle
+        <SectionHeader
           id="notices-title"
           action={
             <Link href="/notifications/" className="text-small font-semibold underline">
@@ -91,7 +91,7 @@ export function HostHelp() {
           }
         >
           Notices
-        </SectionTitle>
+        </SectionHeader>
         {inbox.data ? (
           latest.length === 0 ? (
             <p className="min-h-touch content-center text-small text-text-2">
@@ -124,7 +124,7 @@ export function HostHelp() {
   // From 768 px the three side by side, each its own column (ADR 0058: full, and in the order a host needs them).
   return (
     <div className={cn(FIT_FRAME, "flex flex-col gap-6")}>
-      <PageHeading>Help</PageHeading>
+      <PageTitle>Help</PageTitle>
       <div className="grid items-stretch gap-4 xl:grid-cols-3">
         {tiles}
         {/* The questions are fixed; the laptops' list is as long as they are, so it comes last. */}

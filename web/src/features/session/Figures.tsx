@@ -1,5 +1,6 @@
 import { Cpu } from "lucide-react";
 import type { ReactNode } from "react";
+import { PageTitle } from "@/components/ui/Headers";
 import type { Session } from "@/api/queries";
 import { ProgressBar } from "@/components/ui/Progress";
 import { Money } from "@/components/ui/Money";
@@ -40,7 +41,7 @@ export function RunningTile({
         <span className="self-start">
           <StatusChip domain="session" state={session.state} />
         </span>
-        <h1 className="font-title text-display-feature break-words">{title}</h1>
+        <PageTitle variant="panel">{title}</PageTitle>
         <p className="text-small text-on-night-2">
           {session.startedAt ? (
             <RelativeTime value={session.startedAt} prefix="Started" />

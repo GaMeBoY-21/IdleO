@@ -1,12 +1,12 @@
 import type { ReactNode } from "react";
 import { Link } from "wouter";
+import { PageTitle, SectionHeader } from "@/components/ui/Headers";
 import { brand } from "@/brand/brand";
 import { Wordmark } from "@/brand/Wordmark";
 import { UserMenuButton } from "@/components/shell/UserMenuButton";
 import { FRAME } from "@/components/shell/Layout";
 import { buttonClasses } from "@/components/ui/Button";
-import { PageHeading } from "@/components/ui/Heading";
-import { SectionTitle, Tile } from "@/components/ui/Tile";
+import { Tile } from "@/components/ui/Tile";
 import { Decisions } from "@/features/account/Decisions";
 import { useTitle } from "@/lib/title";
 
@@ -44,9 +44,9 @@ export function HeldAccount() {
   return (
     <div className="w-full px-4 pt-2 md:px-8 md:pt-8 xl:px-10">
       <div className="mx-auto flex w-full max-w-card flex-col gap-6">
-        <PageHeading>Your account is suspended</PageHeading>
+        <PageTitle>Your account is suspended</PageTitle>
         <Tile as="section" aria-labelledby="held-says" className="flex flex-col gap-4 md:p-6 xl:p-8">
-          <SectionTitle id="held-says">What this means</SectionTitle>
+          <SectionHeader id="held-says">What this means</SectionHeader>
           <p className="max-w-prose text-small text-text-2">
             You can&apos;t book, upload or host while it is. You can still see and download everything we hold
             about you, delete your account, and write to us. If you think this is a mistake, write to us and

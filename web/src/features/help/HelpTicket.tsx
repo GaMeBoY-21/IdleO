@@ -1,11 +1,12 @@
 import { ChevronLeft } from "lucide-react";
 import { useState } from "react";
+import { SectionHeader } from "@/components/ui/Headers";
 import { Link, useSearch } from "wouter";
 import { useContact, useReplyTicket, useTicket } from "@/api/support";
 import { AccountFrame } from "@/components/shell/AccountFrame";
 import { Button } from "@/components/ui/Button";
 import { TextArea } from "@/components/ui/Inputs";
-import { SectionTitle, Tile } from "@/components/ui/Tile";
+import { Tile } from "@/components/ui/Tile";
 import { SkeletonLine } from "@/components/ui/Skeleton";
 import { ErrorState, StaleNotice, staleSince } from "@/components/ui/States";
 import { problemMessage } from "@/lib/problems";
@@ -41,7 +42,7 @@ export function HelpTicket() {
       </Link>
       {since !== null && <StaleNotice updatedAt={since} />}
       <Tile as="section" aria-labelledby="thread-title" className="flex flex-col gap-2 md:p-6 xl:p-8">
-        <SectionTitle id="thread-title">{topic ?? " "}</SectionTitle>
+        <SectionHeader id="thread-title">{topic ?? " "}</SectionHeader>
         {thread.data && ticket ? (
           <>
             <p className="text-small text-text-2">

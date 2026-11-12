@@ -1,12 +1,12 @@
 import type { ReactNode } from "react";
 import { Link, useSearch } from "wouter";
+import { PageTitle } from "@/components/ui/Headers";
 import { useSessionPages, useTemplatesKnown } from "@/api/queries";
 import { Page } from "@/components/shell/AppShell";
 import { Button, buttonClasses } from "@/components/ui/Button";
 import { EmptyState, ErrorState, StaleNotice, staleSince } from "@/components/ui/States";
 import { cn } from "@/lib/cn";
 import { FIT_FRAME } from "@/components/shell/Layout";
-import { PageHeading } from "@/components/ui/Heading";
 import { useWide } from "@/lib/media";
 import { useTitle } from "@/lib/title";
 import { SessionList, SessionRowsSkeleton, SessionTable } from "./SessionRow";
@@ -102,7 +102,7 @@ export function AllSessions() {
 function LaptopFrame({ title, children }: { title: string; children: ReactNode }) {
   return (
     <div className={cn(FIT_FRAME, "flex flex-col gap-6")}>
-      <PageHeading>{title}</PageHeading>
+      <PageTitle>{title}</PageTitle>
       {children}
     </div>
   );

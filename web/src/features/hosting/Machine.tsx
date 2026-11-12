@@ -1,5 +1,6 @@
 import { useHost } from "@/api/hosting";
 import { Skeleton, SkeletonLine } from "@/components/ui/Skeleton";
+import { PageTitle } from "@/components/ui/Headers";
 import { Tile } from "@/components/ui/Tile";
 import { EmptyState, ErrorState, StaleNotice, staleSince } from "@/components/ui/States";
 import { RelativeTime } from "@/components/ui/Time";
@@ -89,7 +90,7 @@ export function Machine() {
       summary={
         <Tile tone="night" size="lg" className="flex flex-col gap-2 xl:p-8">
           <StatusChip domain="machine" state={state.kind} label={state.label} testId="machine-chip" />
-          <h1 className="font-title text-display-feature break-words">{machine.name}</h1>
+          <PageTitle variant="panel">{machine.name}</PageTitle>
           <p className="min-h-5 text-small text-on-night-2">
             {restored ? (
               <>

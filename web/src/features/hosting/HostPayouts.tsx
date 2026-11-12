@@ -1,7 +1,7 @@
 import { Link } from "wouter";
 import { Page } from "@/components/shell/AppShell";
+import { PageTitle, SectionHeader } from "@/components/ui/Headers";
 import { FIT_FRAME } from "@/components/shell/Layout";
-import { PageHeading } from "@/components/ui/Heading";
 import { useAfterPaint } from "@/lib/after-first-screen";
 import { cn } from "@/lib/cn";
 import { useWide } from "@/lib/media";
@@ -10,7 +10,7 @@ import { HOST_PATHS } from "@/sites/host/paths";
 import { usePayoutDetails } from "@/api/payouts";
 import { maskedPan } from "@/lib/payouts";
 import { SkeletonLine } from "@/components/ui/Skeleton";
-import { SectionTitle, Tile } from "@/components/ui/Tile";
+import { Tile } from "@/components/ui/Tile";
 import { useEarnings } from "@/api/hosting";
 import { BarsSkeleton } from "@/components/ui/Bars";
 import { PayoutHistory, PayoutsTile, StatementTile } from "./Payouts";
@@ -29,7 +29,7 @@ export function HostPayouts() {
     return (
       <div className={cn(FIT_FRAME, "flex flex-col gap-6")}>
         <div className="flex flex-wrap items-end justify-between gap-4">
-          <PageHeading>Payouts</PageHeading>
+          <PageTitle>Payouts</PageTitle>
           <Link href={HOST_PATHS.payoutDetails} className="text-small font-semibold underline">
             Payout details
           </Link>
@@ -65,7 +65,7 @@ function WeeksOnTheWay({ enabled }: { enabled: boolean }) {
   const owner = earnings.data?.pages[0];
   return (
     <Tile as="section" aria-labelledby="weeks-paid-title" className="flex flex-col gap-2 xl:p-8">
-      <SectionTitle id="weeks-paid-title">Earned, the last 8 weeks</SectionTitle>
+      <SectionHeader id="weeks-paid-title">Earned, the last 8 weeks</SectionHeader>
       <div className="h-18">
         {owner ? <WeeksBars weeks={owner.weeks} tone="panel" /> : <BarsSkeleton count={8} tone="panel" />}
       </div>
@@ -89,7 +89,7 @@ function WhereTile({ enabled }: { enabled: boolean }) {
     : null;
   return (
     <Tile as="section" aria-labelledby="where-title" className="flex flex-col gap-2 xl:p-8">
-      <SectionTitle
+      <SectionHeader
         id="where-title"
         action={
           <Link href={HOST_PATHS.payoutDetails} className="text-small font-semibold underline">
@@ -98,7 +98,7 @@ function WhereTile({ enabled }: { enabled: boolean }) {
         }
       >
         Where payouts go
-      </SectionTitle>
+      </SectionHeader>
       <dl className="flex flex-col divide-y divide-line">
         {(
           rows ?? [

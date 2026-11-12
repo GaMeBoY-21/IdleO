@@ -1,11 +1,11 @@
 import { ChevronLeft } from "lucide-react";
 import { useEffect } from "react";
+import { PageTitle } from "@/components/ui/Headers";
 import { Link, useLocation } from "wouter";
 import type { ReactNode } from "react";
 import { brand } from "@/brand/brand";
 import { Wordmark } from "@/brand/Wordmark";
 import { AppLink } from "@/components/ui/AppLink";
-import { PageHeading } from "@/components/ui/Heading";
 import { loadHeadlineFonts } from "@/design/fonts";
 import { afterPaint } from "@/lib/after-first-screen";
 import { cn } from "@/lib/cn";
@@ -105,7 +105,7 @@ export function Page({ title, children }: { title: string; children: ReactNode }
   return (
     <div className="w-full px-4 pt-2 pb-8 md:px-8 md:pt-8 xl:px-10 md:pb-12">
       <div className="mx-auto flex w-full max-w-card flex-col gap-6 xl:w-7/12 xl:max-w-none">
-        <PageHeading>{title}</PageHeading>
+        <PageTitle>{title}</PageTitle>
         {children}
       </div>
     </div>

@@ -1,9 +1,10 @@
 import { Link } from "wouter";
 import { useEarnings, useHosts, type EarningsEntry, type OwnerEarnings } from "@/api/hosting";
+import { PageTitle, SectionHeader } from "@/components/ui/Headers";
 import { Page } from "@/components/shell/AppShell";
 import { HostFlow } from "@/components/shell/HostFlow";
 import { Button } from "@/components/ui/Button";
-import { SectionTitle, Tile } from "@/components/ui/Tile";
+import { Tile } from "@/components/ui/Tile";
 import { Money } from "@/components/ui/Money";
 import { SkeletonLine } from "@/components/ui/Skeleton";
 import { EmptyState, ErrorState, StaleNotice, staleSince } from "@/components/ui/States";
@@ -49,7 +50,7 @@ export function Earnings() {
         backLabel="Hosting"
         summary={owner ? <Totals owner={owner} heading /> : <TotalsSkeleton />}
       >
-        <h1 className="sr-only">Earnings</h1>
+        <PageTitle hidden>Earnings</PageTitle>
         {since !== null && <StaleNotice updatedAt={since} />}
         {owner && <WeeksTile owner={owner} />}
         {owner && entries ? (
@@ -95,7 +96,7 @@ export function Earnings() {
 function WeeksTile({ owner }: { owner: OwnerEarnings }) {
   return (
     <Tile as="section" aria-labelledby="weeks-title" className="flex flex-col gap-2 xl:p-8">
-      <SectionTitle
+      <SectionHeader
         id="weeks-title"
         action={
           <Link href={HOST_PATHS.payouts} className="text-small font-semibold underline">
@@ -104,7 +105,7 @@ function WeeksTile({ owner }: { owner: OwnerEarnings }) {
         }
       >
         The last 8 weeks
-      </SectionTitle>
+      </SectionHeader>
       <WeeksBars weeks={owner.weeks} tone="panel" />
     </Tile>
   );
@@ -160,7 +161,7 @@ function History({
 }) {
   return (
     <section aria-labelledby="history-title" className="flex flex-col gap-1">
-      <SectionTitle id="history-title">History</SectionTitle>
+      <SectionHeader id="history-title">History</SectionHeader>
       <div className="flex flex-col gap-4">
         {entries.length === 0 ? (
           <EmptyState title="Nothing earned yet">

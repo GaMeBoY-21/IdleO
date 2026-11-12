@@ -94,25 +94,3 @@ export function TileLabel({
 }: HTMLAttributes<HTMLSpanElement> & { tone?: TileTone }) {
   return <span className={cn("text-caption", tileMuted[tone], className)} {...props} />;
 }
-
-/** A section's title, with an optional action at its end. */
-export function SectionTitle({
-  children,
-  action,
-  id,
-  className,
-}: {
-  children: ReactNode;
-  action?: ReactNode;
-  id?: string;
-  className?: string;
-}) {
-  return (
-    <div className={cn("flex min-h-touch items-center justify-between gap-4", className)}>
-      <h2 id={id} className="text-section">
-        {children}
-      </h2>
-      {action}
-    </div>
-  );
-}

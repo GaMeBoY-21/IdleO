@@ -8,7 +8,7 @@ import { word } from "./words";
 import { LinkedAccounts, RecordHead, RecordNotes } from "./Notes";
 import { RecordTabs, type RecordTab } from "./RecordTabs";
 import { Timeline } from "./Timeline";
-import { AdminPage, BackLink, Cell, Empty, Fields, Id, QueryView, Row, Section, Table } from "./ui";
+import { AdminPage, Cell, Empty, Fields, Id, QueryView, Row, Section, Table } from "./ui";
 import { useListQuery } from "./listView";
 import { UserEnforcement } from "./Enforcement";
 
@@ -1040,8 +1040,7 @@ export function PlainRecord({
 }) {
   const query = useQuery({ queryKey: [ADMIN, "plain-record", page, id], queryFn: read });
   return (
-    <AdminPage title={title}>
-      <BackLink href={back}>{backLabel}</BackLink>
+    <AdminPage title={title} trail={[{ label: backLabel, href: back }]}>
       <QueryView query={query} what={`this ${title.toLowerCase()}`}>
         {(found) => <FieldsOf record={found as Record<string, unknown>} />}
       </QueryView>

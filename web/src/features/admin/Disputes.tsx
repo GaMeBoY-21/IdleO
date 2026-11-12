@@ -21,7 +21,6 @@ import { refundProblem, witnessSummary } from "./rules";
 import { SessionLog } from "./SessionLog";
 import {
   AdminPage,
-  BackLink,
   Cell,
   Empty,
   Fields,
@@ -152,8 +151,7 @@ function DisputeRecord({ id }: { id: string }) {
   const refresh = () => client.invalidateQueries({ queryKey: [ADMIN] });
   const paise = parseRupees(rupees);
   return (
-    <AdminPage title="Report">
-      <BackLink href="/admin/disputes/">← All reports</BackLink>
+    <AdminPage title="Report" trail={[{ label: "Reports", href: "/admin/disputes/" }]}>
       <QueryView query={dispute} what="this report">
         {(found) => (
           <>

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link } from "wouter";
+import { SectionHeader } from "@/components/ui/Headers";
 import {
   downloadStatement,
   usePayoutHistory,
@@ -11,7 +12,7 @@ import { Button } from "@/components/ui/Button";
 import { Money } from "@/components/ui/Money";
 import { SkeletonLine } from "@/components/ui/Skeleton";
 import { ErrorState, EmptyState } from "@/components/ui/States";
-import { SectionTitle, Tile } from "@/components/ui/Tile";
+import { Tile } from "@/components/ui/Tile";
 import { useNow } from "@/lib/clock";
 import { cn } from "@/lib/cn";
 import { blockedWords, payoutStatus } from "@/lib/payouts";
@@ -49,7 +50,7 @@ export function Summary({ summary }: { summary: PayoutSummary }) {
   return (
     <Tile as="section" aria-labelledby="payouts-title" className="flex flex-col gap-4 xl:p-8">
       <div className="flex items-baseline justify-between gap-2">
-        <SectionTitle id="payouts-title">Payouts</SectionTitle>
+        <SectionHeader id="payouts-title">Payouts</SectionHeader>
         <Link href={HOST_PATHS.payoutDetails} className="text-small font-semibold underline">
           Payout details
         </Link>
@@ -142,7 +143,7 @@ export function SummarySkeleton() {
   return (
     <Tile className="flex flex-col gap-4 xl:p-8" role="status" aria-label="Loading your payouts">
       <div className="flex items-baseline justify-between gap-2">
-        <SectionTitle>Payouts</SectionTitle>
+        <SectionHeader>Payouts</SectionHeader>
       </div>
       <dl className="grid grid-cols-2 gap-2">
         {/* The loaded labels, the year's too, so one that wraps on a phone wraps here as well. */}
@@ -171,7 +172,7 @@ export function PayoutHistory({ enabled }: { enabled: boolean }) {
   const payouts = history.data?.pages.flatMap((page) => page.payouts);
   return (
     <section aria-labelledby="payout-history-title" className="flex flex-col gap-1">
-      <SectionTitle id="payout-history-title">Payout history</SectionTitle>
+      <SectionHeader id="payout-history-title">Payout history</SectionHeader>
       {payouts ? (
         payouts.length === 0 ? (
           <EmptyState title="No payouts yet">
@@ -281,7 +282,7 @@ export function Statement({ years }: { years: string[] | null }) {
       aria-busy={years === null}
       className="flex flex-col gap-2"
     >
-      <SectionTitle id="statement-title">Yearly statement</SectionTitle>
+      <SectionHeader id="statement-title">Yearly statement</SectionHeader>
       <p className="text-small text-text-2">
         What you were paid in a financial year (April to March), the tax deducted and the net: for your tax
         return.

@@ -44,7 +44,7 @@ export function Invoices() {
     <PlainRecord
       title="Invoice"
       back="/admin/invoices/"
-      backLabel="← Invoices"
+      backLabel="Invoices"
       page="invoice"
       id={id}
       read={() => adminData(adminApi.GET("/admin/v1/invoices/{id}", { params: { path: { id } } }))}

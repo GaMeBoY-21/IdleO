@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
+import { PageTitle } from "@/components/ui/Headers";
 import { signOut } from "@/auth";
 import { useCachedMe, useMeAfterPaint } from "@/api/queries";
 import { RailColumns } from "@/components/shell/Layout";
@@ -37,7 +38,7 @@ export function AccountRail({
       }
       right={
         <div className={cn("flex flex-col gap-4 2xl:gap-4", className)}>
-          <h1 className="sr-only">{title}</h1>
+          <PageTitle hidden>{title}</PageTitle>
           {children}
         </div>
       }

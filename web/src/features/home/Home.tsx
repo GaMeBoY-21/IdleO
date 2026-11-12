@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect } from "react";
 import { Link } from "wouter";
+import { PageTitle } from "@/components/ui/Headers";
 import { isChanging, isLive, useSessions, useTemplates, useWallet } from "@/api/queries";
 import { Banner } from "@/components/ui/Banner";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -114,7 +115,7 @@ export function Home() {
           Your credit is running low. A running session stops, after a last checkpoint, when it runs out.
         </Banner>
       )}
-      {live.length > 0 && <h1 className="sr-only">{QUESTION}</h1>}
+      {live.length > 0 && <PageTitle hidden>{QUESTION}</PageTitle>}
       <div className={GRID}>
         {live.map((session) => (
           <RunningTile key={session.id} session={session} catalog={catalog} />

@@ -1,11 +1,11 @@
 import { ChevronRight } from "lucide-react";
 import type { ReactNode } from "react";
+import { PageTitle, SectionHeader } from "@/components/ui/Headers";
 import { Link } from "wouter";
 import { useHistory, useWallet, type HistoryEntry } from "@/api/queries";
 import { Page } from "@/components/shell/AppShell";
 import { RailColumns } from "@/components/shell/Layout";
 import { Button } from "@/components/ui/Button";
-import { SectionTitle } from "@/components/ui/Tile";
 import { Money } from "@/components/ui/Money";
 import { SkeletonLine } from "@/components/ui/Skeleton";
 import { EmptyState, ErrorState, StaleNotice, staleSince } from "@/components/ui/States";
@@ -81,7 +81,7 @@ export function CreditHistory() {
     >
       {since !== null && <StaleNotice updatedAt={since} />}
       <section aria-labelledby="history-title" className="flex flex-col gap-1">
-        <SectionTitle id="history-title">History</SectionTitle>
+        <SectionHeader id="history-title">History</SectionHeader>
         {entries ? (
           <div className="flex flex-col gap-4">
             {entries.length === 0 ? (
@@ -192,7 +192,7 @@ function Rail({ title, summary, more, documents, children }: FrameProps) {
       }
       right={
         <>
-          <h1 className="sr-only">{title}</h1>
+          <PageTitle hidden>{title}</PageTitle>
           {documents}
           {children}
         </>
