@@ -20,7 +20,7 @@ const CONSOLE_STATES = {
     banned: { label: "Banned", tone: "danger" },
     held: { label: "Held", tone: "warning" },
     deleted: { label: "Deleted", tone: "neutral" },
-    pending: { label: "Being checked", tone: "neutral" },
+    pending: { label: "Pending", tone: "neutral" },
     removed: { label: "Removed", tone: "danger" },
   },
   /** A warning, suspension or ban (ADR 0053). */
