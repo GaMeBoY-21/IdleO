@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { count } from "@/lib/format";
 import { Link } from "wouter";
 import { StatGrid, StatTile } from "@/components/ui/KeyValues";
 import { SectionHeader } from "@/components/ui/Headers";
@@ -99,7 +100,7 @@ export function Summary({ summary }: { summary: PayoutSummary }) {
           <summary className="min-h-touch cursor-pointer content-center font-semibold">
             {summary.pending.length === 1
               ? "1 session pending"
-              : `${summary.pending.length} sessions pending`}
+              : `${count(summary.pending.length, "session")} pending`}
             {nextAvailable && <> · the next on {formatDay(nextAvailable)}</>}
           </summary>
           <ul className="flex flex-col divide-y divide-line">

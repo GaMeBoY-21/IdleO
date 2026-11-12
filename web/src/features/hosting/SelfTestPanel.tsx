@@ -1,4 +1,5 @@
 import { Check, Circle, Minus, X } from "lucide-react";
+import { count } from "@/lib/format";
 import { useId } from "react";
 import { useRunSelfTest, useSelfTest, type Host, type SelfTestRun } from "@/api/hosting";
 import { Banner } from "@/components/ui/Banner";
@@ -36,7 +37,7 @@ export function selfTestSummary(run: SelfTestRun | null | undefined, done: numbe
   }
   switch (run.state) {
     case "running":
-      return `Running · ${done} of ${total} checks done`;
+      return `Running · ${done} of ${count(total, "check")} done`;
     case "passed":
       return "Passed";
     case "failed":

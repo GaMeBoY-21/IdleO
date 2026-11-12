@@ -1,4 +1,5 @@
 import { ChevronLeft } from "lucide-react";
+import { count } from "@/lib/format";
 import { Link, useLocation } from "wouter";
 import { SectionHeader } from "@/components/ui/Headers";
 import { useCancelDeletion, useDeletion, useRequestDeletion, type DeletionStanding } from "@/api/privacy";
@@ -31,7 +32,7 @@ export function period(days: number): string {
   if (days >= 730 && days % 365 <= 2) {
     return `${Math.round(days / 365.25)} years`;
   }
-  return days === 1 ? "1 day" : `${days} days`;
+  return count(days, "day");
 }
 
 /** What erasure keeps, and for how long, from the periods the server is configured with. */
