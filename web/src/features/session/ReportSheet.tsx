@@ -1,6 +1,7 @@
-import { Dialog } from "radix-ui";
 import { useRef, useState } from "react";
 import { useReport } from "@/api/trust";
+import { Sheet, SheetClose } from "@/components/ui/Sheet";
+import { TextArea } from "@/components/ui/Inputs";
 import { Banner } from "@/components/ui/Banner";
 import { Button } from "@/components/ui/Button";
 import { Option } from "@/components/ui/Option";
@@ -52,90 +53,81 @@ export function ReportSheet({
   };
 
   return (
-    <Dialog.Root open={open} onOpenChange={close}>
-      <Dialog.Portal>
-        <Dialog.Overlay className="appear fixed inset-0 z-overlay bg-ink opacity-60" />
-        <Dialog.Content
-          data-tile=""
-          className="appear fixed inset-x-4 top-4 bottom-4 z-sheet mx-auto flex max-w-narrow flex-col gap-4 overflow-y-auto rounded-panel bg-panel p-6 border border-line md:inset-y-auto md:top-12 md:max-h-5/6"
-        >
+    <Sheet
+      open={open}
+      onOpenChange={close}
+      title={sent ? "Report sent" : "Report a problem"}
+      description={
+        <p className="text-small text-text-2">
           {sent ? (
             <>
-              <Dialog.Title className="text-section">Report sent</Dialog.Title>
-              <Dialog.Description className="text-small text-text-2">
-                {REPLY_PROMISE} You&apos;ll see what we decided on this session&apos;s screen, and under
-                Account, Reports.
-              </Dialog.Description>
-              <Dialog.Close asChild>
-                <Button variant="primary" large>
-                  Done
-                </Button>
-              </Dialog.Close>
+              {REPLY_PROMISE} You&apos;ll see what we decided on this session&apos;s screen, and under
+              Account, Reports.
             </>
           ) : (
-            <>
-              <Dialog.Title className="text-section">Report a problem</Dialog.Title>
-              <Dialog.Description className="text-small text-text-2">
-                What went wrong with this session? A person reads every report. {REPLY_PROMISE}
-              </Dialog.Description>
-              <form
-                className="flex flex-col gap-4"
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  send();
-                }}
-              >
-                <div role="group" aria-label="What went wrong" className="flex flex-col gap-1">
-                  {REPORT_REASONS.map((option) => (
-                    <Option
-                      key={option.value}
-                      title={option.title}
-                      detail={option.detail}
-                      selected={reason === option.value}
-                      onClick={() => setReason(option.value)}
-                    />
-                  ))}
-                </div>
-                <div className="flex flex-col gap-2">
-                  <label htmlFor="report-details" className="text-small font-medium">
-                    Tell us more (optional)
-                  </label>
-                  <textarea
-                    id="report-details"
-                    value={details}
-                    rows={4}
-                    maxLength={REPORT_DETAILS_MAX}
-                    onChange={(event) => setDetails(event.target.value)}
-                    aria-describedby="report-details-help"
-                    className="rounded-control bg-panel px-4 py-4 text-body text-text"
-                  />
-                  <p id="report-details-help" className="text-caption text-text-2">
-                    Don&apos;t include passwords or keys. <span className="tabular">{details.length}</span>/
-                    {REPORT_DETAILS_MAX}
-                  </p>
-                </div>
-                {report.isError && <Banner tone="danger">{problemMessage(report.error)}</Banner>}
-                <div className="flex flex-col-reverse gap-2 md:flex-row md:justify-end">
-                  <Dialog.Close asChild>
-                    <Button variant="ghost" large>
-                      Cancel
-                    </Button>
-                  </Dialog.Close>
-                  <Button
-                    type="submit"
-                    variant="primary"
-                    large
-                    busy={report.isPending}
-                    disabled={reason === null}
-                  >
-                    Send report
-                  </Button>
-                </div>
-              </form>
-            </>
+            <>What went wrong with this session? A person reads every report. {REPLY_PROMISE}</>
           )}
-        </Dialog.Content>
-      </Dialog.Portal>
-    </Dialog.Root>
+        </p>
+      }
+    >
+      {sent ? (
+        <SheetClose asChild>
+          <Button variant="primary" large>
+            Done
+          </Button>
+        </SheetClose>
+      ) : (
+        <form
+          className="flex flex-col gap-4"
+          onSubmit={(event) => {
+            event.preventDefault();
+            send();
+          }}
+        >
+          <div role="group" aria-label="What went wrong" className="flex flex-col gap-1">
+            {REPORT_REASONS.map((option) => (
+              <Option
+                key={option.value}
+                title={option.title}
+                detail={option.detail}
+                selected={reason === option.value}
+                onClick={() => setReason(option.value)}
+              />
+            ))}
+          </div>
+          <TextArea
+            label="Tell us more (optional)"
+            value={details}
+            rows={4}
+            maxLength={REPORT_DETAILS_MAX}
+            onChange={(event) => setDetails(event.target.value)}
+            hint={
+              <>
+                Don&apos;t include passwords or keys. <span className="tabular">{details.length}</span>/
+                {REPORT_DETAILS_MAX}
+              </>
+            }
+          />
+          {report.isError && <Banner tone="danger">{problemMessage(report.error)}</Banner>}
+          <div className="flex flex-col-reverse gap-2 md:flex-row md:justify-end">
+            <SheetClose asChild>
+              <Button variant="ghost" large>
+                Cancel
+              </Button>
+            </SheetClose>
+            <Button
+              type="submit"
+              variant="primary"
+              large
+              busy={report.isPending}
+              disabled={reason === null}
+              title={reason === null ? "Choose what went wrong first" : undefined}
+            >
+              Send report
+            </Button>
+          </div>
+        </form>
+      )}
+    </Sheet>
   );
 }

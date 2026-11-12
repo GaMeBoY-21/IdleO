@@ -78,7 +78,8 @@ export function Button({
 /** Only ever inside a pressed button (web/DESIGN.md principle 4). */
 function Spinner() {
   return (
-    <svg className="size-4 animate-spin" viewBox="0 0 16 16" aria-hidden="true" fill="none">
+    // Shown only once a press has taken 300 ms, so a quick answer never flashes it; the button is disabled at once.
+    <svg className="appear-late size-4 animate-spin" viewBox="0 0 16 16" aria-hidden="true" fill="none">
       <circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeOpacity="0.3" strokeWidth="2" />
       <path d="M14.5 8A6.5 6.5 0 0 0 8 1.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
     </svg>

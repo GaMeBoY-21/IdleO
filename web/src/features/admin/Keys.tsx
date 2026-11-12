@@ -12,7 +12,7 @@ import { useLocation } from "wouter";
 import { KeyValueList } from "@/components/ui/KeyValues";
 import { Button } from "@/components/ui/Button";
 import { HANDBOOK, RUNBOOKS, runbookUrl } from "./runbooks";
-import { Sheet } from "./Sheet";
+import { Sheet } from "@/components/ui/Sheet";
 
 /**
  * Keyboard-first (ADR 0057): `g` then a letter goes to a screen, `/` searches the list you're on, `?` says every key on

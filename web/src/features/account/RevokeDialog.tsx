@@ -1,6 +1,5 @@
-import { Dialog } from "radix-ui";
 import type { ReactNode } from "react";
-import { Button } from "@/components/ui/Button";
+import { ConfirmDialog } from "@/components/ui/Sheet";
 
 /**
  * Revoking a key, which can't be taken back (ADR 0025): a sheet that names it, never a browser dialog. Anything using
@@ -22,31 +21,16 @@ export function RevokeDialog({
   error: ReactNode;
 }) {
   return (
-    <Dialog.Root open={open} onOpenChange={onOpenChange}>
-      <Dialog.Portal>
-        <Dialog.Overlay className="appear fixed inset-0 z-overlay bg-ink opacity-60" />
-        <Dialog.Content
-          data-tile=""
-          className="appear fixed inset-x-4 bottom-4 z-sheet mx-auto flex max-w-narrow flex-col gap-4 rounded-panel bg-panel p-6 border border-line md:top-1/3 md:bottom-auto"
-        >
-          <Dialog.Title className="text-section">Revoke {name}?</Dialog.Title>
-          <Dialog.Description className="text-small text-text-2">
-            Anything using this key stops working at once, and it can&apos;t be brought back. You can make
-            another any time.
-          </Dialog.Description>
-          {error}
-          <div className="flex flex-col-reverse gap-2 md:flex-row md:justify-end">
-            <Dialog.Close asChild>
-              <Button variant="ghost" large>
-                Keep it
-              </Button>
-            </Dialog.Close>
-            <Button variant="danger" large busy={revoking} onClick={onRevoke}>
-              Revoke {name}
-            </Button>
-          </div>
-        </Dialog.Content>
-      </Dialog.Portal>
-    </Dialog.Root>
+    <ConfirmDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title={`Revoke ${name}?`}
+      description="Anything using this key stops working at once, and it can't be brought back. You can make another any time."
+      keep="Keep it"
+      confirm={`Revoke ${name}`}
+      onConfirm={onRevoke}
+      busy={revoking}
+      error={error}
+    />
   );
 }

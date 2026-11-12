@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { data } from "@/api/client";
 import { Button } from "@/components/ui/Button";
-import { Sheet } from "./Sheet";
+import { Sheet } from "@/components/ui/Sheet";
 import { Problem } from "./ui";
 import { adminApi, whenStepUpNeeded } from "./api";
 import { CodeField } from "./CodeField";

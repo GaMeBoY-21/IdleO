@@ -1,5 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Suspense } from "react";
+import { Toaster } from "@/components/ui/Toast";
 import { Link, Route, Switch, useLocation } from "wouter";
 import { Wordmark } from "@/brand/Wordmark";
 import { Button } from "@/components/ui/Button";
@@ -244,6 +245,7 @@ function Layout({ children }: { children: React.ReactNode }) {
         </Button>
       </header>
       <main className="min-w-0 flex-1 px-4 py-6 md:px-8 md:py-8">{children}</main>
+      <Toaster />
     </div>
   );
 }
