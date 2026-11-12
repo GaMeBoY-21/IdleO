@@ -55,19 +55,23 @@ if [[ -n "$cluster" ]]; then
     { echo "verify-ledger: there's no Cluster $cluster in $namespace" >&2; exit 2; }
   database="${PGDATABASE:-controlplane}"
   target="$cluster"
-  sql() { kubectl -n "$namespace" exec -i "$primary" -c postgres -- psql -X -v ON_ERROR_STOP=1 -U postgres -d "$database" -Atc "$1"; }
+  sql() { kubectl -n "$namespace" exec -i "$primary" -c postgres -- psql -X -q -v ON_ERROR_STOP=1 -U postgres -d "$database" -Atc "$1"; }
 else
   target="$container"
-  sql() { docker exec -i "$container" psql -X -v ON_ERROR_STOP=1 -U "$user" -d "$database" -Atc "$1"; }
+  sql() { docker exec -i "$container" psql -X -q -v ON_ERROR_STOP=1 -U "$user" -d "$database" -Atc "$1"; }
 fi
 
-# One -c string runs as one transaction, so the checks run read-only and psql prints the last command's rows.
+# One -c string runs as one transaction, so the checks run read-only. psql prints every statement's result since
+# PostgreSQL 15, so -q keeps the SET's tag out: every line read below is a check's row.
 results="$(sql "set transaction read only; select check_number || '|' || name || '|' || found from billing.ledger_checks()")" || {
   echo "verify-ledger: couldn't run the ledger's checks against $target" >&2
   exit 1
 }
 failed=0
-while IFS='|' read -r _ name found; do
+checks=0
+while IFS='|' read -r number name found; do
+  [[ "$number" =~ ^[0-9]+$ && -n "$name" ]] || { echo "verify-ledger: a line that isn't a check's result: $number|$name|$found" >&2; exit 1; }
+  checks=$((checks + 1))
   if [[ "$found" == 0 ]]; then
     printf 'verify-ledger: ok    %s\n' "$name"
   else
@@ -75,6 +79,7 @@ while IFS='|' read -r _ name found; do
     failed=1
   fi
 done <<<"$results"
+((checks > 0)) || { echo "verify-ledger: the ledger's checks returned nothing from $target" >&2; exit 1; }
 summary="$(sql "
   select count(distinct txn_id) || ' transactions, ' || count(*) || ' entries, '
          || coalesce(sum(amount_paise) filter (where direction = 'debit'), 0) || ' paise each side'
