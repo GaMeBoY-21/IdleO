@@ -280,7 +280,11 @@ function HostRecord({ id }: { id: string }) {
     ),
   );
   return (
-    <AdminPage title="Host" trail={[{ label: "Hosts", href: "/admin/hosts/" }]}>
+    <AdminPage
+      title="Host"
+      name={host.data?.name ?? null}
+      trail={[{ label: "Hosts", href: "/admin/hosts/" }]}
+    >
       <QueryView query={host} what="this host">
         {(found) => (
           <>
@@ -304,22 +308,8 @@ function HostRecord({ id }: { id: string }) {
                     }`
                   ),
                 ],
-                [
-                  "Host id",
-                  <span key="id" className="tabular">
-                    {found.id}
-                  </span>,
-                ],
-                [
-                  "Owner",
-                  <Link
-                    key="owner"
-                    href={`/admin/users/?id=${found.ownerId}`}
-                    className="tabular underline-offset-4 hover:underline"
-                  >
-                    {found.ownerId}
-                  </Link>,
-                ],
+                ["Host id", <Id key="id" value={found.id} />],
+                ["Owner", <Id key="owner" value={found.ownerId} page="user" />],
                 [
                   "Price",
                   found.pricePaisePerMin == null

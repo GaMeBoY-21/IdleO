@@ -280,7 +280,11 @@ function AppealRecord({ id }: { id: string }) {
   const [outcome, setOutcome] = useState<"uphold" | "reverse" | null>(null);
   const [opening, setOpening] = useState<string | null>(null);
   return (
-    <AdminPage title="Appeal" trail={[{ label: "Appeals", href: "/admin/appeals/" }]}>
+    <AdminPage
+      title="Appeal"
+      name={`…${id.slice(-8)}`}
+      trail={[{ label: "Appeals", href: "/admin/appeals/" }]}
+    >
       <QueryView query={record} what="this appeal">
         {(found) => (
           <>

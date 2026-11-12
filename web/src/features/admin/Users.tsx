@@ -22,6 +22,7 @@ import {
   SmallField,
   SmallSelect,
   Table,
+  Id,
 } from "./ui";
 import { usePaletteActions } from "./Palette";
 import { ActionButton, useCan } from "./permissions";
@@ -189,7 +190,11 @@ function UserRecord({ id }: { id: string }) {
   );
 
   return (
-    <AdminPage title="User" trail={[{ label: "Users", href: "/admin/users/" }]}>
+    <AdminPage
+      title="User"
+      name={user.data ? (user.data.displayName ?? `…${id.slice(-8)}`) : null}
+      trail={[{ label: "Users", href: "/admin/users/" }]}
+    >
       <QueryView query={user} what="this user">
         {(found) => (
           <>
@@ -201,12 +206,7 @@ function UserRecord({ id }: { id: string }) {
                 ],
                 ["Name", found.displayName ?? "—"],
                 ["Status", <UserStatus key="status" user={found} />],
-                [
-                  "User id",
-                  <span key="id" className="tabular">
-                    {found.id}
-                  </span>,
-                ],
+                ["User id", <Id key="id" value={found.id} />],
                 ["Signed up", <RelativeTime key="created" value={found.createdAt} />],
                 [
                   "Last sign-in",

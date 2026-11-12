@@ -24,24 +24,44 @@ export { ErrorState };
 
 export function AdminPage({
   title,
+  name,
   description,
   trail,
   action,
   children,
 }: {
+  /** The page's name, or a record's kind ("Host"). */
   title: string;
+  /**
+   * A record's own name, under its kind: what the page is titled and its tab named. `null` while the record loads, which
+   * holds the name's line, so nothing moves when it arrives.
+   */
+  name?: string | null;
   description?: ReactNode;
   /** The pages above a record's: its list, as breadcrumbs. */
   trail?: Crumb[];
   action?: ReactNode;
   children: ReactNode;
 }) {
+  const record = name !== undefined;
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
         dense
-        title={title}
-        tabTitle={`${title} · Admin`}
+        title={
+          record ? (
+            <>
+              <span className="block font-sans text-caption font-semibold tracking-wider text-text-2">
+                {title}
+              </span>{" "}
+              <span className="block normal-case">{name ?? "…"}</span>
+            </>
+          ) : (
+            title
+          )
+        }
+        tabTitle={record ? `${name ?? title} · ${title} · Admin` : `${title} · Admin`}
+        crumb={record ? (name ?? title) : title}
         description={description}
         trail={trail}
         action={action}
