@@ -37,7 +37,7 @@ const PHONE_FRAME =
  * by CSS, so what a screen reader reads and the tab order follow what's on screen.
  */
 export function Home() {
-  useTitle(null);
+  useTitle("Home");
   const sessions = useSessions();
   const templates = useTemplates();
   // The credit tile moves while a session can still change it.
@@ -115,7 +115,11 @@ export function Home() {
           Your credit is running low. A running session stops, after a last checkpoint, when it runs out.
         </Banner>
       )}
-      {live.length > 0 && <PageTitle hidden>{QUESTION}</PageTitle>}
+      {live.length > 0 && (
+        <PageTitle hidden tabTitle="Home">
+          {QUESTION}
+        </PageTitle>
+      )}
       <div className={GRID}>
         {live.map((session) => (
           <RunningTile key={session.id} session={session} catalog={catalog} />

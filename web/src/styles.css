@@ -26,6 +26,8 @@
     font-family: var(--font-sans);
     -webkit-text-size-adjust: 100%;
     text-rendering: optimizeLegibility;
+    /* A word longer than its line (a pasted file name, an email) breaks rather than pushing the page sideways. */
+    overflow-wrap: break-word;
   }
   body {
     @apply text-body;

@@ -31,13 +31,14 @@ export function RailColumns({
     <div
       className={cn(
         FIT_FRAME,
-        "grid gap-4 2xl:gap-4",
+        // One column below 1200 px, never wider than the window: a long name or email wraps rather than widening it.
+        "grid grid-cols-1 gap-4 2xl:gap-4",
         rail === "lg" ? "xl:cols-rail-lg" : "xl:cols-rail-sm",
         fit && "xl:fit-screen",
       )}
     >
-      <div className="flex min-h-0 flex-col gap-4 2xl:gap-4">{left}</div>
-      <div className="flex min-h-0 flex-col gap-4 2xl:gap-4">{right}</div>
+      <div className="flex min-h-0 min-w-0 flex-col gap-4 2xl:gap-4">{left}</div>
+      <div className="flex min-h-0 min-w-0 flex-col gap-4 2xl:gap-4">{right}</div>
     </div>
   );
 }

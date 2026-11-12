@@ -1,10 +1,7 @@
 import type { UseQueryResult } from "@tanstack/react-query";
 import type { ReactNode } from "react";
-import { PageTitle } from "@/components/ui/Headers";
-import { Link } from "wouter";
 import { isLive, type Session, type Wallet } from "@/api/queries";
 import type { components } from "@/api/schema.gen";
-import { buttonClasses } from "@/components/ui/Button";
 import { useAfterPaint } from "@/lib/after-first-screen";
 import { offeredServices, serviceOf, serviceTypicalCost } from "@/lib/catalog";
 import { useTypicalPrices } from "@/api/home";
@@ -14,7 +11,7 @@ import { FirstRun } from "../FirstRun";
 import { CreditPanel } from "./CreditPanel";
 import { DevelopersPanel } from "./DevelopersPanel";
 import { FreeGpus } from "./FreeGpus";
-import { HOME } from "./LaptopHomeSkeleton";
+import { HOME, HomeHeader } from "./LaptopHomeSkeleton";
 import { RecentSessions } from "./RecentSessions";
 import { ServicesTile } from "./ServicesTile";
 import { UsagePanel } from "./UsagePanel";
@@ -53,17 +50,9 @@ export function LaptopHome({
   return (
     <div className={HOME}>
       {banners && <div className="flex flex-col gap-2">{banners}</div>}
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div className="flex flex-col gap-1">
-          <span className="text-body text-text-3">Or drop a folder anywhere on this page</span>
-          <PageTitle id="question">What do you want to run?</PageTitle>
-        </div>
-        <Link href="/book/" className={buttonClasses("primary", false, true)}>
-          Book a GPU
-        </Link>
-      </div>
+      <HomeHeader />
       <ServicesTile services={services} catalog={catalog} dropping={dropping} prices={prices.data?.classes} />
-      <div className="grid gap-4 xl:h-home-panel xl:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 xl:h-home-panel xl:grid-cols-3">
         <CreditPanel wallet={wallet} enabled={painted} />
         <FreeGpus enabled={painted} />
         <UsagePanel enabled={painted} />

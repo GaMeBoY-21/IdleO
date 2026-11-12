@@ -29,7 +29,15 @@ export function Bars({
   const biggest = Math.max(0, ...bars.map((bar) => bar.value));
   const night = tone === "night";
   return (
-    <ul aria-label={label} className={cn("flex items-end", tall ? "h-chart gap-2" : "h-18 gap-2")}>
+    <ul
+      aria-label={label}
+      // The gaps narrow as the bars grow many, so any number of them fits their panel.
+      className={cn(
+        "flex items-end",
+        tall ? "h-chart" : "h-18",
+        bars.length > 40 ? "gap-px" : bars.length > 20 ? "gap-1" : "gap-2",
+      )}
+    >
       {bars.map((bar, index) => {
         const percent = barPercent(bar.value, biggest);
         const now = index === bars.length - 1;
