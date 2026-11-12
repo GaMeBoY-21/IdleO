@@ -15,6 +15,8 @@ tester.run("design-tokens", rule as never, {
   valid: [
     { code: `const c = "p-4 gap-2 mt-1 h-56 w-72 max-w-64 z-sheet duration-appear";` },
     { code: `const c = "h-6.5 size-4.5";` },
+    { code: `const c = "grid grid-cols-1 gap-4 xl:grid-cols-3";` },
+    { code: `const c = "grid cols-cards gap-4";` },
     { code: `const x = <div style={{ width: "50%" }} />;` },
   ],
   invalid: [
@@ -25,6 +27,7 @@ tester.run("design-tokens", rule as never, {
     { code: `const c = "duration-200";`, errors: [{ messageId: "duration" }] },
     { code: `const c = "h-57";`, errors: [{ messageId: "step" }] },
     { code: `const c = "md:w-200";`, errors: [{ messageId: "step" }] },
+    { code: `const c = "grid gap-4 xl:grid-cols-3";`, errors: [{ messageId: "columns" }] },
     { code: `const x = <div style={{ padding: 13 }} />;`, errors: [{ messageId: "styled" }] },
   ],
 });

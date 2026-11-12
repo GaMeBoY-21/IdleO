@@ -27,7 +27,7 @@ export const tileVolt = "rounded-feature bg-volt p-6 text-ink md:p-8";
 export const tileIon = "rounded-feature bg-ion p-6 text-ink md:p-8";
 export const tileEmber = "rounded-feature bg-ember p-6 text-ink md:p-8";
 /** The grid the pages lay their panels on: 16 px apart, 24 from 768 px. */
-export const grid = "grid gap-4 md:gap-4";
+export const grid = "grid grid-cols-1 gap-4 md:gap-4";
 
 /** The page's frame, as drawn: 1280 px with 32 px at the sides (16 on a phone). */
 export const column = "mx-auto w-full max-w-site px-4 md:px-8";

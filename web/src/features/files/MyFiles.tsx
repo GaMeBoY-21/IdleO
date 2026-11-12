@@ -110,7 +110,7 @@ export function MyFiles() {
   return (
     <div className={cn(FIT_FRAME, "flex flex-col gap-6")}>
       <PageTitle>My files</PageTitle>
-      <div className="grid items-start gap-4 xl:grid-cols-3">
+      <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-3">
         <div className="flex flex-col gap-4 xl:col-span-2">{body}</div>
         <div className="flex flex-col gap-4">
           <FilesSummary uploads={uploads} />

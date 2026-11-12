@@ -229,7 +229,7 @@ function Summary() {
               </span>{" "}
               over 30 days.
             </p>
-            <div className="grid gap-4 *:min-w-0 md:grid-cols-2 xl:grid-cols-3">
+            <div className="grid grid-cols-1 gap-4 *:min-w-0 md:grid-cols-2 xl:grid-cols-3">
               <Counts caption="Agent versions" counts={fleet.agentVersions} param="agentVersion" />
               <Counts caption="Distributions" counts={fleet.distroVersions} param="distroVersion" />
               <Counts caption="GPU models" counts={fleet.gpuModels} param="gpuModel" />

@@ -33,7 +33,7 @@ function Questions() {
   return (
     <Tile as="section" aria-labelledby="questions-title" className="flex flex-col gap-1 xl:col-span-3 xl:p-8">
       <SectionHeader id="questions-title">Questions hosts ask</SectionHeader>
-      <div className="grid gap-x-6 xl:grid-cols-2">
+      <div className="grid grid-cols-1 gap-x-6 xl:grid-cols-2">
         {HOST_QUESTIONS.map((item) => (
           <details key={item.question} className="border-b border-line py-4">
             <summary className="min-h-touch cursor-pointer content-center text-body font-semibold">
@@ -125,7 +125,7 @@ export function HostHelp() {
   return (
     <div className={cn(FIT_FRAME, "flex flex-col gap-6")}>
       <PageTitle>Help</PageTitle>
-      <div className="grid items-stretch gap-4 xl:grid-cols-3">
+      <div className="grid grid-cols-1 items-stretch gap-4 xl:grid-cols-3">
         {tiles}
         {/* The questions are fixed; the laptops' list is as long as they are, so it comes last. */}
         <Questions />

@@ -16,7 +16,7 @@ export function LivePrices({ title = "What a GPU costs" }: { title?: string }) {
       <h2 id="prices" className={sectionTitle}>
         {title}
       </h2>
-      <ul className="mt-4 grid gap-2 md:grid-cols-2 md:gap-4">
+      <ul className="mt-4 grid grid-cols-1 gap-2 md:grid-cols-2 md:gap-4">
         {GPU_CLASSES.map((gpu) => (
           <li key={gpu.gb} className={ROW} data-class-row={gpu.gb} data-state="loading">
             <p className="flex items-center justify-between text-option font-semibold">

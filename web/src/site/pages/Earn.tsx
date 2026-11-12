@@ -119,7 +119,7 @@ export function Earn({ apiUrl, links }: { apiUrl: string | null; links: EntryLin
         <h2 id="how" className={sectionTitle}>
           How it works
         </h2>
-        <ol className="mt-4 grid gap-2 md:grid-cols-4 md:gap-4">
+        <ol className="mt-4 grid grid-cols-1 gap-2 md:grid-cols-4 md:gap-4">
           {HOW.map((step, index) => (
             <li key={step.title} className={`${tile} flex flex-col gap-2`}>
               <span className="font-display text-display-number">
@@ -140,7 +140,7 @@ export function Earn({ apiUrl, links }: { apiUrl: string | null; links: EntryLin
           Hosting opens after our safety tests on real Windows laptops. These are the protections it will
           have.
         </p>
-        <ul className="mt-4 grid gap-2 md:grid-cols-2 md:gap-4">
+        <ul className="mt-4 grid grid-cols-1 gap-2 md:grid-cols-2 md:gap-4">
           {SAFETY.map((item) => (
             <li key={item.title} className={tile}>
               <h3 className="text-option font-semibold">{item.title}</h3>
@@ -194,8 +194,8 @@ export function Earn({ apiUrl, links }: { apiUrl: string | null; links: EntryLin
           Hours free a day × your price × the share of those hours that get rented ×{" "}
           {100 - COMMISSION_PERCENT}%. Change any of them.
         </p>
-        <div className="mt-6 grid gap-2 md:grid-cols-2 md:gap-4">
-          <div className={`${tile} grid gap-4`}>
+        <div className="mt-6 grid grid-cols-1 gap-2 md:grid-cols-2 md:gap-4">
+          <div className={`${tile} grid grid-cols-1 gap-4`}>
             <label className="block text-small font-semibold">
               Your GPU's memory
               <select id="calc-class" defaultValue="12" className={field}>
@@ -245,7 +245,7 @@ export function Earn({ apiUrl, links }: { apiUrl: string | null; links: EntryLin
             </label>
           </div>
           <div className={tileNight} role="group" aria-label="Estimated earnings">
-            <div aria-live="polite" className="grid gap-4" data-role="result">
+            <div aria-live="polite" className="grid grid-cols-1 gap-4" data-role="result">
               <div>
                 <p className="text-small text-on-night-2">You keep, a day</p>
                 <p className="tabular text-title text-volt" data-role="per-day">

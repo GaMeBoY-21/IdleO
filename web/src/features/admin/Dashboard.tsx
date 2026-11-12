@@ -82,7 +82,11 @@ export function Dashboard() {
           query={room}
           what="the control room"
           skeleton={
-            <div role="status" aria-label="Loading the control room" className="grid gap-2 lg:grid-cols-2">
+            <div
+              role="status"
+              aria-label="Loading the control room"
+              className="grid grid-cols-1 gap-2 lg:grid-cols-2"
+            >
               {["money", "marketplace", "supply", "funnels"].map((part) => (
                 <Skeleton key={part} className="h-56 w-full" />
               ))}
@@ -111,7 +115,7 @@ function Panels({ figures }: { figures: ControlRoom }) {
   };
   return (
     <div className="flex flex-col gap-6">
-      <div className="grid gap-6 *:min-w-0 xl:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 *:min-w-0 xl:grid-cols-2">
         {figures.money && (
           <Panel title="Money" at={figures.computedAt.money} stale={stale("money")}>
             <Table caption="Money, tied to the ledger" columns={["", "Today", "7 days", "30 days"]}>
@@ -225,7 +229,7 @@ function Panels({ figures }: { figures: ControlRoom }) {
               </Row>
             ))}
           </Table>
-          <div className="grid gap-6 *:min-w-0 xl:grid-cols-2">
+          <div className="grid grid-cols-1 gap-6 *:min-w-0 xl:grid-cols-2">
             <Heatmap
               caption="Demand: session-hours by hour of day, India, last 7 days"
               cells={market?.demand ?? []}
@@ -240,7 +244,7 @@ function Panels({ figures }: { figures: ControlRoom }) {
       <Panel title="Demand asked, served and missed" at={figures.computedAt.demand} stale={stale("demand")}>
         <Demand cells={figures.demand} />
       </Panel>
-      <div className="grid gap-6 *:min-w-0 xl:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 *:min-w-0 xl:grid-cols-2">
         <Panel title="Funnels" at={figures.computedAt.funnels} stale={stale("funnels")}>
           <Suspense fallback={<TableSkeleton what="the funnels" />}>
             <RecordTabs
