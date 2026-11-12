@@ -1,4 +1,3 @@
-import { ChevronLeft } from "lucide-react";
 import { useState } from "react";
 import { SectionHeader } from "@/components/ui/Headers";
 import { Link, useSearch } from "wouter";
@@ -29,14 +28,7 @@ export function MyImages() {
   const id = new URLSearchParams(useSearch()).get("id");
 
   return (
-    <AccountFrame title="My images">
-      <Link
-        href="/account/"
-        className="-mt-4 flex w-fit items-center gap-1 text-small text-text-2 underline md:hidden"
-      >
-        <ChevronLeft aria-hidden="true" className="size-4" strokeWidth={1.75} />
-        Account
-      </Link>
+    <AccountFrame trail={[{ label: "Account", href: "/account/" }]} title="My images">
       {since !== null && <StaleNotice updatedAt={since} />}
       <p className="max-w-prose text-small text-text-2">
         Your own container images, checked before they can reach anyone&apos;s machine. Book one from Book,

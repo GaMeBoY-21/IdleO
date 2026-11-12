@@ -1,6 +1,5 @@
-import { ChevronLeft } from "lucide-react";
 import { count } from "@/lib/format";
-import { Link, useLocation } from "wouter";
+import { useLocation } from "wouter";
 import { SectionHeader } from "@/components/ui/Headers";
 import { useCancelDeletion, useDeletion, useRequestDeletion, type DeletionStanding } from "@/api/privacy";
 import { signOut } from "@/auth";
@@ -62,14 +61,14 @@ export function DeleteAccount() {
   const since = staleSince(standing);
 
   return (
-    <AccountFrame title="Delete my account" className="xl:grid xl:grid-cols-5 xl:items-start">
-      <Link
-        href="/account/data/"
-        className="-mt-4 flex w-fit items-center gap-1 text-small text-text-2 underline md:hidden"
-      >
-        <ChevronLeft aria-hidden="true" className="size-4" strokeWidth={1.75} />
-        Your data
-      </Link>
+    <AccountFrame
+      trail={[
+        { label: "Account", href: "/account/" },
+        { label: "Your data", href: "/account/data/" },
+      ]}
+      title="Delete my account"
+      className="xl:grid xl:grid-cols-5 xl:items-start"
+    >
       {since !== null && <StaleNotice updatedAt={since} />}
       <Tile
         as="section"
