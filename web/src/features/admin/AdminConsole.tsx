@@ -236,14 +236,14 @@ function Layout({ children }: { children: React.ReactNode }) {
           >
             {GROUPS.filter((group) => screens.some((screen) => group.hrefs.includes(screen.href))).map(
               (group) => (
-                <section key={group.label} aria-label={group.label} className="flex flex-col gap-1">
+                <div key={group.label} role="group" aria-label={group.label} className="flex flex-col gap-1">
                   <h2 className="px-4 pb-1 text-caption font-semibold tracking-wider text-text-3 uppercase">
                     {group.label}
                   </h2>
                   <ul className="flex flex-col gap-1">
                     {screens.filter((screen) => group.hrefs.includes(screen.href)).map(item)}
                   </ul>
-                </section>
+                </div>
               ),
             )}
           </div>
