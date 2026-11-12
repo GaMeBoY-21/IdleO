@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 /**
  * No colours or sizes typed outside the design tokens (web/DESIGN.md): a string in a component may not hold a
  * hex, rgb(), hsl() or oklch() colour, a Tailwind arbitrary value such as `p-[13px]` or `bg-[#123]`, space off the
@@ -18,6 +20,19 @@ const RAW_LAYER = /(?:^|[\s:])-?z-\d+(?=$|\s)/;
 // A duration is a token too: `duration-appear`, not `duration-200`.
 const RAW_DURATION = /(?:^|[\s:])(?:duration|delay)-\d+(?=$|\s)/;
 
+// Every step the spacing scale has (src/design/tokens.ts, as tokens.gen.css writes it): the scale is explicit, so a class
+// naming any other step (`h-56` before there was a 56) makes no CSS at all and silently does nothing.
+const STEPS = new Set(
+  [
+    ...readFileSync(fileURLToPath(new URL("../src/design/tokens.gen.css", import.meta.url)), "utf8").matchAll(
+      /--spacing-([\w\\.]+):/g,
+    ),
+  ].map((match) => match[1].replace("\\", "")),
+);
+const SIZED =
+  /(?:^|[\s:])-?(?:h|w|min-h|min-w|max-h|max-w|size|p|px|py|pt|pb|pl|pr|ps|pe|m|mx|my|mt|mb|ml|mr|ms|me|gap|gap-x|gap-y|top|bottom|left|right|inset|inset-x|inset-y|space-x|space-y|translate-x|translate-y|basis)-(\d+(?:\.\d+)?)(?=$|\s)/g;
+const unknownStep = (text) => [...text.matchAll(SIZED)].some((match) => !STEPS.has(match[1]));
+
 function check(context, node, text) {
   if (COLOUR.test(text)) {
     context.report({ node, messageId: "colour" });
@@ -29,6 +44,8 @@ function check(context, node, text) {
     context.report({ node, messageId: "layer" });
   } else if (RAW_DURATION.test(text)) {
     context.report({ node, messageId: "duration" });
+  } else if (unknownStep(text)) {
+    context.report({ node, messageId: "step" });
   }
 }
 
@@ -46,6 +63,7 @@ export default {
       layer: "Use a layer token (z-raised, z-sticky, z-sheet, z-toast…), not a z-index number.",
       duration: "Use a motion token (duration-press, duration-appear, duration-large), not a number of ms.",
       styled: "Spacing, type, layers and durations come from the design tokens, not a style prop.",
+      step: "That step isn't on the spacing scale (src/design/tokens.ts), so the class makes no CSS and does nothing.",
     },
     schema: [],
   },
