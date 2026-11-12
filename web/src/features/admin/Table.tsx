@@ -1,4 +1,5 @@
 import { useVirtualizer } from "@tanstack/react-virtual";
+import { NUMERIC } from "@/components/ui/DataTable";
 import {
   Children,
   cloneElement,
@@ -456,16 +457,19 @@ export function Row({ children, className }: { children: ReactNode; className?: 
 
 export function Cell({
   children,
+  numeric = false,
   className,
   style,
 }: {
   children: ReactNode;
+  /** A number: aligned right in tabular figures, as every site's tables have them (components/ui/DataTable.tsx). */
+  numeric?: boolean;
   className?: string;
   style?: CSSProperties;
 }) {
   const { compact } = useContext(TableShape);
   return (
-    <td style={style} className={cn("px-2", compact ? "py-1" : "py-2", className)}>
+    <td style={style} className={cn("px-2", compact ? "py-1" : "py-2", numeric && NUMERIC, className)}>
       {children}
     </td>
   );

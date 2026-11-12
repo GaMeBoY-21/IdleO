@@ -1,5 +1,7 @@
 import { useEarnings, type Host } from "@/api/hosting";
+import { DataCell, DataRow, DataTable } from "@/components/ui/DataTable";
 import { Money } from "@/components/ui/Money";
+import { StatusChip } from "@/components/ui/StatusChip";
 import { SectionHeader } from "@/components/ui/Headers";
 import { Tile } from "@/components/ui/Tile";
 import { RelativeTime } from "@/components/ui/Time";
@@ -21,40 +23,45 @@ export function AtAGlance({ machines, enabled }: { machines: Host[]; enabled: bo
   return (
     <Tile as="section" aria-labelledby="glance-title" className="flex flex-col gap-2 xl:p-8">
       <SectionHeader id="glance-title">At a glance</SectionHeader>
-      <table className="w-full text-left text-small">
-        <thead className="text-caption text-text-2">
-          <tr>
-            <th className="py-2 font-semibold">Laptop</th>
-            <th className="py-2 font-semibold">State</th>
-            <th className="py-2 font-semibold">GPU</th>
-            <th className="py-2 font-semibold">An hour</th>
-            <th className="py-2 font-semibold">Online</th>
-            <th className="py-2 text-right font-semibold">Earned in all</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-line">
-          {machines.map((host) => {
-            const state = machineState(host, now);
-            const gpu = host.gpus.find((candidate) => !candidate.gone);
-            return (
-              <tr key={host.id} className="h-touch">
-                <td className="py-2 font-semibold break-words">{host.name}</td>
-                <td className="py-2">{state.kind === "paused" ? state.detail : state.label}</td>
-                <td className="py-2">{gpu ? `${gpuName(gpu.model)} · ${gigabytes(gpu.vramMb)}` : "—"}</td>
-                <td className="py-2 tabular">
-                  {host.listing ? rupeesAnHour(host.listing.batchPricePaisePerMin) : "—"}
-                </td>
-                <td className="py-2">
-                  {host.online && host.onlineSince ? <RelativeTime value={host.onlineSince} /> : "Offline"}
-                </td>
-                <td className="py-2 text-right tabular">
-                  {earned.has(host.id) ? <Money paise={earned.get(host.id)!} /> : "…"}
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+      <DataTable
+        caption="Every laptop at a glance"
+        columns={[
+          { label: "Laptop" },
+          { label: "State" },
+          { label: "GPU" },
+          { label: "An hour", numeric: true },
+          { label: "Online" },
+          { label: "Earned in all", numeric: true },
+        ]}
+      >
+        {machines.map((host) => {
+          const state = machineState(host, now);
+          const gpu = host.gpus.find((candidate) => !candidate.gone);
+          return (
+            <DataRow key={host.id}>
+              <DataCell className="font-semibold break-words">{host.name}</DataCell>
+              <DataCell>
+                <StatusChip
+                  size="sm"
+                  domain="machine"
+                  state={state.kind}
+                  label={state.kind === "paused" ? state.detail : state.label}
+                />
+              </DataCell>
+              <DataCell>{gpu ? `${gpuName(gpu.model)} · ${gigabytes(gpu.vramMb)}` : "—"}</DataCell>
+              <DataCell numeric>
+                {host.listing ? rupeesAnHour(host.listing.batchPricePaisePerMin) : "—"}
+              </DataCell>
+              <DataCell>
+                {host.online && host.onlineSince ? <RelativeTime value={host.onlineSince} /> : "Offline"}
+              </DataCell>
+              <DataCell numeric>
+                {earned.has(host.id) ? <Money paise={earned.get(host.id)!} /> : "…"}
+              </DataCell>
+            </DataRow>
+          );
+        })}
+      </DataTable>
     </Tile>
   );
 }
