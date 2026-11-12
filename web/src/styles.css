@@ -104,7 +104,6 @@
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 23.75rem), 1fr));
 }
 
-
 /* A tile that is a link or a button lifts a little on hover (a laptop) and presses in on tap (a phone), in 120 ms.
    Nothing else moves, and nothing under reduced motion. */
 @utility tile-motion {

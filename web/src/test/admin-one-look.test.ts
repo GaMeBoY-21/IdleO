@@ -17,7 +17,7 @@ const screen = "src/features/admin/Thing.tsx";
 
 tester.run("admin-one-look", rule as never, {
   valid: [
-    { filename: "src/features/admin/Sheet.tsx", code: `import { Dialog } from "radix-ui";` },
+    { filename: "src/components/ui/Sheet.tsx", code: `import { Dialog } from "radix-ui";` },
     { filename: screen, code: `import { Tabs } from "radix-ui";` },
     { filename: screen, code: `const x = <Problem error={problem} />;` },
     { filename: screen, code: `const confirm = () => 1; confirm();` },

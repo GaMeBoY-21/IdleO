@@ -4,7 +4,7 @@
  * lint, so the console can't drift back into several ways of doing the same thing.
  */
 const OWNERS = {
-  dialog: /features\/admin\/Sheet\.tsx$/,
+  dialog: /components\/ui\/Sheet\.tsx$/,
   states: /features\/admin\/ui\.tsx$/,
 };
 

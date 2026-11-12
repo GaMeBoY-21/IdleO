@@ -86,65 +86,52 @@ export function AdminConsole() {
   );
 }
 
-/** The sidebar's sections in groups, in the order of {@link ADMIN_SCREENS}; every screen is in exactly one. */
+/**
+ * The sidebar's sections in groups (web/DESIGN.md "The admin sidebar"), in the order an admin's day runs: what needs doing
+ * now, the people and their machines, sessions, trust and safety, money, the books, the platform, then their own access.
+ * Every screen is in exactly one; a group shows only the screens this admin may open.
+ */
 const GROUPS: { label: string; hrefs: readonly string[] }[] = [
+  { label: "Today", hrefs: ["/admin/", "/admin/inbox/", "/admin/approvals/"] },
   {
-    label: "Overview",
-    hrefs: [
-      "/admin/",
-      "/admin/inbox/",
-      "/admin/users/",
-      "/admin/hosts/",
-      "/admin/fleet/",
-      "/admin/sessions/",
-    ],
+    label: "People and hosts",
+    hrefs: ["/admin/users/", "/admin/hosts/", "/admin/fleet/", "/admin/invites/"],
   },
+  { label: "Sessions", hrefs: ["/admin/sessions/", "/admin/review/", "/admin/images/"] },
   {
-    label: "Safety",
-    hrefs: [
-      "/admin/review/",
-      "/admin/disputes/",
-      "/admin/chargebacks/",
-      "/admin/abuse/",
-      "/admin/appeals/",
-      "/admin/images/",
-      "/admin/tickets/",
-    ],
+    label: "Trust and safety",
+    hrefs: ["/admin/disputes/", "/admin/chargebacks/", "/admin/abuse/", "/admin/appeals/", "/admin/tickets/"],
   },
   {
     label: "Money",
     hrefs: [
       "/admin/money/",
-      "/admin/ledger/",
-      "/admin/adjustments/",
-      "/admin/months/",
-      "/admin/money-reports/",
-      "/admin/settlements/",
       "/admin/payments/",
       "/admin/refunds/",
       "/admin/invoices/",
       "/admin/payouts/",
       "/admin/verification/",
       "/admin/clawbacks/",
-      "/admin/tax/",
     ],
   },
   {
-    label: "The service",
+    label: "Books",
     hrefs: [
-      "/admin/flags/",
-      "/admin/invites/",
-      "/admin/notices/",
-      "/admin/approvals/",
-      "/admin/audit/",
-      "/admin/security/",
+      "/admin/ledger/",
+      "/admin/adjustments/",
+      "/admin/months/",
+      "/admin/settlements/",
+      "/admin/money-reports/",
+      "/admin/tax/",
     ],
   },
+  { label: "Platform", hrefs: ["/admin/flags/", "/admin/notices/", "/admin/audit/"] },
+  { label: "Settings", hrefs: ["/admin/security/"] },
 ];
 
 /**
  * The console's frame (web/DESIGN.md "Account, sign-in and the rest"): the app's sidebar, denser: 240 px wide, its
- * sections in four groups with items 36 px tall from 768 px (44 px on a phone, where they scroll sideways), and the
+ * sections in eight groups with items 36 px tall from 768 px (44 px on a phone, where they scroll sideways), and the
  * sidebar itself scrolls when the window is shorter than the list.
  */
 function Layout({ children }: { children: React.ReactNode }) {

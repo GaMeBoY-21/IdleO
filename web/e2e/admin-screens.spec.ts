@@ -151,7 +151,9 @@ test.describe("the console", () => {
     await page.getByLabel("Show", { exact: true }).selectOption("served");
     await expect(page.getByRole("table", { name: /^Served: bookings by GPU class/ })).toBeVisible();
     const checks = page.getByRole("list", { name: "The control plane's checks" });
-    await expect(checks.getByRole("listitem").filter({ hasText: "inbox targets" })).toContainText("look");
+    await expect(checks.getByRole("listitem").filter({ hasText: "inbox targets" })).toContainText(
+      "Look at this",
+    );
     await expect(checks.getByRole("link", { name: "inbox targets" })).toHaveAttribute(
       "href",
       "/admin/inbox/",
@@ -613,7 +615,7 @@ test.describe("the console", () => {
   test("shows the ledger's checks, each night's and an admin's", async ({ page }, info) => {
     await open(page, "/admin/money/");
     const runs = page.getByRole("table", { name: "Reconciliation runs" });
-    await expect(runs).toContainText("balanced");
+    await expect(runs).toContainText("Balanced");
     await expect(runs).toContainText("all 17 pass");
     await expectAccessible(page);
     await capture(page, info, "admin-money");
@@ -629,7 +631,7 @@ test.describe("the console", () => {
     await expect(page.getByRole("table", { name: "Chart of accounts" })).toContainText(
       "What the free credit we give away costs us.",
     );
-    await expect(page.getByText("balanced", { exact: true })).toBeVisible();
+    await expect(page.getByText("Balanced", { exact: true })).toBeVisible();
     await expect(page.getByRole("table", { name: "Every leg of the transaction" })).toContainText(
       "Promotions",
     );
@@ -866,7 +868,7 @@ test.describe("the console", () => {
         return { json: { ...admin.clawbacks.clawbacks[0], state: "waived", outstandingPaise: 0 } };
       },
     });
-    await expect(page.getByRole("table", { name: "Clawbacks" })).toContainText("owed");
+    await expect(page.getByRole("table", { name: "Clawbacks" })).toContainText("Owed");
     await expectAccessible(page);
     await capture(page, info, "admin-clawbacks");
     await page.getByRole("button", { name: /^Waive/ }).click();

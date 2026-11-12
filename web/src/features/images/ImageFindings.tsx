@@ -1,4 +1,5 @@
-import { AlertTriangle, Loader2 } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
+import { StatusChip } from "@/components/ui/StatusChip";
 import { checking, type Image } from "@/api/images";
 import { checkLine, IMAGE_STATES, imageSize, shortDigest } from "@/lib/images";
 import { cn } from "@/lib/cn";
@@ -17,9 +18,8 @@ export function ImageFindings({
 }) {
   if (checking(image)) {
     return (
-      <p role="status" className="flex items-center gap-2 text-small">
-        <Loader2 aria-hidden="true" className="size-4 shrink-0 animate-spin" strokeWidth={2} />
-        {checkLine(image)}
+      <p role="status" className="text-small">
+        <StatusChip domain="image" state="scanning" label={checkLine(image)} />
       </p>
     );
   }
