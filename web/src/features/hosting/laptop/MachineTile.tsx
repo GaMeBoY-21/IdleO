@@ -1,6 +1,5 @@
 import { Link } from "wouter";
-import { useResume, useTelemetry, type Host } from "@/api/hosting";
-import { Button } from "@/components/ui/Button";
+import { useTelemetry, type Host } from "@/api/hosting";
 import { Money } from "@/components/ui/Money";
 import { Tile } from "@/components/ui/Tile";
 import { Elapsed, RelativeTime } from "@/components/ui/Time";
@@ -9,6 +8,7 @@ import { gigabytes, gpuName } from "@/lib/gpu";
 import { machineState, rupeesAnHour } from "@/lib/hosting";
 import { cn } from "@/lib/cn";
 import { laptopPath } from "@/sites/host/paths";
+import { PauseSwitch } from "../PauseSwitch";
 
 /**
  * One machine on a laptop's Hosting tab (web/DESIGN.md "Laptop layout"), a white tile: its state, with a dot,
@@ -20,7 +20,6 @@ export function MachineTile({ host, className }: { host: Host; className?: strin
   const now = useNow("half-minute");
   const state = machineState(host, now);
   const telemetry = useTelemetry(host.id, host.online);
-  const resume = useResume(host.id);
   const gpu = host.gpus.find((candidate) => !candidate.gone);
   const reading = telemetry.data?.now?.gpus[0];
   const label = state.kind === "paused" ? state.detail : state.label;
@@ -94,16 +93,12 @@ export function MachineTile({ host, className }: { host: Host; className?: strin
           <span className="text-caption">Earning now</span>
           <Money paise={host.currentSession.earnedSoFarPaise} className="text-title text-text" />
         </span>
-      ) : host.paused ? (
-        <span className="flex items-center justify-between gap-2">
-          <span className="text-caption text-text-2">No new sessions while paused</span>
-          <Button variant="ghost" busy={resume.isPending} onClick={() => resume.mutate()}>
-            Resume
-          </Button>
-        </span>
       ) : (
-        <span className="text-caption text-text-2">{state.detail}</span>
+        <span className="text-caption text-text-2">
+          {host.paused ? "No new sessions while paused" : state.detail}
+        </span>
       )}
+      <PauseSwitch host={host} />
     </Tile>
   );
 }

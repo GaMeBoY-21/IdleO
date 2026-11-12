@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page, type Request } from "@playwright/test";
 import * as data from "./fixtures";
 import * as hosting from "./fixtures-hosting";
 import * as payouts from "./fixtures-payouts";
@@ -67,6 +67,33 @@ test.describe("the Hosting tab", () => {
     await expect(page.getByRole("link", { name: "Add a machine" })).toBeVisible();
     await expectAccessible(page);
     await capture(page, info, "hosting");
+  });
+
+  test("a laptop is switched off and on from its card: paused until it's back on, then resumed", async ({
+    page,
+  }) => {
+    let current: hosting.Host = hosting.hostIdle;
+    let paused: unknown = null;
+    await open(page, "/", {
+      "/v1/hosts/[^/]+/pause": (_call: number, request: Request) => {
+        paused = request.postDataJSON();
+        current = { ...hosting.hostIdle, paused: true, pausedUntil: null };
+        return { json: current };
+      },
+      "/v1/hosts/[^/]+/resume": () => {
+        current = { ...hosting.hostIdle, paused: false, pausedUntil: null };
+        return { json: current };
+      },
+      "/v1/hosts": () => ({ json: { hosts: [current] } }),
+    });
+    const takes = page.getByRole("switch", { name: `${hosting.hostIdle.name} takes new sessions` });
+    await expect(takes).toBeChecked();
+    await takes.click();
+    await expect(takes).not.toBeChecked();
+    expect(paused).toEqual({ until: null });
+    await takes.click();
+    await expect(takes).toBeChecked();
+    await expectAccessible(page);
   });
 
   test("with none of the states hidden: offline, update needed, idle and waiting for checks", async ({
