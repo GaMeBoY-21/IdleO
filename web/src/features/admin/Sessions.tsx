@@ -322,11 +322,12 @@ function SessionRecord({ id }: { id: string }) {
                   </Table>
                 )}
               </Section>
+              {/* Under the record once it's in, so it doesn't sit under the loading one and then jump down. */}
+              <SessionTabs id={id} />
             </>
           );
         }}
       </QueryView>
-      <SessionTabs id={id} />
     </AdminPage>
   );
 }

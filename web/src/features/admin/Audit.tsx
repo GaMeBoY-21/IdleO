@@ -8,7 +8,19 @@ import { ADMIN, adminApi, adminData, type AuditStanding } from "./api";
 import { ActionButton } from "./permissions";
 import { ListBar } from "./Lists";
 import { ListScope, useListView } from "./listView";
-import { AdminPage, Cell, Empty, PagedView, Row, Section, SmallField, Table, QueryView, Problem } from "./ui";
+import {
+  AdminPage,
+  Below,
+  Cell,
+  Empty,
+  PagedView,
+  Row,
+  Section,
+  SmallField,
+  Table,
+  QueryView,
+  Problem,
+} from "./ui";
 import { Reveal } from "./Reveal";
 import { actionWords, changeWords } from "./words";
 
@@ -138,9 +150,11 @@ export function Audit() {
           )}
         </PagedView>
       </Section>
-      <ListScope.Provider value="access">
-        <AccessLog />
-      </ListScope.Provider>
+      <Below query={entries}>
+        <ListScope.Provider value="access">
+          <AccessLog />
+        </ListScope.Provider>
+      </Below>
     </AdminPage>
   );
 }
