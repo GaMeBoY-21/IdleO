@@ -1,7 +1,6 @@
-import { ChevronLeft } from "lucide-react";
 import { useState } from "react";
 import { SectionHeader } from "@/components/ui/Headers";
-import { Link, useSearch } from "wouter";
+import { useSearch } from "wouter";
 import { useContact, useReplyTicket, useTicket } from "@/api/support";
 import { AccountFrame } from "@/components/shell/AccountFrame";
 import { Button } from "@/components/ui/Button";
@@ -32,14 +31,13 @@ export function HelpTicket() {
     : null;
 
   return (
-    <AccountFrame title={ticket ? `Message ${ticketNumber(ticket.number)}` : "Message"}>
-      <Link
-        href="/account/help/"
-        className="-mt-4 flex w-fit items-center gap-1 text-small text-text-2 underline"
-      >
-        <ChevronLeft aria-hidden="true" className="size-4" strokeWidth={1.75} />
-        Help
-      </Link>
+    <AccountFrame
+      trail={[
+        { label: "Account", href: "/account/" },
+        { label: "Help", href: "/account/help/" },
+      ]}
+      title={ticket ? `Message ${ticketNumber(ticket.number)}` : "Message"}
+    >
       {since !== null && <StaleNotice updatedAt={since} />}
       <Tile as="section" aria-labelledby="thread-title" className="flex flex-col gap-2 md:p-6 xl:p-8">
         <SectionHeader id="thread-title">{topic ?? " "}</SectionHeader>

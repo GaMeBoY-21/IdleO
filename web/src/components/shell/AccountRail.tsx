@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
-import { PageTitle } from "@/components/ui/Headers";
+import { PageHeader, type Crumb } from "@/components/ui/Headers";
 import { signOut } from "@/auth";
 import { useCachedMe, useMeAfterPaint } from "@/api/queries";
 import { RailColumns } from "@/components/shell/Layout";
@@ -12,10 +12,12 @@ import { nav } from "@site/site";
 /** Account's laptop frame: the 320 px rail (the person, the sections, appearance, Sign out) and the screen beside it. */
 export function AccountRail({
   title,
+  trail,
   children,
   className,
 }: {
   title: string;
+  trail?: Crumb[];
   children: ReactNode;
   className?: string;
 }) {
@@ -38,7 +40,7 @@ export function AccountRail({
       }
       right={
         <div className={cn("flex flex-col gap-4 2xl:gap-4", className)}>
-          <PageTitle hidden>{title}</PageTitle>
+          <PageHeader title={title} trail={trail} />
           {children}
         </div>
       }

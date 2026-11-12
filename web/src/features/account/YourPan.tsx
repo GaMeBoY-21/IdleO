@@ -18,7 +18,7 @@ export function YourPan() {
   const why =
     "Running your own container images needs your PAN on file. Only its last 4 characters are ever shown.";
   return (
-    <AccountFrame title="Your PAN">
+    <AccountFrame trail={[{ label: "Account", href: "/account/" }]} title="Your PAN">
       {details.data ? (
         <PanTile pan={details.data.pan} why={why} />
       ) : details.isError ? (

@@ -1,7 +1,5 @@
 import { lazy, Suspense, useState } from "react";
-import { Link } from "wouter";
 import { SectionHeader } from "@/components/ui/Headers";
-import { ChevronLeft } from "lucide-react";
 import { useApiKeys, useRevokeKey, type ApiKey } from "@/api/keys";
 import { AccountFrame } from "@/components/shell/AccountFrame";
 import { Banner } from "@/components/ui/Banner";
@@ -40,14 +38,7 @@ export function ApiKeys() {
   const since = staleSince(keys);
 
   return (
-    <AccountFrame title="API keys">
-      <Link
-        href="/account/"
-        className="-mt-4 flex w-fit items-center gap-1 text-small text-text-2 underline md:hidden"
-      >
-        <ChevronLeft aria-hidden="true" className="size-4" strokeWidth={1.75} />
-        Account
-      </Link>
+    <AccountFrame trail={[{ label: "Account", href: "/account/" }]} title="API keys">
       {since !== null && <StaleNotice updatedAt={since} />}
       <p className="max-w-prose text-small text-text-2">
         Keys let the <span className="font-semibold">idleo</span> command line, scripts and the SDK act as

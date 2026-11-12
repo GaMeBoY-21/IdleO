@@ -3,6 +3,7 @@ import { Page } from "@/components/shell/AppShell";
 import { RailColumns } from "@/components/shell/Layout";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { useWide } from "@/lib/media";
+import type { Crumb } from "@/components/ui/Headers";
 
 // The rail (the person, the sections, the theme) is drawn only from 768 px, so it is a chunk of its own: a phone's
 // first load, and every screen's, doesn't carry it. A laptop asks for it as the screen opens.
@@ -16,11 +17,14 @@ const AccountRail = lazy(() => loadRail().then((module) => ({ default: module.Ac
  */
 export function AccountFrame({
   title,
+  trail,
   children,
   className,
 }: {
-  /** The screen's heading: shown over the content on a phone, and kept for screen readers beside the rail. */
+  /** The screen's heading, over its content at every width. */
   title: string;
+  /** The pages above it, as breadcrumbs: Account, for a screen under it. */
+  trail?: Crumb[];
   children: ReactNode;
   className?: string;
 }) {
@@ -31,7 +35,11 @@ export function AccountFrame({
     }
   }, [wide]);
   if (!wide) {
-    return <Page title={title}>{children}</Page>;
+    return (
+      <Page title={title} trail={trail}>
+        {children}
+      </Page>
+    );
   }
   return (
     <Suspense
@@ -44,7 +52,7 @@ export function AccountFrame({
         />
       }
     >
-      <AccountRail title={title} className={className}>
+      <AccountRail title={title} trail={trail} className={className}>
         {children}
       </AccountRail>
     </Suspense>

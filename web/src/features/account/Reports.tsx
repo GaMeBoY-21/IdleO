@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import { Link } from "wouter";
 import { SectionHeader } from "@/components/ui/Headers";
 import { useDisputePages, type Dispute } from "@/api/trust";
@@ -30,14 +30,7 @@ export function Reports() {
   const rows = reports.data?.pages.flatMap((page) => page.disputes);
 
   return (
-    <AccountFrame title="Reports">
-      <Link
-        href="/account/"
-        className="-mt-4 flex w-fit items-center gap-1 text-small text-text-2 underline md:hidden"
-      >
-        <ChevronLeft aria-hidden="true" className="size-4" strokeWidth={1.75} />
-        Account
-      </Link>
+    <AccountFrame trail={[{ label: "Account", href: "/account/" }]} title="Reports">
       {since !== null && <StaleNotice updatedAt={since} />}
       <p className="max-w-prose text-small text-text-2">
         A person reads every report. {REPLY_PROMISE} A refund goes straight to your credit.

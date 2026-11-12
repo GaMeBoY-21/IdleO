@@ -1,7 +1,7 @@
 import { ChevronLeft } from "lucide-react";
 import { useEffect } from "react";
 import { Toasts } from "@/components/shell/Toasts";
-import { PageTitle } from "@/components/ui/Headers";
+import { PageHeader, type Crumb } from "@/components/ui/Headers";
 import { Link, useLocation } from "wouter";
 import type { ReactNode } from "react";
 import { brand } from "@/brand/brand";
@@ -103,11 +103,11 @@ export function ShellSkeleton({ children }: { children?: ReactNode }) {
  * A list screen's content (Notifications; Account and the lists use their own frames on a laptop): one column the
  * width of the card, centred (7 of the 12 columns from 1200 px), with the page margins; its headline big.
  */
-export function Page({ title, children }: { title: string; children: ReactNode }) {
+export function Page({ title, trail, children }: { title: string; trail?: Crumb[]; children: ReactNode }) {
   return (
     <div className="w-full px-4 pt-2 pb-8 md:px-8 md:pt-8 xl:px-10 md:pb-12">
       <div className="mx-auto flex w-full max-w-card flex-col gap-6 xl:w-7/12 xl:max-w-none">
-        <PageTitle>{title}</PageTitle>
+        <PageHeader title={title} trail={trail} />
         {children}
       </div>
     </div>

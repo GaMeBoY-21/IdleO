@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import { Link } from "wouter";
 import { SectionHeader } from "@/components/ui/Headers";
 import {
@@ -46,14 +46,11 @@ export function YourData() {
   const since = staleSince(held, exports);
 
   return (
-    <AccountFrame title="Your data" className="xl:grid xl:grid-cols-5 xl:items-start">
-      <Link
-        href="/account/"
-        className="-mt-4 flex w-fit items-center gap-1 text-small text-text-2 underline md:hidden"
-      >
-        <ChevronLeft aria-hidden="true" className="size-4" strokeWidth={1.75} />
-        Account
-      </Link>
+    <AccountFrame
+      trail={[{ label: "Account", href: "/account/" }]}
+      title="Your data"
+      className="xl:grid xl:grid-cols-5 xl:items-start"
+    >
       {since !== null && <StaleNotice updatedAt={since} />}
       <Tile
         as="section"
