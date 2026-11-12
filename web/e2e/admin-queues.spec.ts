@@ -34,7 +34,7 @@ test("inbox, claim, a macro's reply, resolved", async ({ page }) => {
   await expect(page.getByRole("heading", { level: 1, name: "Set up your authenticator" })).toBeVisible();
   const secret = (await page.getByText(/^[A-Z2-7]{32}$/).textContent())!;
   await page.getByLabel("Code from your authenticator app").fill(codeNow(secret));
-  await page.getByRole("button", { name: "Confirm" }).click();
+  await page.getByRole("button", { name: "Check the code" }).click();
   await page.getByRole("button", { name: "I've saved them" }).click();
 
   // In the page, not by loading it again: a reload asks for a code again (the admin session is held in memory only).

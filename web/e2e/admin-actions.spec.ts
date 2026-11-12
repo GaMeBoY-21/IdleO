@@ -285,7 +285,7 @@ const WRITES: Write[] = [
       await pressAndConfirm(/^Reveal/)(page);
       const ask = page.getByRole("dialog", { name: "Confirm it's you" });
       await ask.getByLabel("Code from your authenticator app").fill("123456");
-      await ask.getByRole("button", { name: "Confirm" }).click();
+      await ask.getByRole("button", { name: "Check the code" }).click();
     },
   },
   {

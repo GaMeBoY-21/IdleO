@@ -93,7 +93,7 @@ async function as(browser: Browser, user: string): Promise<Admin> {
   if (await enrolling.isVisible()) {
     secret = (await page.getByText(/^[A-Z2-7]{32}$/).textContent())!;
     await page.getByLabel("Code from your authenticator app").fill(await freshCode(page, secret));
-    await page.getByRole("button", { name: "Confirm" }).click();
+    await page.getByRole("button", { name: "Check the code" }).click();
     await expect(page.getByRole("list", { name: "Recovery codes" }).getByRole("listitem")).toHaveCount(10);
     await page.getByRole("button", { name: "I've saved them" }).click();
     writeFileSync(`${secrets}/${user}`, secret);
@@ -102,7 +102,7 @@ async function as(browser: Browser, user: string): Promise<Admin> {
     secret = readFileSync(`${secrets}/${user}`, "utf8").trim();
     await page.waitForTimeout(31_000);
     await page.getByLabel("Code from your authenticator app").fill(await freshCode(page, secret));
-    await page.getByRole("button", { name: "Continue" }).click();
+    await page.getByRole("button", { name: "Sign in" }).click();
   }
   await expect(page.getByRole("navigation", { name: "Admin" })).toBeVisible();
   // Whenever the console asks for a recent factor, they give one, and what they were doing goes on by itself.
@@ -110,7 +110,7 @@ async function as(browser: Browser, user: string): Promise<Admin> {
   await page.addLocatorHandler(asked, async () => {
     await page.waitForTimeout(31_000);
     await asked.getByLabel("Code from your authenticator app").fill(await freshCode(page, secret));
-    await asked.getByRole("button", { name: "Confirm" }).click();
+    await asked.getByRole("button", { name: "Check the code" }).click();
     await expect(asked).toBeHidden({ timeout: 30_000 });
   });
   const admin = { page, secret, signedInAt: offset() };
@@ -133,7 +133,7 @@ async function again(admin: Admin): Promise<void> {
   await expect(page.getByRole("heading", { level: 1, name: "Admin sign-in" })).toBeVisible();
   await page.waitForTimeout(31_000);
   await page.getByLabel("Code from your authenticator app").fill(await freshCode(page, secret));
-  await page.getByRole("button", { name: "Continue" }).click();
+  await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page.getByRole("navigation", { name: "Admin" })).toBeVisible();
   admin.signedInAt = offset();
 }

@@ -107,7 +107,7 @@ export function StepUp({ passkeys }: { passkeys: number }) {
             Cancel
           </Button>
           <Button type="submit" busy={busy}>
-            {kind === "passkey" ? "Use my passkey" : "Confirm"}
+            {kind === "passkey" ? "Use my passkey" : "Check the code"}
           </Button>
         </div>
         <div className="flex flex-wrap gap-2">

@@ -10,13 +10,9 @@ import { ListBar } from "./Lists";
 import { ListScope, useListView } from "./listView";
 import { AdminPage, Cell, Empty, PagedView, Row, Section, SmallField, Table, QueryView, Problem } from "./ui";
 import { Reveal } from "./Reveal";
+import { actionWords, changeWords } from "./words";
 
 const ACCESS_COLUMNS = ["When", "Admin", "Whose", "Field", "Why"];
-
-/** A change, as its JSON, short enough for a row. */
-function change(value: Record<string, unknown> | null | undefined): string {
-  return value ? JSON.stringify(value) : "—";
-}
 
 /**
  * The audit log (ADR 0027, ADR 0051): every privileged action, newest first, read only. Filtered by who (part of a name,
@@ -114,7 +110,9 @@ export function Audit() {
                     {entry.actorName}
                     <span className="block text-caption text-text-2">{entry.actorKind}</span>
                   </Cell>
-                  <Cell className="font-medium">{entry.action}</Cell>
+                  <Cell className="font-medium">
+                    <span title={entry.action}>{actionWords(entry.action)}</span>
+                  </Cell>
                   <Cell>
                     {entry.targetType}
                     <span
@@ -125,8 +123,8 @@ export function Audit() {
                     </span>
                   </Cell>
                   <Cell className="max-w-64">{entry.reason}</Cell>
-                  <Cell className="tabular max-w-64 text-caption break-all">{change(entry.before)}</Cell>
-                  <Cell className="tabular max-w-64 text-caption break-all">{change(entry.after)}</Cell>
+                  <Cell className="max-w-64 text-caption break-words">{changeWords(entry.before)}</Cell>
+                  <Cell className="max-w-64 text-caption break-words">{changeWords(entry.after)}</Cell>
                   <Cell className="tabular max-w-48 text-caption break-all">
                     {entry.ip ? <Reveal field="audit_ip" id={entry.id} masked={entry.ip} /> : "—"}
                     {entry.requestId && <span className="block text-text-2">Request {entry.requestId}</span>}

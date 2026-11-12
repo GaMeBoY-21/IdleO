@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes, ReactNode } from "react";
+import { useId, type ButtonHTMLAttributes, type ReactNode } from "react";
 import { cn } from "@/lib/cn";
 
 /**
@@ -47,6 +47,8 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   block?: boolean;
   large?: boolean;
   busy?: boolean;
+  /** While disabled, why: shown on hover and read with the button (web/DESIGN.md "Feedback"). */
+  why?: string;
   children: ReactNode;
 }
 
@@ -58,19 +60,29 @@ export function Button({
   className,
   children,
   disabled,
+  why,
   type,
   ...props
 }: ButtonProps) {
+  const whyId = useId();
+  const saysWhy = disabled === true && why !== undefined;
   return (
     <button
       type={type ?? "button"}
       className={cn(buttonClasses(variant, block, large), className)}
       disabled={disabled || busy}
       aria-busy={busy || undefined}
+      title={saysWhy ? why : undefined}
+      aria-describedby={saysWhy ? whyId : undefined}
       {...props}
     >
       {busy && <Spinner />}
       {children}
+      {saysWhy && (
+        <span id={whyId} className="sr-only">
+          {why}
+        </span>
+      )}
     </button>
   );
 }

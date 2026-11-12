@@ -34,7 +34,7 @@ async function enrol(page: Page): Promise<string> {
   await expect(page.getByRole("heading", { level: 1, name: "Set up your authenticator" })).toBeVisible();
   const secret = (await page.getByText(/^[A-Z2-7]{32}$/).textContent())!;
   await page.getByLabel("Code from your authenticator app").fill(codeNow(secret));
-  await page.getByRole("button", { name: "Confirm" }).click();
+  await page.getByRole("button", { name: "Check the code" }).click();
   await page.getByRole("button", { name: "I've saved them" }).click();
   return secret;
 }
@@ -64,7 +64,7 @@ test.describe("each admin sees only what they may", () => {
     await page.goto("/admin/audit/");
     await expect(page.getByRole("heading", { level: 1, name: "Admin sign-in" })).toBeVisible();
     await page.getByLabel("Code from your authenticator app").fill(codeNow(secret, 1));
-    await page.getByRole("button", { name: "Continue" }).click();
+    await page.getByRole("button", { name: "Sign in" }).click();
     await expect(page.getByRole("heading", { level: 1, name: "You can't open this section" })).toBeVisible();
     await expect(page.getByText("audit.read")).toBeVisible();
   });
@@ -181,7 +181,7 @@ test.describe("finding anything", () => {
     ).toBeVisible();
     if (await page.getByRole("heading", { level: 1, name: "Admin sign-in" }).isVisible()) {
       await page.getByLabel("Code from your authenticator app").fill(codeNow(secret, 1));
-      await page.getByRole("button", { name: "Continue" }).click();
+      await page.getByRole("button", { name: "Sign in" }).click();
     }
     await expect(page.getByRole("heading", { level: 1, name: "Invites" })).toBeVisible();
     await expect(page.getByRole("columnheader", { name: "Lapses" })).toHaveCount(0);

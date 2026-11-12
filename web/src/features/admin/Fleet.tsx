@@ -4,6 +4,7 @@ import { useState } from "react";
 import { StatusChip, Tag } from "@/components/ui/StatusChip";
 import type { components } from "@/api/schema.gen";
 import { RelativeTime } from "@/components/ui/Time";
+import { formatDateTime } from "@/lib/time";
 import { ActionSheet, SheetProblem } from "./ActionSheet";
 import { ADMIN, adminApi, adminData } from "./api";
 import { ListBar } from "./Lists";
@@ -40,6 +41,9 @@ const COLUMNS = [
   "",
 ];
 const STEPS = ["5", "25", "50", "100"] as const;
+
+/** A version as an admin reads it: a blocklist's, which is the moment it was published, as that date and time in India. */
+const versionWords = (value: string) => (/^\d{4}-\d{2}-\d{2}T/.test(value) ? formatDateTime(value) : value);
 
 /**
  * The fleet (ADR 0056): every host by agent, distribution, GPU and driver version, its self-tests and reconnects and the
@@ -250,7 +254,7 @@ function Counts({ caption, counts, param }: { caption: string; counts: Count[]; 
               href={`/admin/fleet/?${param}=${encodeURIComponent(count.value)}`}
               className="underline-offset-4 hover:underline"
             >
-              {count.value}
+              {versionWords(count.value)}
             </a>
           </Cell>
           <Cell className="tabular">{count.hosts}</Cell>
@@ -358,6 +362,7 @@ function Hosts() {
           variant="ghost"
           onClick={() => setNotifying(owners)}
           disabled={owners.length === 0}
+          why="No laptops match, so there's no one to notify."
         >
           Notify these owners
         </ActionButton>
@@ -394,7 +399,7 @@ function Hosts() {
                   {host.selfTestPassRate == null ? "—" : `${Math.round(host.selfTestPassRate * 100)}%`}
                 </Cell>
                 <Cell className="tabular">{host.reconnectsPerDay}</Cell>
-                <Cell className="tabular text-small">{host.blocklistVersion ?? "none"}</Cell>
+                <Cell className="tabular text-small">{versionWords(host.blocklistVersion ?? "none")}</Cell>
                 <Cell>{host.lastSeenAt ? <RelativeTime value={host.lastSeenAt} /> : "never"}</Cell>
                 <Cell>
                   <RowLink href={`/admin/hosts/?id=${host.id}`}>

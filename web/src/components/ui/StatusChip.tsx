@@ -79,7 +79,8 @@ export function StatusChip({
       )}
     >
       <Mark tone={word.tone} running={state === "RUNNING"} />
-      {label ?? (exact ? (word.exact ?? word.label) : word.label)}
+      {/* In a span, so a label's own spaces ("Past its target, 2 h ago") aren't trimmed as the chip's flex items. */}
+      <span>{label ?? (exact ? (word.exact ?? word.label) : word.label)}</span>
     </span>
   );
 }
