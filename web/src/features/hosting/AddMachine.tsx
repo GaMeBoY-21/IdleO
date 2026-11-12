@@ -1,3 +1,4 @@
+import { useId } from "react";
 import { MonitorCheck, MonitorDown, MousePointerClick } from "lucide-react";
 import { useLatestRelease } from "@/api/hosting";
 import { HostFlow } from "@/components/shell/HostFlow";
@@ -42,6 +43,7 @@ export function DownloadButton() {
   // on the way to the page's largest paint (Lighthouse counts each round trip before it).
   const painted = useAfterPaint();
   const release = useLatestRelease(painted);
+  const whyId = useId();
   if (release.isPending) {
     return (
       <div className="flex flex-col gap-2" aria-busy="true" aria-label="Checking for the Windows app">
@@ -63,10 +65,12 @@ export function DownloadButton() {
   if (release.data === null) {
     return (
       <div className="flex flex-col gap-2">
-        <button type="button" disabled className={BUTTON}>
+        <button type="button" disabled aria-describedby={whyId} className={BUTTON}>
           Windows app: coming soon
         </button>
-        <p className="min-h-5 text-small text-text-2">&nbsp;</p>
+        <p id={whyId} className="min-h-5 text-small text-text-2">
+          Its download appears here once it&apos;s signed and released.
+        </p>
       </div>
     );
   }

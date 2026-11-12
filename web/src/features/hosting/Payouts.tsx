@@ -291,10 +291,20 @@ export function Statement({ years }: { years: string[] | null }) {
             ))}
           </select>
         </label>
-        <Button variant="ghost" disabled={years === null} onClick={() => download("pdf")}>
+        <Button
+          variant="ghost"
+          disabled={years === null}
+          why="Waiting for the years you were paid in."
+          onClick={() => download("pdf")}
+        >
           PDF
         </Button>
-        <Button variant="ghost" disabled={years === null} onClick={() => download("csv")}>
+        <Button
+          variant="ghost"
+          disabled={years === null}
+          why="Waiting for the years you were paid in."
+          onClick={() => download("csv")}
+        >
           CSV
         </Button>
       </div>
