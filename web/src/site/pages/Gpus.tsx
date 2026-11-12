@@ -18,7 +18,7 @@ export function Gpus({ links }: { links: EntryLinks }) {
         </p>
       </section>
 
-      <section className={`${column} pb-14 md:pb-20`}>
+      <section className={`${column} ${band}`}>
         <ul className="grid grid-cols-1 gap-2 md:grid-cols-2 md:gap-4">
           {GPU_CLASSES.map((gpu) => (
             <li key={gpu.gb} className={tile} aria-labelledby={`gpu-${gpu.gb}`}>
