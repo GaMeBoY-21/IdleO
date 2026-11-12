@@ -4,15 +4,14 @@ import { dismiss, shownToasts, subscribe } from "@/lib/toast";
 
 /**
  * Toasts on screen (web/DESIGN.md "Feedback"), over the page's foot without covering what's being read: appearing in
- * 150 ms, not at all under reduced motion, heard by screen readers (a polite status). Loaded after the first screen
+ * 150 ms, not at all under reduced motion. Loaded with the first toast, and heard through the frame's live region
  * (components/shell/Toasts.tsx); the store is lib/toast.ts.
  */
 export function Toaster({ className }: { className?: string }) {
   const toasts = useSyncExternalStore(subscribe, shownToasts, shownToasts);
   return (
+    // Heard through the frame's own live region (components/shell/Toasts.tsx), which is there before any toast is.
     <div
-      role="status"
-      aria-live="polite"
       className={cn(
         "pointer-events-none fixed inset-x-4 bottom-24 z-toast flex flex-col items-center gap-2 md:bottom-8",
         className,

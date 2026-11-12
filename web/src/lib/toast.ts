@@ -1,6 +1,6 @@
 /**
- * The toasts' store (web/DESIGN.md "Feedback"): any screen calls `toast()`; the frame's `Toasts` shows them once its
- * small piece of code has loaded after the first screen (components/ui/Toast.tsx). A short line that an action worked,
+ * The toasts' store (web/DESIGN.md "Feedback"): any screen calls `toast()`; the frame's `Toasts` says them at once and
+ * shows them with code loaded on the first (components/ui/Toast.tsx). A short line that an action worked,
  * with Undo where it can be undone, for 5 seconds (8 with Undo). A problem is never a toast.
  */
 export interface ToastInput {
