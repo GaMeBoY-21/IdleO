@@ -222,7 +222,11 @@ function SessionRecord({ id }: { id: string }) {
     ),
   );
   return (
-    <AdminPage title="Session" trail={[{ label: "Sessions", href: "/admin/sessions/" }]}>
+    <AdminPage
+      title="Session"
+      name={`…${id.slice(-8)}`}
+      trail={[{ label: "Sessions", href: "/admin/sessions/" }]}
+    >
       <QueryView query={session} what="this session">
         {(found) => {
           const summary = found.session;
@@ -238,30 +242,8 @@ function SessionRecord({ id }: { id: string }) {
                   ],
                   ["State", <SessionState key="state" state={summary.state} />],
                   ["Template", summary.templateId],
-                  [
-                    "Renter",
-                    <Link
-                      key="renter"
-                      href={`/admin/users/?id=${summary.renterId}`}
-                      className="tabular underline-offset-4 hover:underline"
-                    >
-                      {summary.renterId}
-                    </Link>,
-                  ],
-                  [
-                    "Host",
-                    summary.hostId ? (
-                      <Link
-                        key="host"
-                        href={`/admin/hosts/?id=${summary.hostId}`}
-                        className="tabular underline-offset-4 hover:underline"
-                      >
-                        {summary.hostId}
-                      </Link>
-                    ) : (
-                      "—"
-                    ),
-                  ],
+                  ["Renter", <Id key="renter" value={summary.renterId} page="user" />],
+                  ["Host", summary.hostId ? <Id key="host" value={summary.hostId} page="host" /> : "—"],
                   [
                     "Price",
                     summary.pricePaisePerMin == null

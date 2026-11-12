@@ -85,12 +85,15 @@ export function PageHeader({
   trail,
   action,
   kicker,
+  crumb,
   dense = false,
   hideTitle = false,
   id,
   children,
 }: {
   title: ReactNode;
+  /** The breadcrumbs' last step, when it isn't the title as it stands (a record's name). */
+  crumb?: string;
   /** The tab's name for this page, when the title isn't plain words (a name that's still loading: null). */
   tabTitle?: string | null;
   /** One line on what the page is for. */
@@ -118,7 +121,7 @@ export function PageHeader({
         hideTitle && !trail && !children && "contents",
       )}
     >
-      {trail && trail.length > 0 && <Breadcrumbs trail={trail} current={named ?? ""} />}
+      {trail && trail.length > 0 && <Breadcrumbs trail={trail} current={crumb ?? named ?? ""} />}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className={cn("flex min-w-0 flex-col gap-2", hideTitle && "sr-only")}>
           {kicker && <p className="text-small text-text-2">{kicker}</p>}

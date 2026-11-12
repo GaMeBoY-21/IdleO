@@ -2,7 +2,7 @@ import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { KeyValueList } from "@/components/ui/KeyValues";
 import { StatusChip } from "@/components/ui/StatusChip";
-import { Link, useSearch } from "wouter";
+import { useSearch } from "wouter";
 import { Money } from "@/components/ui/Money";
 import { RelativeTime } from "@/components/ui/Time";
 import { formatDateTime } from "@/lib/time";
@@ -134,7 +134,11 @@ function ChargebackRecord({ id }: { id: string }) {
     queryFn: () => adminData(adminApi.GET("/admin/v1/chargebacks/{id}", { params: { path: { id } } })),
   });
   return (
-    <AdminPage title="Chargeback" trail={[{ label: "Chargebacks", href: "/admin/chargebacks/" }]}>
+    <AdminPage
+      title="Chargeback"
+      name={`…${id.slice(-8)}`}
+      trail={[{ label: "Chargebacks", href: "/admin/chargebacks/" }]}
+    >
       <QueryView query={chargeback} what="this chargeback">
         {(found) => (
           <>
@@ -169,13 +173,7 @@ function ChargebackRecord({ id }: { id: string }) {
                 [
                   "Renter",
                   found.userId ? (
-                    <Link
-                      key="renter"
-                      href={`/admin/users/?id=${found.userId}`}
-                      className="tabular underline-offset-4 hover:underline"
-                    >
-                      {found.userId}
-                    </Link>
+                    <Id key="renter" value={found.userId} page="user" />
                   ) : (
                     "not one of our top-ups"
                   ),

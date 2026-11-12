@@ -2,7 +2,7 @@ import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-quer
 import { useState } from "react";
 import { KeyValueList } from "@/components/ui/KeyValues";
 import { StatusChip, Tag } from "@/components/ui/StatusChip";
-import { Link, useSearch } from "wouter";
+import { useSearch } from "wouter";
 import { TextArea } from "@/components/ui/Inputs";
 import { Money } from "@/components/ui/Money";
 import { RelativeTime } from "@/components/ui/Time";
@@ -478,40 +478,9 @@ function Summary({ found }: { found: AbuseDetail }) {
         items={[
           ["State", <StatePill key="state" item={item} />],
           ["Done by itself", ACTIONS[item.action] ?? item.action],
-          [
-            "Renter",
-            <Link
-              key="renter"
-              href={`/admin/users/?id=${item.renterId}`}
-              className="tabular underline-offset-4 hover:underline"
-            >
-              {item.renterId}
-            </Link>,
-          ],
-          [
-            "Host",
-            item.hostId ? (
-              <Link
-                key="host"
-                href={`/admin/hosts/?id=${item.hostId}`}
-                className="tabular underline-offset-4 hover:underline"
-              >
-                {item.hostId}
-              </Link>
-            ) : (
-              "—"
-            ),
-          ],
-          [
-            "Session",
-            <Link
-              key="session"
-              href={`/admin/sessions/?id=${item.sessionId}`}
-              className="tabular underline-offset-4 hover:underline"
-            >
-              {item.sessionId}
-            </Link>,
-          ],
+          ["Renter", <Id key="renter" value={item.renterId} page="user" />],
+          ["Host", item.hostId ? <Id key="host" value={item.hostId} page="host" /> : "—"],
+          ["Session", <Id key="session" value={item.sessionId} page="session" />],
           ["What the renter paid", <Money key="paid" paise={found.paidPaise} />],
           [
             "Refunded by clearing",

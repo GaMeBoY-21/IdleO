@@ -179,7 +179,11 @@ function TicketRecord({ id }: { id: string }) {
   const refresh = () => client.invalidateQueries({ queryKey: [ADMIN, "ticket", id] });
 
   return (
-    <AdminPage title="Ticket" trail={[{ label: "Tickets", href: "/admin/tickets/" }]}>
+    <AdminPage
+      title="Ticket"
+      name={thread.data ? ticketNumber(thread.data.ticket.number) : null}
+      trail={[{ label: "Tickets", href: "/admin/tickets/" }]}
+    >
       <QueryView query={thread} what="this ticket">
         {({ ticket, messages }) => (
           <>

@@ -151,7 +151,11 @@ function DisputeRecord({ id }: { id: string }) {
   const refresh = () => client.invalidateQueries({ queryKey: [ADMIN] });
   const paise = parseRupees(rupees);
   return (
-    <AdminPage title="Report" trail={[{ label: "Reports", href: "/admin/disputes/" }]}>
+    <AdminPage
+      title="Report"
+      name={`…${id.slice(-8)}`}
+      trail={[{ label: "Reports", href: "/admin/disputes/" }]}
+    >
       <QueryView query={dispute} what="this report">
         {(found) => (
           <>
@@ -249,26 +253,8 @@ function Summary({ found }: { found: AdminDispute }) {
               {formatDateTime(dispute.createdAt)}
             </span>,
           ],
-          [
-            "Renter",
-            <Link
-              key="renter"
-              href={`/admin/users/?id=${dispute.renterId}`}
-              className="tabular underline-offset-4 hover:underline"
-            >
-              {dispute.renterId}
-            </Link>,
-          ],
-          [
-            "Session",
-            <Link
-              key="session"
-              href={`/admin/sessions/?id=${dispute.sessionId}`}
-              className="tabular underline-offset-4 hover:underline"
-            >
-              {dispute.sessionId}
-            </Link>,
-          ],
+          ["Renter", <Id key="renter" value={dispute.renterId} page="user" />],
+          ["Session", <Id key="session" value={dispute.sessionId} page="session" />],
           ["Session ended as", word(session.state)],
           [
             "Ran",
