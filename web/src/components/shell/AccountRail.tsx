@@ -39,9 +39,10 @@ export function AccountRail({
         </>
       }
       right={
-        <div className={cn("flex flex-col gap-4 2xl:gap-4", className)}>
+        <div className="flex flex-col gap-4">
           <PageHeader title={title} trail={trail} />
-          {children}
+          {/* The screen's own layout (a grid, for some) is its content's, never the header's. */}
+          <div className={cn("flex flex-col gap-4 2xl:gap-4", className)}>{children}</div>
         </div>
       }
     />
