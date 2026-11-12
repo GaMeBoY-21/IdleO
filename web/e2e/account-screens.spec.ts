@@ -349,7 +349,7 @@ test.describe("the invite step", () => {
     );
     await signInWaiting(page);
     await page.getByLabel("Invite code").fill("7k2q");
-    await page.getByRole("button", { name: "Continue" }).click();
+    await page.getByRole("button", { name: "Use this code" }).click();
     await expect(page.getByText("Enter all 8 letters and numbers of your code.")).toBeVisible();
     expect(sent).toBe(0);
     await expectAccessible(page);
@@ -360,7 +360,7 @@ test.describe("the invite step", () => {
     await fakeApi(page, waiting({ "/v1/me/activate": { status: 400, problem: "invite-invalid" } }));
     await signInWaiting(page);
     await page.getByLabel("Invite code").fill("7k2q9xmd");
-    await page.getByRole("button", { name: "Continue" }).click();
+    await page.getByRole("button", { name: "Use this code" }).click();
     await expect(
       page.getByText(
         "That code isn't one we can accept. Check it and try again, or ask the person who invited you.",
@@ -374,7 +374,7 @@ test.describe("the invite step", () => {
     await fakeApi(page, waiting({ "/v1/me/activate": { status: 429, problem: "too-many-attempts" } }));
     await signInWaiting(page);
     await page.getByLabel("Invite code").fill("7k2q9xmd");
-    await page.getByRole("button", { name: "Continue" }).click();
+    await page.getByRole("button", { name: "Use this code" }).click();
     await expect(page.getByText("Too many codes were tried. Wait an hour, then try again.")).toBeVisible();
     await expectAccessible(page);
     await capture(page, info, "invite-too-many");
@@ -384,7 +384,7 @@ test.describe("the invite step", () => {
     await fakeApi(page, waiting({ "/v1/me/activate": { json: data.me() } }));
     await signInWaiting(page);
     await page.getByLabel("Invite code").fill("IDLE-7K2Q-9XMD");
-    await page.getByRole("button", { name: "Continue" }).click();
+    await page.getByRole("button", { name: "Use this code" }).click();
     await expect(page.getByRole("heading", { name: "What do you want to run?" })).toBeVisible();
   });
 

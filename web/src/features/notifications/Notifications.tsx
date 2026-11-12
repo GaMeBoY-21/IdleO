@@ -51,6 +51,7 @@ export function Notifications() {
           <Button
             variant="ghost"
             disabled={unread === 0 || items.length === 0}
+            why="Everything here is read already."
             busy={markRead.isPending}
             onClick={() => items[0] && markRead.mutate({ upTo: items[0].id })}
           >

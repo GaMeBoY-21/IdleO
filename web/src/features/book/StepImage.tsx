@@ -156,6 +156,11 @@ export function StepImage({ number }: { number: number }) {
               onClick={onCheck}
               busy={submit.isPending}
               disabled={reference.trim() === "" || (isPrivate && (username.trim() === "" || token === ""))}
+              why={
+                reference.trim() === ""
+                  ? "Write the image's name first."
+                  : "A private image needs the username and token to download it."
+              }
             >
               Check it
             </Button>
