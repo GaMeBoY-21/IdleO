@@ -355,6 +355,16 @@ export const spacing = {
   "20": 80,
   "24": 96,
   "28": 112,
+  /** Larger steps, for widths, heights and skeletons (Tailwind's own numbers, 4 px each): 128 to 384 px. */
+  "32": 128,
+  "36": 144,
+  "40": 160,
+  "48": 192,
+  "56": 224,
+  "64": 256,
+  "72": 288,
+  "80": 320,
+  "96": 384,
   touch: 44,
   /** The laptop's header, from 768 px. */
   header: 76,
