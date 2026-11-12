@@ -372,7 +372,7 @@ The owner's screens (ADR 0023), for someone who wants to know "is my machine ear
 
 ## Account, sign-in and the rest
 
-Sign-in, the invite step, Account, API keys, the notifications list and the CLI approval are panels on the page colour, with one primary action each. The admin console (ADR 0027) stays dense: it takes the fonts, the colours and the radii (and both themes), with smaller type and tighter tables, and a 240 px sidebar with all its sections in four groups (Overview, Safety, Money, The service), items 36 px tall from 768 px. Its headlines are Archivo uppercase at 26 px, its tables sit in a panel with tracked uppercase headings and 8 px of padding in a row, and its pills are `raised`, `ok` or `danger-soft`.
+Sign-in, the invite step, Account, API keys, the notifications list and the CLI approval are panels on the page colour, with one primary action each. The admin console (ADR 0027) stays dense: it takes the fonts, the colours and the radii (and both themes), with smaller type and tighter tables, and a 240 px sidebar with all its sections in eight groups (The admin sidebar, above), items 36 px tall from 768 px. Its headlines are Archivo uppercase at 26 px, its tables sit in a panel with tracked uppercase headings and 8 px of padding in a row, and its pills are `raised`, `ok` or `danger-soft`.
 
 ## Laptop layout
 
@@ -411,6 +411,77 @@ From 1200 px every signed-in screen is laid out for the screen, not as the phone
 - **The admin console** takes the same tokens, denser: smaller type, tighter tables, and the sidebar with all its sections.
 
 **The website** (ADR 0029) has its own frame, 1280 px wide and centred (see The public pages).
+
+## Components
+
+One component for each pattern, on every site (ADR 0059). A screen that builds its own fails lint (`idleo/one-component`); every one is in the component gallery (`/_gallery` on a development server), in every variant and state. The website is its own build and keeps its own.
+
+| Pattern | Component | Where |
+| --- | --- | --- |
+| Page header: breadcrumbs, the page's one h1 (which names the tab), one line on what it's for, the primary action top right, then filters | `PageHeader` (`dense` in the console), `PageTitle` where a panel holds the title, `Breadcrumbs` | components/ui/Headers.tsx |
+| Section header: an h2 (or h3), a line on it, its action | `SectionHeader` | components/ui/Headers.tsx |
+| Table: caption, tracked headings, numbers right-aligned in tabular figures | `DataTable`, `DataRow`, `DataCell numeric`; the console's dense table (columns, pins, sorting, saved views, bulk, windowing) on top of it | components/ui/DataTable.tsx, features/admin/Table.tsx |
+| Filters | `FilterBar` (a submitted search, or choices that apply at once) | components/ui/FilterBar.tsx |
+| Loading, empty, error, stale | skeletons; `EmptyState` (what would be here, and the next step), `ErrorState` (what happened, Try again), `StaleNotice` | components/ui/Skeleton.tsx, States.tsx |
+| Form field: label, help, the problem under it | `Field`, `TextArea`, `Select`, `Switch`, `RadioGroup` | components/ui/Field.tsx, Inputs.tsx |
+| The action button and its pending state | `Button busy`: disabled at once, so it can't be pressed twice; its spinner only after 300 ms | components/ui/Button.tsx |
+| Toast, with Undo | `toast({ message, undo })`, one `Toaster` in each frame | components/ui/Toast.tsx |
+| Confirm and sheet | `ConfirmDialog` (what will happen, the button that does it, the way out), `Sheet` | components/ui/Sheet.tsx |
+| State chip | `StatusChip`, from the one map in lib/states.ts; `Tag` for a label that isn't a state | components/ui/StatusChip.tsx |
+| Key-value list, figures | `KeyValueList` (`columns` or `split`), `StatGrid` and `StatTile` | components/ui/KeyValues.tsx |
+| Money, times, counts | `formatPaise`, lib/time.ts, `count()` and `percent()` | lib/money.ts, lib/time.ts, lib/format.ts |
+
+## States and chips
+
+Every state on every site comes from one map (`src/lib/states.ts`): each kind of thing (a session, a laptop, a payout, an appeal…), each code's words and its tone. `StatusChip` draws the tone as a colour and a mark: live is a pulsing dot, success a tick, warning a warning sign, danger a cross, neutral a ring, so a state never rests on colour alone. A screen may say more of the same state ("Paused until 6 pm"), never choose its own colour. The console's words are more exact where the renter's join two states (`exact`).
+
+## Feedback
+
+- Every action answers within 100 ms: the pressed button is disabled at once and shows it's working; its spinner appears only after 300 ms, so a quick answer never flashes it.
+- Success is a short toast, with Undo where the action allows it. A problem is never a toast: it's said in plain words where it happened, with what to do next.
+- A loading list or panel is a skeleton of the content's own size; nothing jumps when data arrives.
+
+## Formats
+
+- Money: `formatPaise`, Indian grouping (₹1,23,456.00). Numbers in tables are right-aligned in tabular figures.
+- Times: India's time; relative ("18 min ago") with the exact time on hover (`RelativeTime`).
+- Counts: `count(n, "day")` gives "1 day", "2 days", grouped the Indian way; percentages `percent(n)`, a whole number with no space.
+
+## The admin sidebar
+
+Eight groups, in the order an admin's day runs, each showing only the sections this admin may open; the palette and pinned items stay.
+
+| Group | Sections |
+| --- | --- |
+| Today | Control room, Inbox, Approvals |
+| People and hosts | Users, Hosts, Fleet, Invites |
+| Sessions | Sessions, Review queue, Images |
+| Trust and safety | Reports, Chargebacks, Abuse, Appeals, Tickets |
+| Money | Money, Payments, Refunds, Invoices, Payouts, Verification, Clawbacks |
+| Books | Ledger, Adjustments, Months, Settlements, Money reports, Tax |
+| Platform | Flags, Notices, Audit log |
+| Settings | Your access |
+
+## Verbs
+
+One verb for each action, on every site, in buttons, menus and confirms. A button says what it does ("Suspend user", never "Submit" or "OK").
+
+| Say | For | Never |
+| --- | --- | --- |
+| **Delete** | Erasing something for good: a file, an account | Remove, Erase (but under a legal order) |
+| **Remove** | Taking something off a list it can come back to: a laptop, an image, a tag | Delete, Unlink |
+| **Revoke** | Ending a key, a code or a sign-in | Delete, Disable |
+| **Suspend** / **Lift** | Stopping an account or host until it's lifted | Block, Disable, Unsuspend |
+| **Ban** | Suspending for good | Block |
+| **Stop** | Ending a session that runs | End, Kill, Terminate |
+| **Cancel** | Withdrawing a request that hasn't started | Abort, Stop |
+| **Pause** / **Resume** | Hosting, payouts, a kill switch | Disable, Turn off |
+| **Approve** / **Turn down** | A request for approval | Accept, Reject, Deny |
+| **Refund**, **Waive**, **Reverse** | Giving money back; not charging it; undoing a ledger entry | Return, Forgive, Undo |
+| **Add** | Something new in a list of the person's own: a laptop, credit | Create, New |
+| **Create** | A key, a code or a view, made and named | Make, Generate |
+| **Save** / **Send** | Keeping a change to settings / a message to a person | Submit, Apply, Post |
+| **Try again** | Retrying what failed | Retry, Reload |
 
 ## Voice
 

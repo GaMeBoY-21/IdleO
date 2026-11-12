@@ -33,7 +33,8 @@ function check(context, node, text) {
 }
 
 /** A `style` prop's own sizes, layers and durations: in px, as a number of px, or in ms. */
-const STYLED = /^(padding|margin|gap|rowGap|columnGap|fontSize|lineHeight|zIndex|transition|transitionDuration|animation|animationDuration)/;
+const STYLED =
+  /^(padding|margin|gap|rowGap|columnGap|fontSize|lineHeight|zIndex|transition|transitionDuration|animation|animationDuration)/;
 
 export default {
   meta: {
