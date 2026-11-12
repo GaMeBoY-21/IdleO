@@ -13,8 +13,6 @@ import { RelativeTime } from "@/components/ui/Time";
 import { ImageFindings } from "@/features/images/ImageFindings";
 import { useAfterPaint } from "@/lib/after-first-screen";
 import { useTitle } from "@/lib/title";
-import { hostLink } from "@/lib/site-links";
-import { HOST_PATHS } from "@/sites/host/paths";
 
 const ROW = "flex min-h-24 flex-col gap-2 py-4";
 
@@ -50,9 +48,9 @@ export function MyImages() {
           {images.data.enabled && (
             <>
               {" "}
-              <a href={hostLink(HOST_PATHS.payoutDetails)} className="font-semibold underline">
+              <Link href="/account/pan/" className="font-semibold underline">
                 Give your PAN
-              </a>
+              </Link>
             </>
           )}
         </Banner>

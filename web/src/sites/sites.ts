@@ -132,6 +132,7 @@ export const OWNED: Record<SiteName, readonly string[]> = {
     "src/features/account/CreateKey.tsx",
     "src/features/account/RevokeDialog.tsx",
     "src/features/account/MyImages.tsx",
+    "src/features/account/YourPan.tsx",
     "src/features/account/Reports.tsx",
     "src/api/wallet.ts",
     "src/api/home.ts",

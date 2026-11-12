@@ -1,3 +1,4 @@
+import { Link } from "wouter";
 import { Package } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useFormContext, useWatch } from "react-hook-form";
@@ -13,8 +14,6 @@ import { ImageFindings } from "@/features/images/ImageFindings";
 import { IMAGE_STATES, imageSize } from "@/lib/images";
 import type { BookValues } from "./form";
 import { StepTitle } from "./StepTitle";
-import { hostLink } from "@/lib/site-links";
-import { HOST_PATHS } from "@/sites/host/paths";
 
 const ID = "own-image";
 
@@ -84,9 +83,9 @@ export function StepImage({ number }: { number: number }) {
         {images.data.enabled && (
           <>
             {" "}
-            <a href={hostLink(HOST_PATHS.payoutDetails)} className="font-semibold underline">
+            <Link href="/account/pan/" className="font-semibold underline">
               Give your PAN
-            </a>
+            </Link>
           </>
         )}
       </Banner>

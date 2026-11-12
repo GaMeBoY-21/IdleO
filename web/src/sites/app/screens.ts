@@ -18,5 +18,6 @@ export const SCREENS: Record<string, string | null> = {
   "/account/keys/": "src/features/account/ApiKeys.tsx",
   "/account/reports/": "src/features/account/Reports.tsx",
   "/account/images/": "src/features/account/MyImages.tsx",
+  "/account/pan/": "src/features/account/YourPan.tsx",
   "/cli-login/": "src/features/cli-login/CliLogin.tsx",
 };

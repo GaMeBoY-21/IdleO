@@ -4,7 +4,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as data from "../../../e2e/fixtures-payouts";
 import { InUse, LatestCheck } from "./PayoutDetails";
 import { financialYear, PayoutRow, Summary, SummarySkeleton } from "./Payouts";
-import { BLOCKED, PAN_SHAPE, PAYOUT_STATUS, UPI_SHAPE } from "@/lib/payouts";
+import { PAN_SHAPE } from "@/lib/pan";
+import { BLOCKED, PAYOUT_STATUS, UPI_SHAPE } from "@/lib/payouts";
 import { formatPaise } from "@/lib/money";
 
 const now = new Date("2026-10-07T06:34:00Z").getTime();

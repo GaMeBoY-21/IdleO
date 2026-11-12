@@ -8,7 +8,6 @@ import {
   useForfeit,
   usePayoutDetails,
   usePayoutSummary,
-  useSubmitPan,
   type PayoutDetails as Details,
   type UpiView,
 } from "@/api/payouts";
@@ -24,7 +23,8 @@ import { Tile } from "@/components/ui/Tile";
 import { useAfterPaint } from "@/lib/after-first-screen";
 import { useNow } from "@/lib/clock";
 import { useWide } from "@/lib/media";
-import { maskedPan, PAN_SHAPE, UPI_SHAPE } from "@/lib/payouts";
+import { UPI_SHAPE } from "@/lib/payouts";
+import { PanTile } from "@/features/pan/PanTile";
 import { problemMessage } from "@/lib/problems";
 import { formatDateTime } from "@/lib/time";
 import { useTitle } from "@/lib/title";
@@ -76,7 +76,7 @@ function Forms({ details }: { details: Details }) {
   const painted = useAfterPaint();
   return (
     <>
-      <PanTile details={details} />
+      <PanTile pan={details.pan} />
       <UpiTile details={details} />
       <GiveUp enabled={painted} details={details} />
     </>
@@ -94,85 +94,6 @@ function FormsSkeleton() {
         </Tile>
       ))}
     </div>
-  );
-}
-
-const PAN_STATE: Record<string, string> = {
-  verified: "Verified",
-  review: "We're checking it. You'll be paid once it's verified.",
-  rejected: "Not accepted",
-};
-
-function PanTile({ details }: { details: Details }) {
-  const pan = details.pan;
-  const submit = useSubmitPan();
-  const [number, setNumber] = useState("");
-  const [name, setName] = useState("");
-  const [shown, setShown] = useState(false);
-  const typed = number.trim().toUpperCase();
-  const shapeError =
-    shown && !PAN_SHAPE.test(typed) ? "A PAN is five letters, four digits and a letter." : undefined;
-  const fieldError = (field: string) =>
-    submit.error instanceof ApiError
-      ? submit.error.errors.find((error) => error.field === field)?.detail
-      : undefined;
-  const editable = pan == null || pan.state === "rejected";
-  return (
-    <Tile as="section" aria-labelledby="pan-title" className="flex flex-col gap-4">
-      <SectionHeader id="pan-title">PAN</SectionHeader>
-      {pan && (
-        <div className="flex flex-col gap-1">
-          <p className="text-option font-semibold tabular">
-            {maskedPan(pan.last4)} · {pan.name}
-          </p>
-          <p className={pan.state === "verified" ? "text-small text-running" : "text-small text-text-2"}>
-            {PAN_STATE[pan.state] ?? pan.state}
-            {pan.state === "rejected" && pan.reason && `: ${pan.reason}`}
-          </p>
-        </div>
-      )}
-      {editable && (
-        <form
-          noValidate
-          className="flex flex-col gap-2"
-          onSubmit={(event) => {
-            event.preventDefault();
-            setShown(true);
-            if (PAN_SHAPE.test(typed) && name.trim() !== "") {
-              submit.mutate({ pan: typed, name: name.trim() });
-            }
-          }}
-        >
-          <Field
-            label="PAN"
-            value={number}
-            autoComplete="off"
-            spellCheck={false}
-            maxLength={10}
-            error={shapeError ?? fieldError("pan")}
-            hint="10 characters, like ABCPE1234F. Only its last 4 are ever shown."
-            onChange={(event) => setNumber(event.target.value)}
-          />
-          <Field
-            label="Name exactly as on your PAN"
-            value={name}
-            autoComplete="name"
-            maxLength={85}
-            error={shown && name.trim() === "" ? "Write the name as it is on the card." : fieldError("name")}
-            hint="Your UPI ID must be registered in this name."
-            onChange={(event) => setName(event.target.value)}
-          />
-          <div className="flex items-center gap-2">
-            <Button type="submit" variant="ghost" busy={submit.isPending}>
-              Save PAN
-            </Button>
-            <p role="alert" className="text-small text-danger">
-              {submit.error && !fieldError("pan") && !fieldError("name") ? problemMessage(submit.error) : ""}
-            </p>
-          </div>
-        </form>
-      )}
-    </Tile>
   );
 }
 

@@ -1,7 +1,7 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page, type Request } from "@playwright/test";
 import * as data from "./fixtures";
 import * as images from "./fixtures-images";
-import { HOST_URL } from "./sites";
+import * as payouts from "./fixtures-payouts";
 import { capture, expectAccessible, fakeApi, signIn, watchConsole, type Answer } from "./support";
 
 /**
@@ -81,13 +81,34 @@ test.describe("My images", () => {
     await expect(
       page.getByText("Your own images are for renters with a verified PAN.", { exact: false }),
     ).toBeVisible();
-    await expect(page.getByRole("link", { name: "Give your PAN" })).toHaveAttribute(
-      "href",
-      `${HOST_URL}/payout-details/`,
-    );
+    // In the renter app itself, not on the host site.
+    await expect(page.getByRole("link", { name: "Give your PAN" })).toHaveAttribute("href", "/account/pan/");
     await expect(page.getByText("No images yet")).toBeVisible();
     await expectAccessible(page);
     await capture(page, info, "my-images-no-pan");
+  });
+
+  test("a renter gives their PAN in the renter app, the same form as a host's", async ({ page }, info) => {
+    let given: unknown = null;
+    await fakeApi(
+      page,
+      signedIn({
+        "/v1/payout-details/pan": (_call: number, request: Request) => {
+          given = request.postDataJSON();
+          return { json: { ...payouts.detailsNew, pan: payouts.detailsChecked.pan } };
+        },
+        "/v1/payout-details": { json: payouts.detailsNew },
+      }),
+    );
+    await signIn(page, "asha", "/account/pan/");
+    await expect(page.getByRole("heading", { level: 1, name: "Your PAN" })).toBeAttached();
+    await expect(page.getByText("Running your own container images needs your PAN on file.")).toBeVisible();
+    await expectAccessible(page);
+    await capture(page, info, "your-pan");
+    await page.getByRole("textbox", { name: "PAN", exact: true }).fill("abcpe1234f");
+    await page.getByLabel("Name exactly as on your PAN").fill("Asha Rao");
+    await page.getByRole("button", { name: "Save PAN" }).click();
+    await expect.poll(() => given).toEqual({ pan: "ABCPE1234F", name: "Asha Rao" });
   });
 
   test("switched off for everyone, it says so and doesn't ask for a PAN", async ({ page }) => {

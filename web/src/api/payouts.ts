@@ -4,6 +4,7 @@ import { ApiError } from "./errors";
 import type { components } from "./schema.gen";
 import { config } from "@/config";
 import { deletionKeys } from "./privacy";
+import { PAYOUT_DETAILS_KEY, payoutDetailsQuery } from "./pan";
 
 export type PayoutSummary = components["schemas"]["PayoutSummary"];
 export type PendingEarning = components["schemas"]["PendingEarning"];
@@ -23,7 +24,7 @@ export const CHECKING_POLL_MS = 3_000;
 export const payoutKeys = {
   summary: ["payouts", "summary"] as const,
   history: ["payouts", "history"] as const,
-  details: ["payout-details"] as const,
+  details: PAYOUT_DETAILS_KEY,
 };
 
 export function usePayoutSummary(enabled = true) {
@@ -53,23 +54,10 @@ export function usePayoutHistory(enabled = true) {
 /** Where payouts go; asked again every few seconds while a check is still with the bank. */
 export function usePayoutDetails(enabled = true) {
   return useQuery({
-    queryKey: payoutKeys.details,
+    ...payoutDetailsQuery,
     enabled,
-    queryFn: () => data(api.GET("/v1/payout-details")),
     refetchInterval: (query) =>
       query.state.data?.latestCheck?.state === "checking" ? CHECKING_POLL_MS : false,
-  });
-}
-
-/** Gives the PAN and the name as on it; the cache holds what the server answered. */
-export function useSubmitPan() {
-  const client = useQueryClient();
-  return useMutation({
-    mutationFn: (body: { pan: string; name: string }) => data(api.PUT("/v1/payout-details/pan", { body })),
-    onSuccess: () => {
-      void client.invalidateQueries({ queryKey: payoutKeys.details });
-      void client.invalidateQueries({ queryKey: payoutKeys.summary });
-    },
   });
 }
 
