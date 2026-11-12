@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Heatmap } from "./HeatGrid";
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { Link } from "wouter";
 import { readEvents } from "@/api/stream";
@@ -12,9 +12,11 @@ import { RelativeTime } from "@/components/ui/Time";
 import { useCan } from "./permissions";
 import { ADMIN, adminApi, adminData, type AdminInstalls, type Schemas } from "./api";
 import { word } from "./words";
-import { AdminPage, Cell, Empty, QueryView, Row, Section, SmallSelect, Table } from "./ui";
+import { AdminPage, Cell, Empty, QueryView, Row, Section, SmallSelect, Table, TableSkeleton } from "./ui";
+
+// The funnels' tabs are far down the control room: they load after it has painted, not with it.
+const RecordTabs = lazy(() => import("./RecordTabs").then((m) => ({ default: m.RecordTabs })));
 import { ListBar } from "./Lists";
-import { RecordTabs } from "./RecordTabs";
 import { ListScope, useListParam, useListQuery, useListView } from "./listView";
 
 const INSTALL_COLUMNS = ["Opened", "Minutes", "Clicks", "Where it got to", "GPU", "Windows", "Why it failed"];
@@ -240,23 +242,25 @@ function Panels({ figures }: { figures: ControlRoom }) {
       </Panel>
       <div className="grid gap-6 *:min-w-0 xl:grid-cols-2">
         <Panel title="Funnels" at={figures.computedAt.funnels} stale={stale("funnels")}>
-          <RecordTabs
-            label="How the funnels are counted"
-            tabs={[
-              {
-                id: "cohorts",
-                label: "By sign-up week",
-                needs: "",
-                render: () => <Cohorts rows={figures.cohorts} />,
-              },
-              {
-                id: "all-time",
-                label: "All time",
-                needs: "",
-                render: () => <AllTime steps={figures.funnels} />,
-              },
-            ]}
-          />
+          <Suspense fallback={<TableSkeleton what="the funnels" />}>
+            <RecordTabs
+              label="How the funnels are counted"
+              tabs={[
+                {
+                  id: "cohorts",
+                  label: "By sign-up week",
+                  needs: "",
+                  render: () => <Cohorts rows={figures.cohorts} />,
+                },
+                {
+                  id: "all-time",
+                  label: "All time",
+                  needs: "",
+                  render: () => <AllTime steps={figures.funnels} />,
+                },
+              ]}
+            />
+          </Suspense>
         </Panel>
         <Panel title="Health" at={figures.computedAt.health} stale={stale("health")}>
           <ul aria-label="The control plane's checks" className="flex flex-col gap-2">
