@@ -36,7 +36,8 @@ const SIZED =
 const bareGrid = (text) => {
   const classes = text.split(/\s+/);
   return (
-    classes.includes("grid") && !classes.some((name) => /^(grid-cols-|cols-)/.test(name) || name === "grid-flow-col")
+    classes.includes("grid") &&
+    !classes.some((name) => /^(grid-cols-|cols-)/.test(name) || name === "grid-flow-col")
   );
 };
 const unknownStep = (text) => [...text.matchAll(SIZED)].some((match) => !STEPS.has(match[1]));
@@ -73,7 +74,8 @@ export default {
       layer: "Use a layer token (z-raised, z-sticky, z-sheet, z-toast…), not a z-index number.",
       duration: "Use a motion token (duration-press, duration-appear, duration-large), not a number of ms.",
       styled: "Spacing, type, layers and durations come from the design tokens, not a style prop.",
-      columns: "A grid names its columns at every width: add grid-cols-1 (or a cols- utility) beside the breakpoints' own.",
+      columns:
+        "A grid names its columns at every width: add grid-cols-1 (or a cols- utility) beside the breakpoints' own.",
       step: "That step isn't on the spacing scale (src/design/tokens.ts), so the class makes no CSS and does nothing.",
     },
     schema: [],
