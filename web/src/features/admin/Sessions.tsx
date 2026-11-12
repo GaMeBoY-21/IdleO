@@ -9,6 +9,7 @@ import { RelativeTime } from "@/components/ui/Time";
 import { formatPaise } from "@/lib/money";
 import { ActionSheet } from "./ActionSheet";
 import { ADMIN, adminApi, adminData } from "./api";
+import { RECORDS } from "./recordQueries";
 import { word } from "./words";
 import {
   AdminPage,
@@ -206,8 +207,7 @@ function SessionState({ state }: { state: string }) {
 function SessionRecord({ id }: { id: string }) {
   const client = useQueryClient();
   const session = useQuery({
-    queryKey: [ADMIN, "session-record", id],
-    queryFn: () => adminData(adminApi.GET("/admin/v1/sessions/{id}", { params: { path: { id } } })),
+    ...RECORDS.session(id),
     refetchInterval: (query) => (query.state.data?.settled ? false : 5_000),
   });
   const [stopping, setStopping] = useState(false);

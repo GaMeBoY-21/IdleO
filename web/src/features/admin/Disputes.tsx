@@ -18,6 +18,7 @@ import {
   type AdminDisputeSummary,
   type AdminUsage,
 } from "./api";
+import { RECORDS } from "./recordQueries";
 import { refundProblem, witnessSummary } from "./rules";
 import { SessionLog } from "./SessionLog";
 import {
@@ -141,10 +142,7 @@ function DisputeQueue() {
 function DisputeRecord({ id }: { id: string }) {
   const client = useQueryClient();
   const can = useCan();
-  const dispute = useQuery({
-    queryKey: [ADMIN, "dispute", id],
-    queryFn: () => adminData(adminApi.GET("/admin/v1/disputes/{id}", { params: { path: { id } } })),
-  });
+  const dispute = useQuery(RECORDS.dispute(id));
   const [action, setAction] = useState<"refund" | "none" | null>(null);
   const [rupees, setRupees] = useState("");
   const [flagHost, setFlagHost] = useState(false);

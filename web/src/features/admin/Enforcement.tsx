@@ -9,6 +9,7 @@ import { RelativeTime } from "@/components/ui/Time";
 import { formatDateTime } from "@/lib/time";
 import { ActionSheet } from "./ActionSheet";
 import { ADMIN, adminApi, adminData, type Schemas } from "./api";
+import { RECORDS } from "./recordQueries";
 import { word } from "./words";
 import { ListBar } from "./Lists";
 import { useListParam, useListView } from "./listView";
@@ -273,10 +274,7 @@ function AppealList() {
 
 function AppealRecord({ id }: { id: string }) {
   const client = useQueryClient();
-  const record = useQuery({
-    queryKey: [ADMIN, "appeal", id],
-    queryFn: () => adminData(adminApi.GET("/admin/v1/appeals/{id}", { params: { path: { id } } })),
-  });
+  const record = useQuery(RECORDS.appeal(id));
   const [outcome, setOutcome] = useState<"uphold" | "reverse" | null>(null);
   const [opening, setOpening] = useState<string | null>(null);
   return (

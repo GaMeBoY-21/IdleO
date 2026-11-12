@@ -1,4 +1,4 @@
-import type { UseInfiniteQueryResult, UseQueryResult } from "@tanstack/react-query";
+import { useQueryClient, type UseInfiniteQueryResult, type UseQueryResult } from "@tanstack/react-query";
 import { Check, Copy } from "lucide-react";
 import { PageHeader, SectionHeader, type Crumb } from "@/components/ui/Headers";
 import { useId, useState, type ReactNode } from "react";
@@ -10,6 +10,7 @@ import { EmptyState, ErrorState, StaleNotice, staleSince } from "@/components/ui
 import { cn } from "@/lib/cn";
 import { formatDateTime } from "@/lib/time";
 import { recordHref } from "./links";
+import { prefetchRecord } from "./recordQueries";
 import { refusal } from "./ActionSheet";
 import { word } from "./words";
 
@@ -225,10 +226,34 @@ export function Empty({ title, children }: { title: string; children: ReactNode 
 
 /** A row's link to its record: a 44 px target, like every control (web/DESIGN.md "Shapes and space"). */
 export function RowLink({ href, children }: { href: string; children: ReactNode }) {
+  const ask = usePrefetchRecord(href);
   return (
     <Link
       href={href}
+      onPointerEnter={ask}
+      onFocus={ask}
       className="inline-flex min-h-touch items-center font-semibold underline-offset-4 hover:underline"
+    >
+      {children}
+    </Link>
+  );
+}
+
+/** Asks for the record a link opens as it's pointed at or focused, so it's usually there when it opens. */
+function usePrefetchRecord(href: string): () => void {
+  const client = useQueryClient();
+  return () => prefetchRecord(client, href);
+}
+
+/** An id's link to its record. */
+function RecordLink({ href, children }: { href: string; children: ReactNode }) {
+  const ask = usePrefetchRecord(href);
+  return (
+    <Link
+      href={href}
+      onPointerEnter={ask}
+      onFocus={ask}
+      className="inline-flex min-h-6 min-w-6 items-center underline"
     >
       {children}
     </Link>
@@ -266,13 +291,7 @@ export function Id({ value, page, label }: { value: string; page?: string; label
   );
   return (
     <span className="inline-flex items-center whitespace-nowrap">
-      {page ? (
-        <Link href={recordHref(page, value)} className="inline-flex min-h-6 min-w-6 items-center underline">
-          {shown}
-        </Link>
-      ) : (
-        shown
-      )}
+      {page ? <RecordLink href={recordHref(page, value)}>{shown}</RecordLink> : shown}
       <CopyId value={value} />
     </span>
   );
