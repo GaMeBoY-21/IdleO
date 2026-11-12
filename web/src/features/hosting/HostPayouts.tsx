@@ -1,5 +1,6 @@
 import { Link } from "wouter";
 import { Page } from "@/components/shell/AppShell";
+import { KeyValueList } from "@/components/ui/KeyValues";
 import { PageTitle, SectionHeader } from "@/components/ui/Headers";
 import { FIT_FRAME } from "@/components/shell/Layout";
 import { useAfterPaint } from "@/lib/after-first-screen";
@@ -99,21 +100,16 @@ function WhereTile({ enabled }: { enabled: boolean }) {
       >
         Where payouts go
       </SectionHeader>
-      <dl className="flex flex-col divide-y divide-line">
-        {(
+      <KeyValueList
+        layout="split"
+        divided
+        items={(
           rows ?? [
             { label: "PAN", value: null },
             { label: "UPI ID", value: null },
           ]
-        ).map((row) => (
-          <div key={row.label} className="flex min-h-touch items-center justify-between gap-2">
-            <dt className="text-small text-text-2">{row.label}</dt>
-            <dd className="min-w-0 truncate text-body font-semibold">
-              {row.value ?? <SkeletonLine size="body" width="w-1/2" />}
-            </dd>
-          </div>
-        ))}
-      </dl>
+        ).map((row) => [row.label, row.value ?? <SkeletonLine size="body" width="w-1/2" />])}
+      />
     </Tile>
   );
 }

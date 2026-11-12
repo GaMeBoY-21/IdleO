@@ -1,5 +1,6 @@
 import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { KeyValueList } from "@/components/ui/KeyValues";
 import { StatusChip, Tag } from "@/components/ui/StatusChip";
 import { Link, useSearch } from "wouter";
 import { TextArea } from "@/components/ui/Inputs";
@@ -20,7 +21,6 @@ import {
   AdminPage,
   Cell,
   Empty,
-  Fields,
   Id,
   PagedView,
   QueryView,
@@ -474,7 +474,7 @@ function Summary({ found }: { found: AbuseDetail }) {
   const { item } = found;
   return (
     <>
-      <Fields
+      <KeyValueList
         items={[
           ["State", <StatePill key="state" item={item} />],
           ["Done by itself", ACTIONS[item.action] ?? item.action],

@@ -1,5 +1,6 @@
 import { Minus, Plus } from "lucide-react";
 import { useId, useState } from "react";
+import { KeyValueList } from "@/components/ui/KeyValues";
 import type { UseQueryResult } from "@tanstack/react-query";
 import { usePriceBand, useSaveListing, type Host, type Listing, type PriceBand } from "@/api/hosting";
 import { Banner } from "@/components/ui/Banner";
@@ -128,49 +129,33 @@ export function ListingFields({
             <Plus aria-hidden="true" className="size-5" strokeWidth={2} />
           </Button>
         </div>
-        <dl className="flex flex-col gap-2 rounded-control bg-panel-2 px-4 py-4 text-small">
-          <div className="flex items-baseline justify-between gap-4">
-            <dt className="font-semibold">You keep</dt>
-            <dd className="w-24 text-right tabular font-semibold">
-              {price === null ? (
-                <span className="block w-full">
-                  <SkeletonLine size="small" width="w-full" />
-                </span>
-              ) : (
-                <>
-                  <Money paise={keep} /> an hour
-                </>
-              )}
-            </dd>
-          </div>
-          <div className="flex items-baseline justify-between gap-4 text-text-2">
-            <dt>Platform fee (20%)</dt>
-            <dd className="w-16 text-right tabular">
-              {price === null ? (
-                <span className="block w-full">
-                  <SkeletonLine size="small" width="w-full" />
-                </span>
-              ) : (
+        <KeyValueList
+          layout="split"
+          className="rounded-control bg-panel-2 px-4 py-4"
+          items={[
+            [
+              <span key="keep" className="font-semibold text-text">
+                You keep
+              </span>,
+              <Fixed key="keep" width="w-24" loading={price === null}>
+                <Money paise={keep} /> an hour
+              </Fixed>,
+            ],
+            [
+              "Platform fee (20%)",
+              <Fixed key="fee" width="w-16" loading={price === null}>
                 <Money paise={fee} />
-              )}
-            </dd>
-          </div>
-          {/* Always drawn, so nothing moves when the band says whether GST is charged (ADR 0039). */}
-          <div className="flex items-baseline justify-between gap-4 text-text-2">
-            <dt>{gstPercent > 0 ? `Renters pay, with ${gstPercent}% GST` : "Renters pay"}</dt>
-            <dd className="w-24 text-right tabular">
-              {price === null ? (
-                <span className="block w-full">
-                  <SkeletonLine size="small" width="w-full" />
-                </span>
-              ) : (
-                <>
-                  <Money paise={renterPays(price, gstPercent)} /> an hour
-                </>
-              )}
-            </dd>
-          </div>
-        </dl>
+              </Fixed>,
+            ],
+            // Always drawn, so nothing moves when the band says whether GST is charged (ADR 0039).
+            [
+              gstPercent > 0 ? `Renters pay, with ${gstPercent}% GST` : "Renters pay",
+              <Fixed key="pays" width="w-24" loading={price === null}>
+                <Money paise={renterPays(price ?? 0, gstPercent)} /> an hour
+              </Fixed>,
+            ],
+          ]}
+        />
         <p className="min-h-15 text-small text-text-2" role="status">
           {band.data ? (
             band.data.sampleSize >= 3 ? (
@@ -291,5 +276,14 @@ export function PriceForm({
         {saveLabel}
       </Button>
     </form>
+  );
+}
+
+/** A figure in a box of its own width, so it never moves as it arrives; a placeholder line while it hasn't. */
+function Fixed({ width, loading, children }: { width: string; loading: boolean; children: React.ReactNode }) {
+  return (
+    <span className={`inline-block text-right tabular ${width}`}>
+      {loading ? <SkeletonLine size="small" width="w-full" /> : children}
+    </span>
   );
 }

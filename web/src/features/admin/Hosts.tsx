@@ -1,5 +1,6 @@
 import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
+import { KeyValueList } from "@/components/ui/KeyValues";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { Link, useSearch } from "wouter";
 import { buttonClasses } from "@/components/ui/Button";
@@ -12,7 +13,6 @@ import {
   AdminPage,
   Cell,
   Empty,
-  Fields,
   Filters,
   Id,
   PagedView,
@@ -132,7 +132,7 @@ function HostScore({ score }: { score: AdminScore | null }) {
           (0.5).
         </Empty>
       ) : (
-        <Fields
+        <KeyValueList
           items={[
             ["Reliability", `${score.reliability.toFixed(3)} (${score.label})`],
             [
@@ -284,7 +284,7 @@ function HostRecord({ id }: { id: string }) {
       <QueryView query={host} what="this host">
         {(found) => (
           <>
-            <Fields
+            <KeyValueList
               items={[
                 ["Name", found.name],
                 ["Status", <HostStatus key="status" status={found.status} />],

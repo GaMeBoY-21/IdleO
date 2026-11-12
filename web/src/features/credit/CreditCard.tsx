@@ -1,5 +1,6 @@
 import type { UseQueryResult } from "@tanstack/react-query";
 import type { Wallet } from "@/api/queries";
+import { StatGrid, StatTile } from "@/components/ui/KeyValues";
 import { Money } from "@/components/ui/Money";
 import { SkeletonLine } from "@/components/ui/Skeleton";
 import { ErrorState } from "@/components/ui/States";
@@ -45,7 +46,7 @@ export function CreditCard({ wallet, wide = false }: { wallet: UseQueryResult<Wa
               )}
             </p>
           </div>
-          <dl className="grid grid-cols-2 gap-2">
+          <StatGrid>
             <Figure
               label="On hold"
               paise={wallet.data.reservedPaise}
@@ -54,7 +55,7 @@ export function CreditCard({ wallet, wide = false }: { wallet: UseQueryResult<Wa
             <Figure label="Total" paise={wallet.data.balancePaise} note="Available plus on hold." />
             <Figure label="Bought" paise={wallet.data.boughtPaise} note="Spent after free credit." />
             <Figure label="Free" paise={wallet.data.freePaise} note={freeNote(wallet.data)} />
-          </dl>
+          </StatGrid>
         </>
       ) : wallet.isError ? (
         <ErrorState
@@ -80,13 +81,9 @@ function freeNote(wallet: Wallet): string {
 
 function Figure({ label, paise, note }: { label: string; paise: number; note: string }) {
   return (
-    <div className="flex flex-col gap-1 rounded-control bg-on-night/10 px-4 py-4">
-      <dt className="text-small text-on-night-2">{label}</dt>
-      <dd className="flex flex-col gap-1">
-        <Money paise={paise} className="block text-option font-semibold" />
-        <span className="min-h-9 text-caption text-on-night-2">{note}</span>
-      </dd>
-    </div>
+    <StatTile label={label} note={note} onNight>
+      <Money paise={paise} />
+    </StatTile>
   );
 }
 

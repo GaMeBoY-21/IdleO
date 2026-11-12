@@ -1,5 +1,6 @@
 import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { KeyValueList } from "@/components/ui/KeyValues";
 import { StatusChip, Tag } from "@/components/ui/StatusChip";
 import { useSearch } from "wouter";
 import { Banner } from "@/components/ui/Banner";
@@ -16,7 +17,6 @@ import {
   AdminPage,
   Cell,
   Empty,
-  Fields,
   Id,
   PagedView,
   QueryView,
@@ -308,7 +308,7 @@ function AppealRecord({ id }: { id: string }) {
               )}
             </Section>
             <Section title="The decision they're appealing">
-              <Fields
+              <KeyValueList
                 items={[
                   ["Step", found.enforcement.step],
                   ["Why", found.enforcement.reason ?? "—"],
