@@ -1,6 +1,6 @@
 import { ChevronLeft } from "lucide-react";
 import { useEffect } from "react";
-import { Toaster } from "@/components/ui/Toast";
+import { Toasts } from "@/components/shell/Toasts";
 import { PageTitle } from "@/components/ui/Headers";
 import { Link, useLocation } from "wouter";
 import type { ReactNode } from "react";
@@ -49,7 +49,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       <main id="main" className={cn("flex w-full flex-1 flex-col", !flow && "pb-clear-nav md:pb-0")}>
         {children}
       </main>
-      <Toaster />
+      <Toasts />
       <nav
         aria-label="Main"
         className={cn(

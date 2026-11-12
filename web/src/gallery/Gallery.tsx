@@ -20,9 +20,11 @@ import { EmptyState, ErrorState, StaleNotice } from "@/components/ui/States";
 import { Tile, TileLabel, type TileTone } from "@/components/ui/Tile";
 import { Elapsed, RelativeTime } from "@/components/ui/Time";
 import { motion, radii, spacing, themes, typeScale } from "@/design/tokens";
-import { STATE_DOMAINS, type StateDomain } from "@/lib/states";
+import "@/features/admin/states";
+import { stateDomains, type StateDomain } from "@/lib/states";
 import { ConfirmDialog, Sheet } from "@/components/ui/Sheet";
-import { toast, Toaster } from "@/components/ui/Toast";
+import { Toaster } from "@/components/ui/Toast";
+import { toast } from "@/lib/toast";
 import { Empty, Id, Problem, Section, SmallField, TableSkeleton } from "@/features/admin/ui";
 
 /**
@@ -287,11 +289,11 @@ function Chips() {
           <StatusChip key={state} domain="session" state={state} />
         ))}
       </Specimen>
-      {Object.entries(STATE_DOMAINS)
+      {Object.entries(stateDomains())
         .filter(([domain]) => domain !== "session")
         .map(([domain, words]) => (
           <Specimen key={domain} name={`State chip: ${domain}`}>
-            {Object.keys(words).map((state) => (
+            {Object.keys(words ?? {}).map((state) => (
               <StatusChip key={state} domain={domain as StateDomain} state={state} size="sm" />
             ))}
           </Specimen>

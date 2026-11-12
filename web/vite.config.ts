@@ -49,7 +49,7 @@ function galleryPage(): Plugin {
  * first screen waits on. Modules only later screens use stay out of it. Each screen's first load is this and one file of its own.
  */
 const LATER =
-  /src\/(lib\/(bytes|endings|log-signals|support|uploads|invite|payouts|problem-words)|api\/(logs|stream|session-follower|useLiveSession|wallet|images|privacy|support|payouts)|components\/shell\/(UserMenu|AccountRail|AppearanceChoice)|components\/ui\/Sheet|design\/theme)\./;
+  /src\/(lib\/(bytes|endings|log-signals|support|uploads|invite|payouts|problem-words)|api\/(logs|stream|session-follower|useLiveSession|wallet|images|privacy|support|payouts)|components\/shell\/(UserMenu|AccountRail|AppearanceChoice)|components\/ui\/(Sheet|Toast)|design\/theme)\./;
 function shellChunk(id: string): string | undefined {
   if (/\/src\/(main|App)\.tsx|node_modules\/(\.pnpm\/)?(react|react-dom|scheduler)[@/]/.test(id)) {
     return "shell";
