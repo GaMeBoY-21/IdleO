@@ -112,7 +112,10 @@ export function MyFiles() {
       <PageTitle>My files</PageTitle>
       <div className="grid items-start gap-4 xl:grid-cols-3">
         <div className="flex flex-col gap-4 xl:col-span-2">{body}</div>
-        <FilesSummary uploads={uploads} />
+        <div className="flex flex-col gap-4">
+          <FilesSummary uploads={uploads} />
+          <UseAgain />
+        </div>
       </div>
     </div>
   );
@@ -137,9 +140,26 @@ function FilesSummary({ uploads }: { uploads: Upload[] | undefined }) {
           ? `${next.name} goes next, on ${formatDay(next.expiresAt)}, unless a session uses it before then.`
           : "Nothing is due to go."}
       </p>
+    </Tile>
+  );
+}
+
+/** The three ways a kept file is used again, and the way to start: words that are always true, so drawn at once. */
+function UseAgain() {
+  return (
+    <Tile as="section" aria-labelledby="use-again-title" className="flex flex-col gap-4 xl:p-8">
+      <SectionHeader id="use-again-title">Use them again</SectionHeader>
+      <ol className="flex list-decimal flex-col gap-2 pl-4 text-small text-text-2">
+        <li>On Book, choose From My files for an input: nothing is uploaded again.</li>
+        <li>On a finished session, Run again starts from the same setup and the same files.</li>
+        <li>On Home, Book again does the same for your last setup.</li>
+      </ol>
       <p className="text-small text-text-2">
-        To use one again, choose From My files for an input on Book, or Run again from a session.
+        A session using a file keeps it: its 30 days start again from that session.
       </p>
+      <Link href="/book/" className={buttonClasses("ghost")}>
+        Book with one of these
+      </Link>
     </Tile>
   );
 }
