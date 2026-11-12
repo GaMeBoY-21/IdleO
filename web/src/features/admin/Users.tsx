@@ -10,6 +10,7 @@ import { RelativeTime } from "@/components/ui/Time";
 import { formatPaise, parseRupees } from "@/lib/money";
 import { ActionSheet, SheetProblem } from "./ActionSheet";
 import { ADMIN, adminApi, adminData, type AdminCreditGrant, type AdminUser } from "./api";
+import { RECORDS } from "./recordQueries";
 import {
   AdminPage,
   Cell,
@@ -129,10 +130,7 @@ type Action = "suspend" | "unsuspend" | "grant" | { reverse: AdminCreditGrant };
 function UserRecord({ id }: { id: string }) {
   const client = useQueryClient();
   const can = useCan();
-  const user = useQuery({
-    queryKey: [ADMIN, "user", id],
-    queryFn: () => adminData(adminApi.GET("/admin/v1/users/{id}", { params: { path: { id } } })),
-  });
+  const user = useQuery(RECORDS.user(id));
   const grants = useListQuery(
     [ADMIN, "grants", id],
     "grants",

@@ -7,6 +7,7 @@ import { Money } from "@/components/ui/Money";
 import { RelativeTime } from "@/components/ui/Time";
 import { formatDateTime } from "@/lib/time";
 import { ADMIN, adminApi, adminData, type AdminChargeback } from "./api";
+import { RECORDS } from "./recordQueries";
 import { word } from "./words";
 import { SessionLog } from "./SessionLog";
 import {
@@ -129,10 +130,7 @@ function ChargebackList() {
 }
 
 function ChargebackRecord({ id }: { id: string }) {
-  const chargeback = useQuery({
-    queryKey: [ADMIN, "chargeback", id],
-    queryFn: () => adminData(adminApi.GET("/admin/v1/chargebacks/{id}", { params: { path: { id } } })),
-  });
+  const chargeback = useQuery(RECORDS.chargeback(id));
   return (
     <AdminPage
       title="Chargeback"

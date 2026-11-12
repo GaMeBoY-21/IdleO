@@ -10,6 +10,7 @@ import { ticketNumber } from "@/lib/support";
 import { formatDateTime, formatDay } from "@/lib/time";
 import { ActionSheet } from "./ActionSheet";
 import { ADMIN, adminApi, adminData, type TicketStatus } from "./api";
+import { RECORDS } from "./recordQueries";
 import {
   AdminPage,
   Cell,
@@ -166,10 +167,7 @@ function TicketQueue() {
 function TicketRecord({ id }: { id: string }) {
   const client = useQueryClient();
   const can = useCan();
-  const thread = useQuery({
-    queryKey: [ADMIN, "ticket", id],
-    queryFn: () => adminData(adminApi.GET("/admin/v1/tickets/{id}", { params: { path: { id } } })),
-  });
+  const thread = useQuery(RECORDS.ticket(id));
   const [answer, setAnswer] = useState("");
   const [after, setAfter] = useState<TicketStatus>("waiting");
   const [answerError, setAnswerError] = useState<string | null>(null);

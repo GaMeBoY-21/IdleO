@@ -9,6 +9,7 @@ import { RelativeTime } from "@/components/ui/Time";
 import { formatPaise } from "@/lib/money";
 import { ActionSheet } from "./ActionSheet";
 import { ADMIN, adminApi, adminData, type AdminHost, type AdminScore, type AdminSelfTestStatus } from "./api";
+import { RECORDS } from "./recordQueries";
 import { word } from "./words";
 import {
   AdminPage,
@@ -240,8 +241,7 @@ const ACTIONS: Record<
 function HostRecord({ id }: { id: string }) {
   const client = useQueryClient();
   const host = useQuery({
-    queryKey: [ADMIN, "host", id],
-    queryFn: () => adminData(adminApi.GET("/admin/v1/hosts/{id}", { params: { path: { id } } })),
+    ...RECORDS.host(id),
     refetchInterval: 15_000,
   });
   const selfTest = useQuery({
