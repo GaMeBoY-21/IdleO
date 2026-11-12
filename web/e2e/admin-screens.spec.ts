@@ -118,6 +118,11 @@ test.describe("the console", () => {
   }, info) => {
     await open(page, "/admin/");
     await expect(page.getByRole("heading", { level: 1, name: "Control room" })).toBeVisible();
+    // On a phone the sections are behind Menu.
+    const menu = page.getByRole("button", { name: "Menu" });
+    if (await menu.isVisible()) {
+      await menu.click();
+    }
     await expect(page.getByRole("navigation", { name: "Admin" }).getByRole("link")).toHaveCount(32);
     await expect(page.getByRole("table", { name: "Money, tied to the ledger" })).toContainText("₹3,100");
     const now = page.getByRole("list", { name: "The marketplace now" }).getByRole("listitem");

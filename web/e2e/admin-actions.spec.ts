@@ -90,6 +90,7 @@ const WRITES: Write[] = [
     write: "POST /views",
     screen: "/admin/users/",
     does: async (page) => {
+      await page.getByText("Save this view…").click();
       await page.getByLabel("Save this view as").fill("Mine");
       await page.getByRole("button", { name: "Save", exact: true }).click();
     },
