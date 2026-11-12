@@ -217,13 +217,24 @@ function Deletion({ standing }: { standing: DeletionStanding }) {
         </div>
       )}
       {standing.freshSignIn ? (
-        <Button variant="danger" disabled={blocked} busy={ask.isPending} onClick={() => ask.mutate()}>
+        <Button
+          variant="danger"
+          disabled={blocked}
+          why="Something above stops it for now: once that's settled, you can delete it."
+          busy={ask.isPending}
+          onClick={() => ask.mutate()}
+        >
           {waiting ? "Send the link again" : "Delete my account"}
         </Button>
       ) : (
         <>
           <p className="text-small text-text-2">For your safety, sign in again first. It takes a moment.</p>
-          <Button variant="ghost" disabled={blocked} onClick={signInAgain}>
+          <Button
+            variant="ghost"
+            disabled={blocked}
+            why="Something above stops it for now: once that's settled, you can delete it."
+            onClick={signInAgain}
+          >
             Sign in again to continue
           </Button>
         </>

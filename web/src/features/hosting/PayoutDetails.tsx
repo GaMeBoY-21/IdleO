@@ -158,7 +158,13 @@ function UpiTile({ details }: { details: Details }) {
           onChange={(event) => setVpa(event.target.value)}
         />
         <div className="flex items-center gap-2">
-          <Button type="submit" variant="ghost" busy={check.isPending} disabled={!panReady}>
+          <Button
+            type="submit"
+            variant="ghost"
+            busy={check.isPending}
+            disabled={!panReady}
+            why="Your PAN has to be verified first: the UPI ID is checked against the name on it."
+          >
             Check it
           </Button>
           <p role="alert" className="text-small text-danger">

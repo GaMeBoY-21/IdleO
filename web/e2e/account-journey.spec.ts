@@ -45,12 +45,12 @@ test("a new account enters its invite code, edits its account and signs out", as
   // A code that isn't one is said not to be; the person types, and it's shown in groups.
   await page.getByLabel("Invite code").fill("idlezzzzzzzz");
   await expect(page.getByLabel("Invite code")).toHaveValue("IDLE-ZZZZ-ZZZZ");
-  await page.getByRole("button", { name: "Continue" }).click();
+  await page.getByRole("button", { name: "Use this code" }).click();
   await expect(page.getByText("That code isn't one we can accept.")).toBeVisible();
 
   // The real one, in lower case without dashes, lets them in: the welcome of a new account, then Home.
   await page.getByLabel("Invite code").fill(code.replaceAll("-", "").toLowerCase());
-  await page.getByRole("button", { name: "Continue" }).click();
+  await page.getByRole("button", { name: "Use this code" }).click();
   await page.waitForURL("**/welcome/");
   await page.getByRole("button", { name: "Go to your home" }).click();
   await page.waitForURL((url) => url.pathname === "/");
@@ -102,7 +102,7 @@ test("a code can be used once", async ({ page }) => {
   // The first test used the script's code; a second new person is told it isn't one that works.
   await firstSignIn(page, `${base}-invite-two`);
   await page.getByLabel("Invite code").fill(code);
-  await page.getByRole("button", { name: "Continue" }).click();
+  await page.getByRole("button", { name: "Use this code" }).click();
   await expect(page.getByText("That code isn't one we can accept.")).toBeVisible();
   await expect(page).toHaveURL(/\/invite\//);
   finish();

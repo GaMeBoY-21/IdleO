@@ -10,7 +10,7 @@ import { problemMessage } from "@/lib/problems";
  * The one box for an invite code (ADR 0024, ADR 0058): typed in groups, checked for length before it's sent, and the
  * server's answer in words. The first code activates an account; a later one unlocks the side it hasn't.
  */
-export function CodeForm({ onDone, label = "Continue" }: { onDone: (me: Me) => void; label?: string }) {
+export function CodeForm({ onDone, label = "Use this code" }: { onDone: (me: Me) => void; label?: string }) {
   const activate = useActivate();
   const [code, setCode] = useState("");
   const [short, setShort] = useState(false);

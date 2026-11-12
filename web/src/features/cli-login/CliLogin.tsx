@@ -114,6 +114,7 @@ function Approval() {
             large
             block
             disabled={login.data === undefined}
+            why="Waiting for the sign-in request from your terminal."
             busy={approve.isPending}
             onClick={() => login.data && approve.mutate(login.data.id)}
           >
