@@ -4,13 +4,14 @@ import { GPU_CLASSES } from "../gpus";
 import { HOST_QUESTIONS as FAQ } from "../host-questions";
 import { DOCS, type EntryLinks } from "../paths";
 import {
+  band,
   column,
+  ghostButton,
   grid,
   largeButton,
   link,
   muted,
   primaryButton,
-  ghostButton,
   sectionTitle,
   tile,
   tileEmber,
@@ -115,7 +116,7 @@ export function Earn({ apiUrl, links }: { apiUrl: string | null; links: EntryLin
         </div>
       </section>
 
-      <section className={`${column} pb-10 md:pb-14`} aria-labelledby="how">
+      <section className={`${column} ${band}`} aria-labelledby="how">
         <h2 id="how" className={sectionTitle}>
           How it works
         </h2>
@@ -132,7 +133,7 @@ export function Earn({ apiUrl, links }: { apiUrl: string | null; links: EntryLin
           ))}
         </ol>
       </section>
-      <section className={`${column} pb-10 md:pb-14`} aria-labelledby="safety">
+      <section className={`${column} ${band}`} aria-labelledby="safety">
         <h2 id="safety" className={sectionTitle}>
           How hosting will keep you safe
         </h2>
@@ -156,7 +157,7 @@ export function Earn({ apiUrl, links }: { apiUrl: string | null; links: EntryLin
         </p>
       </section>
 
-      <section className={`${column} pb-10 md:pb-14`} aria-labelledby="requirements">
+      <section className={`${column} ${band}`} aria-labelledby="requirements">
         <h2 id="requirements" className={sectionTitle}>
           What you need
         </h2>
@@ -169,7 +170,7 @@ export function Earn({ apiUrl, links }: { apiUrl: string | null; links: EntryLin
         </ul>
       </section>
 
-      <section className={`${column} flex flex-col gap-2 pb-10 md:pb-14`} aria-labelledby="faq">
+      <section className={`${column} ${band} flex flex-col gap-2`} aria-labelledby="faq">
         <h2 id="faq" className={sectionTitle}>
           Questions
         </h2>
@@ -181,7 +182,7 @@ export function Earn({ apiUrl, links }: { apiUrl: string | null; links: EntryLin
         ))}
       </section>
       <section
-        className={`${column} pb-14 md:pb-20`}
+        className={`${column} ${band}`}
         aria-labelledby="calculator"
         data-calculator=""
         data-live-prices=""

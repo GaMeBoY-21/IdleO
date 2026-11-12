@@ -24,7 +24,7 @@ export function Pricing({ context }: { context: SiteContext }) {
       </section>
 
       <section
-        className={`${column} pb-10 md:pb-14`}
+        className={`${column} ${band}`}
         aria-labelledby="prices"
         data-live-prices=""
         data-api={context.apiUrl ?? ""}
@@ -62,7 +62,7 @@ export function Pricing({ context }: { context: SiteContext }) {
         </ul>
       </section>
 
-      <section className={`${column} pb-10 md:pb-14`} aria-labelledby="billing">
+      <section className={`${column} ${band}`} aria-labelledby="billing">
         <h2 id="billing" className={sectionTitle}>
           How billing works
         </h2>
@@ -101,7 +101,7 @@ export function Pricing({ context }: { context: SiteContext }) {
         </dl>
       </section>
 
-      <section className={`${column} pb-14 md:pb-20`}>
+      <section className={`${column} ${band}`}>
         <a href={context.links.getStarted} className={`${primaryButton} ${largeButton}`}>
           Get started
         </a>
