@@ -28,10 +28,40 @@ export interface SiteFacts {
    * the console's frame and control room with its tables were 186.3 KB).
    */
   firstLoadKb: number;
+  /**
+   * The packages its lazily loaded screens import, beside the sign-in adapter's (SIGN_IN_DEPS): its development server
+   * optimises them up front (vite.config.ts), so opening a screen never makes it re-optimise mid-session and serve
+   * "504 Outdated Optimize Dep" for what's already loaded. scripts/dev-deps.ts fails a build whose lazily loaded chunks
+   * hold a direct dependency not named here.
+   */
+  lazyDeps: readonly string[];
 }
 
+/** What every site's lazily loaded screens import: forms, their checks, the dialogs and real visits' vitals. */
+const LAZY_SHARED = [
+  "@hookform/resolvers/zod",
+  "radix-ui",
+  "react-hook-form",
+  "web-vitals",
+  "zod/mini",
+] as const;
+
+/** Each sign-in adapter's packages (src/auth/), loaded after the first paint, so lazily too. */
+export const SIGN_IN_DEPS: Record<"firebase" | "oidc-mock", readonly string[]> = {
+  firebase: ["firebase/app", "firebase/auth"],
+  "oidc-mock": ["oidc-client-ts"],
+};
+
 export const SITE_FACTS: Record<SiteName, SiteFacts> = {
-  app: { for: "renters", dist: "dist", port: 3000, urlSetting: "IDLEO_APP_URL", home: "/", firstLoadKb: 150 },
+  app: {
+    for: "renters",
+    dist: "dist",
+    port: 3000,
+    urlSetting: "IDLEO_APP_URL",
+    home: "/",
+    firstLoadKb: 150,
+    lazyDeps: LAZY_SHARED,
+  },
   host: {
     for: "hosts",
     dist: "dist-host",
@@ -39,6 +69,7 @@ export const SITE_FACTS: Record<SiteName, SiteFacts> = {
     urlSetting: "IDLEO_HOST_URL",
     home: "/",
     firstLoadKb: 150,
+    lazyDeps: LAZY_SHARED,
   },
   // The console keeps its /admin/ addresses on its own site, so every link to one only changes its host.
   admin: {
@@ -49,6 +80,8 @@ export const SITE_FACTS: Record<SiteName, SiteFacts> = {
     home: "/admin/",
     homeScreen: "src/features/admin/Dashboard.tsx",
     firstLoadKb: 190,
+    // The console's QR code (its second factor) and its long lists.
+    lazyDeps: [...LAZY_SHARED, "uqr", "@tanstack/react-virtual"],
   },
 };
 

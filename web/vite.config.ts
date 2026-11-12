@@ -3,7 +3,7 @@ import react from "@vitejs/plugin-react";
 import { fileURLToPath } from "node:url";
 import { defineConfig, loadEnv, type Plugin } from "vite";
 import { assertBuildSettings, type BuildEnv } from "./src/build-settings.ts";
-import { distOf, SITE_FACTS, siteOf } from "./src/sites/sites.ts";
+import { distOf, SIGN_IN_DEPS, SITE_FACTS, siteOf } from "./src/sites/sites.ts";
 import { themeBootScript } from "./src/design/theme.ts";
 
 /** Writes the theme script into index.html's head, so it runs before the first paint (web/DESIGN.md "Colour"). */
@@ -129,6 +129,17 @@ export default defineConfig(({ mode }) => {
       // a page's own chunks are named in its HTML (scripts/postbuild.ts), and the rest are fetched just after its first screen.
       modulePreload: false,
       rollupOptions: { output: { manualChunks: shellChunk } },
+    },
+    // Each site's development server has its own dependency cache (node_modules/.vite-app, .vite-host, .vite-admin): with
+    // one shared, one server re-optimising left the others serving "504 Outdated Optimize Dep" for what they'd loaded.
+    // And each optimises up front what its lazily loaded screens import (src/sites/sites.ts, lazyDeps), so opening one
+    // never re-optimises mid-session.
+    cacheDir: `node_modules/.vite-${site}`,
+    optimizeDeps: {
+      include: [
+        ...SITE_FACTS[site].lazyDeps,
+        ...(env.VITE_AUTH === "firebase" ? SIGN_IN_DEPS.firebase : SIGN_IN_DEPS["oidc-mock"]),
+      ],
     },
     server: { port: SITE_FACTS[site].port, strictPort: true },
     preview: { port: SITE_FACTS[site].port, strictPort: true },
