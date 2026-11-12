@@ -67,23 +67,26 @@ export function Button({
   const whyId = useId();
   const saysWhy = disabled === true && why !== undefined;
   return (
-    <button
-      type={type ?? "button"}
-      className={cn(buttonClasses(variant, block, large), className)}
-      disabled={disabled || busy}
-      aria-busy={busy || undefined}
-      title={saysWhy ? why : undefined}
-      aria-describedby={saysWhy ? whyId : undefined}
-      {...props}
-    >
-      {busy && <Spinner />}
-      {children}
+    <>
+      <button
+        type={type ?? "button"}
+        className={cn(buttonClasses(variant, block, large), className)}
+        disabled={disabled || busy}
+        aria-busy={busy || undefined}
+        title={saysWhy ? why : undefined}
+        aria-describedby={saysWhy ? whyId : undefined}
+        {...props}
+      >
+        {busy && <Spinner />}
+        {children}
+      </button>
+      {/* Beside the button, not in it: its description, never part of its name. */}
       {saysWhy && (
         <span id={whyId} className="sr-only">
           {why}
         </span>
       )}
-    </button>
+    </>
   );
 }
 
