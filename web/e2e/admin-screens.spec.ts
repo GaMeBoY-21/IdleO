@@ -194,6 +194,11 @@ test.describe("the console", () => {
     await expect(table).toContainText("Nikki is on it");
     await expect(table).toContainText("Past its target");
     await expect(table).toContainText("Paused, waiting on the person");
+    // On a phone the sections, the Inbox's count with them, are behind Menu.
+    const menu = page.getByRole("button", { name: "Menu" });
+    if (await menu.isVisible()) {
+      await menu.click();
+    }
     await expect(page.getByLabel("1 mine, 2 unassigned, 1 breaching").locator("visible=true")).toBeVisible();
     await expectAccessible(page);
     await capture(page, info, "admin-inbox");
