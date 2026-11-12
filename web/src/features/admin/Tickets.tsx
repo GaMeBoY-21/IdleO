@@ -11,7 +11,6 @@ import { ActionSheet } from "./ActionSheet";
 import { ADMIN, adminApi, adminData, type TicketStatus } from "./api";
 import {
   AdminPage,
-  BackLink,
   Cell,
   Empty,
   Fields,
@@ -180,8 +179,7 @@ function TicketRecord({ id }: { id: string }) {
   const refresh = () => client.invalidateQueries({ queryKey: [ADMIN, "ticket", id] });
 
   return (
-    <AdminPage title="Ticket">
-      <BackLink href="/admin/tickets/">All tickets</BackLink>
+    <AdminPage title="Ticket" trail={[{ label: "Tickets", href: "/admin/tickets/" }]}>
       <QueryView query={thread} what="this ticket">
         {({ ticket, messages }) => (
           <>

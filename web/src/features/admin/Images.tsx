@@ -25,7 +25,7 @@ export function Images() {
     <PlainRecord
       title="Image"
       back="/admin/images/"
-      backLabel="← All images"
+      backLabel="Images"
       page="image"
       id={id}
       read={() => adminData(adminApi.GET("/admin/v1/images/{id}", { params: { path: { id } } }))}

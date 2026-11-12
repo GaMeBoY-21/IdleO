@@ -1,5 +1,6 @@
 import { createContext, useContext, useId, type ComponentProps, type ReactNode } from "react";
 import { Button } from "@/components/ui/Button";
+import { PageTitle } from "@/components/ui/Headers";
 
 /**
  * What this admin may do, from `GET /admin/v1/session` (ADR 0051). It only decides what the console shows: hidden
@@ -62,7 +63,7 @@ export function NeedsPermission({ permission, children }: { permission: string; 
   }
   return (
     <div className="flex flex-col gap-2 rounded-inner border border-line p-6">
-      <h1 className="text-section">You can&apos;t open this section</h1>
+      <PageTitle variant="section">You can&apos;t open this section</PageTitle>
       <p className="text-small text-text-2">
         It needs the {permission} permission, which your roles don&apos;t include. An Owner can grant a role
         that has it.

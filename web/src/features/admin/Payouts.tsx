@@ -61,7 +61,7 @@ export function Payouts() {
     <PlainRecord
       title="Payout"
       back="/admin/payouts/"
-      backLabel="← All payouts"
+      backLabel="Payouts"
       page="payout"
       id={id}
       read={() => adminData(adminApi.GET("/admin/v1/payouts/{id}", { params: { path: { id } } }))}

@@ -1,5 +1,6 @@
 import { ChevronLeft } from "lucide-react";
 import type { ReactNode } from "react";
+import { PageTitle } from "@/components/ui/Headers";
 import { Link } from "wouter";
 import { FlowHeader } from "@/components/shell/AppShell";
 import { RailColumns } from "@/components/shell/Layout";
@@ -46,7 +47,7 @@ export function HostFlow({
     summary ??
     (title && (
       <Tile tone="night" size="lg" className="flex flex-col gap-2 xl:p-8">
-        <h1 className="font-title text-display-feature">{title}</h1>
+        <PageTitle variant="panel">{title}</PageTitle>
         {lede && <p className="text-body text-on-night-2">{lede}</p>}
       </Tile>
     ));
@@ -68,7 +69,7 @@ export function HostFlow({
     <div className="flex flex-1 flex-col">
       <FlowHeader back={back} title={backLabel} />
       <div className="mx-auto flex w-full max-w-card flex-1 flex-col gap-4 px-4 pt-1 pb-8">
-        {title && !summary ? <h1 className="font-title text-display-feature">{title}</h1> : summary}
+        {title && !summary ? <PageTitle variant="panel">{title}</PageTitle> : summary}
         {children}
       </div>
     </div>

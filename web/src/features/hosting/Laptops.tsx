@@ -1,9 +1,9 @@
 import { Link } from "wouter";
 import { useHosts } from "@/api/hosting";
+import { PageTitle } from "@/components/ui/Headers";
 import { Page } from "@/components/shell/AppShell";
 import { FIT_FRAME } from "@/components/shell/Layout";
 import { buttonClasses } from "@/components/ui/Button";
-import { PageHeading } from "@/components/ui/Heading";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { ErrorState, StaleNotice, staleSince } from "@/components/ui/States";
 import { cn } from "@/lib/cn";
@@ -51,7 +51,7 @@ export function Laptops() {
     return (
       <div className={cn(FIT_FRAME, "flex flex-col gap-6")}>
         <div className="flex flex-wrap items-end justify-between gap-4">
-          <PageHeading>Laptops</PageHeading>
+          <PageTitle>Laptops</PageTitle>
           <Link href={HOST_PATHS.add} className={buttonClasses("ghost", false, true)}>
             Add a laptop
           </Link>

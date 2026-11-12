@@ -1,5 +1,6 @@
 import { Link } from "wouter";
 import type { Session } from "@/api/queries";
+import { PageTitle } from "@/components/ui/Headers";
 import { Banner } from "@/components/ui/Banner";
 import { buttonClasses } from "@/components/ui/Button";
 import { Money } from "@/components/ui/Money";
@@ -97,9 +98,7 @@ export function Ended({
             <StatusChip domain="session" state={session.state} />
           </span>
         )}
-        <h1 className="font-title text-display-feature">
-          {done ? "Done" : (HEADLINES[session.state] ?? "Ended")}
-        </h1>
+        <PageTitle variant="panel">{done ? "Done" : (HEADLINES[session.state] ?? "Ended")}</PageTitle>
         <p className="text-small text-on-night-2">
           {templateName}
           {ran && ` · ${ran}`}

@@ -1,10 +1,10 @@
 import type { UseQueryResult } from "@tanstack/react-query";
 import type { ReactNode } from "react";
+import { PageTitle } from "@/components/ui/Headers";
 import { Link } from "wouter";
 import { isLive, type Session, type Wallet } from "@/api/queries";
 import type { components } from "@/api/schema.gen";
 import { buttonClasses } from "@/components/ui/Button";
-import { PageHeading } from "@/components/ui/Heading";
 import { useAfterPaint } from "@/lib/after-first-screen";
 import { offeredServices, serviceOf, serviceTypicalCost } from "@/lib/catalog";
 import { useTypicalPrices } from "@/api/home";
@@ -56,7 +56,7 @@ export function LaptopHome({
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div className="flex flex-col gap-1">
           <span className="text-body text-text-3">Or drop a folder anywhere on this page</span>
-          <PageHeading id="question">What do you want to run?</PageHeading>
+          <PageTitle id="question">What do you want to run?</PageTitle>
         </div>
         <Link href="/book/" className={buttonClasses("primary", false, true)}>
           Book a GPU

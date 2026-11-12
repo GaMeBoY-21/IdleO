@@ -10,7 +10,6 @@ import { ADMIN, adminApi, adminData } from "./api";
 import { word } from "./words";
 import {
   AdminPage,
-  BackLink,
   Cell,
   Empty,
   Fields,
@@ -223,8 +222,7 @@ function SessionRecord({ id }: { id: string }) {
     ),
   );
   return (
-    <AdminPage title="Session">
-      <BackLink href="/admin/sessions/">← All sessions</BackLink>
+    <AdminPage title="Session" trail={[{ label: "Sessions", href: "/admin/sessions/" }]}>
       <QueryView query={session} what="this session">
         {(found) => {
           const summary = found.session;

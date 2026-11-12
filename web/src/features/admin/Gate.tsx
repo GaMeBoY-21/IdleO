@@ -1,5 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
+import { PageTitle } from "@/components/ui/Headers";
 import { data } from "@/api/client";
 import { ApiError } from "@/api/errors";
 import { Button } from "@/components/ui/Button";
@@ -73,7 +74,7 @@ function GateFrame({ title, children }: { title: string; children: ReactNode }) 
   useTitle(`${title} · Admin`);
   return (
     <main className="mx-auto flex min-h-dvh max-w-narrow flex-col justify-center gap-6 px-4 py-12">
-      <h1 className="font-display text-headline uppercase">{title}</h1>
+      <PageTitle variant="dense">{title}</PageTitle>
       {children}
     </main>
   );

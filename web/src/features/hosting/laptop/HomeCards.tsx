@@ -1,10 +1,11 @@
 import { useDemand, usePriceBand, type Host, type OwnerEarnings } from "@/api/hosting";
 import { usePayoutHistory, usePayoutSummary } from "@/api/payouts";
+import { SectionHeader } from "@/components/ui/Headers";
 import { AppLink } from "@/components/ui/AppLink";
 import { Bars, BarsSkeleton } from "@/components/ui/Bars";
 import { Money } from "@/components/ui/Money";
 import { Skeleton, SkeletonLine } from "@/components/ui/Skeleton";
-import { SectionTitle, Tile } from "@/components/ui/Tile";
+import { Tile } from "@/components/ui/Tile";
 import { cn } from "@/lib/cn";
 import { formatMinutes, reliabilityRaisers, reliabilityWord } from "@/lib/hosting";
 import { formatPaise, formatPaiseRange } from "@/lib/money";
@@ -118,7 +119,7 @@ export function DemandTile({
   const busiest = demand.data?.hours.reduce((top, hour) => (hour.asked > top.asked ? hour : top));
   return (
     <Tile as="section" aria-labelledby="demand-title" className={cn("flex flex-col gap-2 xl:p-8", className)}>
-      <SectionTitle id="demand-title">Demand for your GPU</SectionTitle>
+      <SectionHeader id="demand-title">Demand for your GPU</SectionHeader>
       {host === undefined ? (
         <p className="text-small text-text-2">Link a laptop, and when renters want its GPU shows here.</p>
       ) : demand.data ? (
@@ -166,7 +167,7 @@ export function ScoreTile({
 }) {
   return (
     <Tile as="section" aria-labelledby="score-title" className={cn("flex flex-col gap-2 xl:p-8", className)}>
-      <SectionTitle id="score-title">Host score</SectionTitle>
+      <SectionHeader id="score-title">Host score</SectionHeader>
       {host ? (
         <>
           <p className="font-title text-display-card">{reliabilityWord(host.reliability.label)}</p>
@@ -198,7 +199,7 @@ export function RecentPayoutsTile({ enabled }: { enabled: boolean }) {
       aria-labelledby="recent-payouts-title"
       className="flex flex-col gap-1 md:col-span-3 xl:col-span-3 xl:h-host-panel xl:p-8"
     >
-      <SectionTitle
+      <SectionHeader
         id="recent-payouts-title"
         action={
           <AppLink href={HOST_PATHS.payouts} className="text-small font-semibold underline">
@@ -207,7 +208,7 @@ export function RecentPayoutsTile({ enabled }: { enabled: boolean }) {
         }
       >
         Payouts
-      </SectionTitle>
+      </SectionHeader>
       {payouts ? (
         payouts.length === 0 ? (
           <p className="text-small text-text-2">
@@ -242,7 +243,7 @@ export function HelpTile({ className }: { className?: string }) {
   ];
   return (
     <Tile as="section" aria-labelledby="help-title" className={cn("flex flex-col gap-1 xl:p-8", className)}>
-      <SectionTitle id="help-title">Help</SectionTitle>
+      <SectionHeader id="help-title">Help</SectionHeader>
       <ul className="flex flex-col divide-y divide-line">
         {links.map((link) => (
           <li key={link.href}>

@@ -1,5 +1,6 @@
 import { Link } from "wouter";
 import type { components } from "@/api/schema.gen";
+import { PageTitle } from "@/components/ui/Headers";
 import { buttonClasses } from "@/components/ui/Button";
 import { Tile, TileLabel, TileLink, type TileTone } from "@/components/ui/Tile";
 import { bookHref, sentence } from "@/lib/catalog";
@@ -59,9 +60,9 @@ export function QuestionTile({ services }: { services: Service[] }) {
       aria-labelledby="question"
       className={services.length > 2 ? "col-span-2 row-span-3" : "col-span-2 row-span-2"}
     >
-      <h1 id="question" className="font-title text-display-card">
+      <PageTitle variant="card" id="question">
         What do you want to run?
-      </h1>
+      </PageTitle>
       <div className="mt-4 flex flex-col gap-2">
         {services.map((service, index) => {
           const Icon = SERVICE_ICONS[service.icon];

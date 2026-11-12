@@ -10,7 +10,6 @@ import { ADMIN, adminApi, adminData, type AdminHost, type AdminScore, type Admin
 import { word } from "./words";
 import {
   AdminPage,
-  BackLink,
   Cell,
   Empty,
   Fields,
@@ -281,8 +280,7 @@ function HostRecord({ id }: { id: string }) {
     ),
   );
   return (
-    <AdminPage title="Host">
-      <BackLink href="/admin/hosts/">← All hosts</BackLink>
+    <AdminPage title="Host" trail={[{ label: "Hosts", href: "/admin/hosts/" }]}>
       <QueryView query={host} what="this host">
         {(found) => (
           <>

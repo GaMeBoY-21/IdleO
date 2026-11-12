@@ -1,5 +1,6 @@
 import { Link } from "wouter";
 import { useUploadPages } from "@/api/queries";
+import { PageTitle, SectionHeader } from "@/components/ui/Headers";
 import { AccountFrame } from "@/components/shell/AccountFrame";
 import { Button, buttonClasses } from "@/components/ui/Button";
 import { SkeletonLine } from "@/components/ui/Skeleton";
@@ -7,8 +8,7 @@ import { EmptyState, ErrorState, StaleNotice, staleSince } from "@/components/ui
 import { useNow } from "@/lib/clock";
 import { useTitle } from "@/lib/title";
 import { FIT_FRAME } from "@/components/shell/Layout";
-import { PageHeading } from "@/components/ui/Heading";
-import { SectionTitle, Tile } from "@/components/ui/Tile";
+import { Tile } from "@/components/ui/Tile";
 import type { components } from "@/api/schema.gen";
 import { formatBytes } from "@/lib/bytes";
 import { cn } from "@/lib/cn";
@@ -108,7 +108,7 @@ export function MyFiles() {
   // From 768 px a tab of its own (ADR 0058): the list beside what's kept, how much, and when the next one goes.
   return (
     <div className={cn(FIT_FRAME, "flex flex-col gap-6")}>
-      <PageHeading>My files</PageHeading>
+      <PageTitle>My files</PageTitle>
       <div className="grid items-start gap-4 xl:grid-cols-3">
         <div className="flex flex-col gap-4 xl:col-span-2">{body}</div>
         <FilesSummary uploads={uploads} />
@@ -124,7 +124,7 @@ function FilesSummary({ uploads }: { uploads: Upload[] | undefined }) {
   const next = uploads ? [...uploads].sort((a, b) => a.expiresAt.localeCompare(b.expiresAt))[0] : undefined;
   return (
     <Tile as="section" aria-labelledby="files-summary-title" className="flex flex-col gap-2 xl:p-8">
-      <SectionTitle id="files-summary-title">Kept for you</SectionTitle>
+      <SectionHeader id="files-summary-title">Kept for you</SectionHeader>
       <dl className="grid grid-cols-2 gap-2">
         <div className="flex min-h-18 flex-col justify-center rounded-control bg-panel-2 px-4 py-4">
           <dt className="text-small text-text-2">Uploads</dt>

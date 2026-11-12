@@ -1,7 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
+import { SectionHeader } from "@/components/ui/Headers";
 import { api, data } from "@/api/client";
-import { SectionTitle, Tile } from "@/components/ui/Tile";
+import { Tile } from "@/components/ui/Tile";
 import { formatDay } from "@/lib/time";
 
 /**
@@ -19,7 +20,7 @@ export function Decisions() {
   }
   return (
     <Tile as="section" aria-labelledby="decisions-title" className="flex flex-col gap-1">
-      <SectionTitle id="decisions-title">Decisions about your account</SectionTitle>
+      <SectionHeader id="decisions-title">Decisions about your account</SectionHeader>
       <ul className="flex flex-col divide-y divide-line">
         {rows.map((decision) => (
           <li key={decision.id}>

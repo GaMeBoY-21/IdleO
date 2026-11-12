@@ -1,8 +1,9 @@
 import { Check, Download } from "lucide-react";
 import type { MouseEvent } from "react";
+import { SectionHeader } from "@/components/ui/Headers";
 import { useOutputs, type Session } from "@/api/queries";
 import { buttonClasses } from "@/components/ui/Button";
-import { SectionTitle, Tile, TileLabel } from "@/components/ui/Tile";
+import { Tile, TileLabel } from "@/components/ui/Tile";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { EmptyState, ErrorState } from "@/components/ui/States";
 import { RelativeTime } from "@/components/ui/Time";
@@ -112,7 +113,7 @@ export function Outputs({ id }: { id: string }) {
       id="outputs"
       className="flex flex-col gap-1 xl:h-outputs"
     >
-      <SectionTitle id="outputs-title">Outputs</SectionTitle>
+      <SectionHeader id="outputs-title">Outputs</SectionHeader>
       <DownloadOutputs id={id} />
       {outputs.data ? (
         outputs.data.files.length === 0 ? (

@@ -10,7 +10,6 @@ import { word } from "./words";
 import { SessionLog } from "./SessionLog";
 import {
   AdminPage,
-  BackLink,
   Cell,
   Empty,
   Fields,
@@ -135,8 +134,7 @@ function ChargebackRecord({ id }: { id: string }) {
     queryFn: () => adminData(adminApi.GET("/admin/v1/chargebacks/{id}", { params: { path: { id } } })),
   });
   return (
-    <AdminPage title="Chargeback">
-      <BackLink href="/admin/chargebacks/">← All chargebacks</BackLink>
+    <AdminPage title="Chargeback" trail={[{ label: "Chargebacks", href: "/admin/chargebacks/" }]}>
       <QueryView query={chargeback} what="this chargeback">
         {(found) => (
           <>

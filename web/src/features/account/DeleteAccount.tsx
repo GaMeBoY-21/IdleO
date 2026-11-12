@@ -1,11 +1,12 @@
 import { ChevronLeft } from "lucide-react";
 import { Link, useLocation } from "wouter";
+import { SectionHeader } from "@/components/ui/Headers";
 import { useCancelDeletion, useDeletion, useRequestDeletion, type DeletionStanding } from "@/api/privacy";
 import { signOut } from "@/auth";
 import { AccountFrame } from "@/components/shell/AccountFrame";
 import { Button } from "@/components/ui/Button";
 import { Money } from "@/components/ui/Money";
-import { SectionTitle, Tile } from "@/components/ui/Tile";
+import { Tile } from "@/components/ui/Tile";
 import { SkeletonLine } from "@/components/ui/Skeleton";
 import { ErrorState, StaleNotice, staleSince } from "@/components/ui/States";
 import { useAfterPaint } from "@/lib/after-first-screen";
@@ -74,7 +75,7 @@ export function DeleteAccount() {
         aria-labelledby="what-title"
         className="flex flex-col gap-2 md:p-6 xl:col-span-3 xl:p-8"
       >
-        <SectionTitle id="what-title">What happens</SectionTitle>
+        <SectionHeader id="what-title">What happens</SectionHeader>
         <p className="text-option font-semibold">We erase</p>
         <ul className="flex flex-col gap-1">
           {ERASED.map((line) => (
@@ -109,7 +110,7 @@ export function DeleteAccount() {
         aria-labelledby="delete-title"
         className="flex flex-col gap-2 md:p-6 xl:col-span-2 xl:p-8"
       >
-        <SectionTitle id="delete-title">Your account</SectionTitle>
+        <SectionHeader id="delete-title">Your account</SectionHeader>
         {standing.data ? (
           <Deletion standing={standing.data} />
         ) : standing.isError ? (

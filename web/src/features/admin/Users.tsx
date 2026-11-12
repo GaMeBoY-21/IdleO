@@ -10,7 +10,6 @@ import { ActionSheet, SheetProblem } from "./ActionSheet";
 import { ADMIN, adminApi, adminData, type AdminCreditGrant, type AdminUser } from "./api";
 import {
   AdminPage,
-  BackLink,
   Cell,
   Empty,
   Fields,
@@ -190,8 +189,7 @@ function UserRecord({ id }: { id: string }) {
   );
 
   return (
-    <AdminPage title="User">
-      <BackLink href="/admin/users/">← All users</BackLink>
+    <AdminPage title="User" trail={[{ label: "Users", href: "/admin/users/" }]}>
       <QueryView query={user} what="this user">
         {(found) => (
           <>

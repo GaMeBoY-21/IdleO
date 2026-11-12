@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { Plus } from "lucide-react";
+import { PageTitle } from "@/components/ui/Headers";
 import type { Host, OwnerEarnings } from "@/api/hosting";
 import { FIT_FRAME, GRID } from "@/components/shell/Layout";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -43,9 +44,9 @@ export function LaptopPitch() {
         aria-labelledby="pitch-title"
         className="flex flex-col justify-between gap-6 md:col-span-6 xl:col-span-8 xl:min-h-96 xl:p-8"
       >
-        <h1 id="pitch-title" className="font-title text-display-panel">
+        <PageTitle variant="panel-lg" id="pitch-title">
           Earn from the GPU you aren&apos;t using
-        </h1>
+        </PageTitle>
         <p className="max-w-prose text-body text-on-night-2">
           Add a gaming laptop or desktop with an NVIDIA RTX GPU. Renters&apos; jobs run in a locked box, never
           in your files, and you set the price. Pause or take it back whenever you like.
@@ -80,7 +81,7 @@ export function LaptopHosting({
   const first = machines?.[0];
   return (
     <div className={cn(FIT_FRAME, GRID, "xl:auto-rows-auto")}>
-      <h1 className="sr-only">Hosting</h1>
+      <PageTitle hidden>Hosting</PageTitle>
       <EarningsHero owner={owner} enabled={enabled} restoredAt={restoredAt} />
       <AddTile className="md:col-span-6 xl:col-span-4" />
       {machines === undefined ? (

@@ -1,8 +1,9 @@
 import { Check } from "lucide-react";
 import type { ReactNode } from "react";
+import { SectionHeader } from "@/components/ui/Headers";
 import { AppLink } from "@/components/ui/AppLink";
 import { buttonClasses } from "@/components/ui/Button";
-import { SectionTitle, Tile } from "@/components/ui/Tile";
+import { Tile } from "@/components/ui/Tile";
 import { cn } from "@/lib/cn";
 
 export interface Step {
@@ -31,7 +32,7 @@ export function Checklist({ id, title, steps }: { id: string; title: string; ste
   return (
     <Tile as="section" aria-labelledby={id} className="flex flex-col gap-2 md:p-6 xl:p-8">
       <div className="flex items-baseline justify-between gap-2">
-        <SectionTitle id={id}>{title}</SectionTitle>
+        <SectionHeader id={id}>{title}</SectionHeader>
         <span className="text-small text-text-2 tabular">
           {done} of {steps.length} done
         </span>

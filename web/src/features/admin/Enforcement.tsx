@@ -14,7 +14,6 @@ import { useListParam, useListView } from "./listView";
 import { ActionButton, useCan } from "./permissions";
 import {
   AdminPage,
-  BackLink,
   Cell,
   Empty,
   Fields,
@@ -281,8 +280,7 @@ function AppealRecord({ id }: { id: string }) {
   const [outcome, setOutcome] = useState<"uphold" | "reverse" | null>(null);
   const [opening, setOpening] = useState<string | null>(null);
   return (
-    <AdminPage title="Appeal">
-      <BackLink href="/admin/appeals/">← All appeals</BackLink>
+    <AdminPage title="Appeal" trail={[{ label: "Appeals", href: "/admin/appeals/" }]}>
       <QueryView query={record} what="this appeal">
         {(found) => (
           <>

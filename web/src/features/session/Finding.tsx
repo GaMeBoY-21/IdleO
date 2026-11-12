@@ -1,5 +1,6 @@
 import { Check } from "lucide-react";
 import type { ReactNode } from "react";
+import { PageTitle } from "@/components/ui/Headers";
 import type { Session } from "@/api/queries";
 import { Tile, TileLabel } from "@/components/ui/Tile";
 import { cn } from "@/lib/cn";
@@ -43,9 +44,9 @@ export function Finding({
     >
       <FindingRing />
       <div className="flex flex-col gap-2" aria-live="polite">
-        <h1 className={laptop ? "font-title text-display-panel" : "font-title text-display-feature"}>
+        <PageTitle variant={laptop ? "panel-lg" : "panel"}>
           {found ? "GPU found" : "Finding your GPU"}
-        </h1>
+        </PageTitle>
         <p className="text-body text-on-night-2">
           {gpu ?? "Asking the best free GPU for this job. Usually under a minute."}
         </p>

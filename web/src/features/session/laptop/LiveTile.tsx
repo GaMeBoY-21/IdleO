@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import type { Session } from "@/api/queries";
+import { PageTitle } from "@/components/ui/Headers";
 import { Money } from "@/components/ui/Money";
 import { Tile } from "@/components/ui/Tile";
 import { Elapsed, RelativeTime } from "@/components/ui/Time";
@@ -52,7 +53,7 @@ export function LiveTile({
             </span>
           )}
         </span>
-        <h1 className="font-display text-display-page break-words uppercase">{serviceName}</h1>
+        <PageTitle variant="display">{serviceName}</PageTitle>
         <p className="min-h-5 text-small text-on-night-2" aria-live="polite">
           {session.startedAt ? (
             <RelativeTime value={session.startedAt} prefix="Started" />

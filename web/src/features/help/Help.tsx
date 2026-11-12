@@ -1,5 +1,6 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { SectionHeader } from "@/components/ui/Headers";
 import { Link } from "wouter";
 import { useMe } from "@/api/queries";
 import { useContact, useOpenTicket, useTickets, type SupportTicket } from "@/api/support";
@@ -7,7 +8,7 @@ import { AccountFrame } from "@/components/shell/AccountFrame";
 import { Button } from "@/components/ui/Button";
 import { Field } from "@/components/ui/Field";
 import { Select, TextArea } from "@/components/ui/Inputs";
-import { SectionTitle, Tile } from "@/components/ui/Tile";
+import { Tile } from "@/components/ui/Tile";
 import { SkeletonLine } from "@/components/ui/Skeleton";
 import { EmptyState, ErrorState, StaleNotice, staleSince } from "@/components/ui/States";
 import { useAfterPaint } from "@/lib/after-first-screen";
@@ -44,7 +45,7 @@ export function Help() {
         aria-labelledby="write-title"
         className="flex flex-col gap-2 md:p-6 xl:col-span-3 xl:p-8"
       >
-        <SectionTitle id="write-title">Send us a message</SectionTitle>
+        <SectionHeader id="write-title">Send us a message</SectionHeader>
         <p className="max-w-prose text-small text-text-2">
           A person reads every message. We email you when we answer, and you can reply here.
         </p>
@@ -55,7 +56,7 @@ export function Help() {
         aria-labelledby="sent-title"
         className="flex flex-col gap-1 md:p-6 xl:col-span-2 xl:p-8"
       >
-        <SectionTitle id="sent-title">Your messages</SectionTitle>
+        <SectionHeader id="sent-title">Your messages</SectionHeader>
         {tickets.data ? (
           tickets.data.tickets.length === 0 ? (
             <EmptyState title="No messages yet">

@@ -1,11 +1,12 @@
 import { lazy, Suspense, useState } from "react";
 import { Link } from "wouter";
+import { SectionHeader } from "@/components/ui/Headers";
 import { ChevronLeft } from "lucide-react";
 import { useApiKeys, useRevokeKey, type ApiKey } from "@/api/keys";
 import { AccountFrame } from "@/components/shell/AccountFrame";
 import { Banner } from "@/components/ui/Banner";
 import { Button } from "@/components/ui/Button";
-import { SectionTitle, Tile } from "@/components/ui/Tile";
+import { Tile } from "@/components/ui/Tile";
 import { SkeletonLine } from "@/components/ui/Skeleton";
 import { EmptyState, ErrorState, StaleNotice, staleSince } from "@/components/ui/States";
 import { RelativeTime } from "@/components/ui/Time";
@@ -54,7 +55,7 @@ export function ApiKeys() {
       </p>
       <CreateKey />
       <Tile as="section" aria-labelledby="keys-title" className="flex flex-col gap-1">
-        <SectionTitle id="keys-title">Your keys</SectionTitle>
+        <SectionHeader id="keys-title">Your keys</SectionHeader>
         {revoke.isError && <Banner tone="danger">{problemMessage(revoke.error)}</Banner>}
         {keys.data ? (
           keys.data.keys.length === 0 ? (

@@ -1,10 +1,11 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Link } from "wouter";
+import { SectionHeader } from "@/components/ui/Headers";
 import { useDisputePages, type Dispute } from "@/api/trust";
 import { AccountFrame } from "@/components/shell/AccountFrame";
 import { Decisions } from "./Decisions";
 import { Button } from "@/components/ui/Button";
-import { SectionTitle, Tile } from "@/components/ui/Tile";
+import { Tile } from "@/components/ui/Tile";
 import { SkeletonLine } from "@/components/ui/Skeleton";
 import { EmptyState, ErrorState, StaleNotice, staleSince } from "@/components/ui/States";
 import { RelativeTime } from "@/components/ui/Time";
@@ -43,7 +44,7 @@ export function Reports() {
       </p>
       <Decisions />
       <Tile as="section" aria-labelledby="reports-title" className="flex flex-col gap-1">
-        <SectionTitle id="reports-title">Your reports</SectionTitle>
+        <SectionHeader id="reports-title">Your reports</SectionHeader>
         {rows ? (
           <div className="flex flex-col gap-4">
             {rows.length === 0 ? (

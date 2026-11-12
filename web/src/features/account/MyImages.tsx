@@ -1,5 +1,6 @@
 import { ChevronLeft } from "lucide-react";
 import { useState } from "react";
+import { SectionHeader } from "@/components/ui/Headers";
 import { Link, useSearch } from "wouter";
 import { useImages, useRemoveImage, useVulnerabilities, type Image } from "@/api/images";
 import { AccountFrame } from "@/components/shell/AccountFrame";
@@ -7,7 +8,7 @@ import { Banner } from "@/components/ui/Banner";
 import { Button } from "@/components/ui/Button";
 import { SkeletonLine } from "@/components/ui/Skeleton";
 import { EmptyState, ErrorState, errorSentence, StaleNotice, staleSince } from "@/components/ui/States";
-import { SectionTitle, Tile } from "@/components/ui/Tile";
+import { Tile } from "@/components/ui/Tile";
 import { RelativeTime } from "@/components/ui/Time";
 import { ImageFindings } from "@/features/images/ImageFindings";
 import { useAfterPaint } from "@/lib/after-first-screen";
@@ -57,7 +58,7 @@ export function MyImages() {
         </Banner>
       )}
       <Tile as="section" aria-labelledby="images-title" className="flex flex-col gap-1">
-        <SectionTitle id="images-title">Your images</SectionTitle>
+        <SectionHeader id="images-title">Your images</SectionHeader>
         {images.data ? (
           images.data.images.length === 0 ? (
             <EmptyState title="No images yet">
@@ -134,7 +135,7 @@ function Vulnerabilities({ id }: { id: string }) {
   const list = useVulnerabilities(id, true);
   return (
     <Tile as="section" aria-labelledby="vulnerabilities-title" className="flex flex-col gap-2">
-      <SectionTitle id="vulnerabilities-title">Known vulnerabilities</SectionTitle>
+      <SectionHeader id="vulnerabilities-title">Known vulnerabilities</SectionHeader>
       {list.data ? (
         list.data.vulnerabilities.length === 0 ? (
           <EmptyState title="None known">Trivy found no known vulnerabilities in its packages.</EmptyState>
