@@ -48,7 +48,7 @@ export function StepInput({
   const id = `input-${input.name}`;
 
   return (
-    <Tile as="section" aria-labelledby={id} className="flex flex-col gap-3">
+    <Tile as="section" aria-labelledby={id} className="flex flex-col gap-2">
       <StepTitle id={id} number={number} optional={!input.required} help={input.help}>
         {input.label}
       </StepTitle>

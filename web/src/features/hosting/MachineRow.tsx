@@ -18,7 +18,7 @@ export function MachineRow({ host }: { host: Host }) {
     <Link
       href={laptopPath(host.id)}
       className={cn(
-        "flex min-h-18 items-center gap-3.5 rounded-panel px-4.5 py-3.5",
+        "flex min-h-18 items-center gap-4 rounded-panel px-4 py-4",
         "tile-motion",
         running ? "bg-night text-on-night" : state.kind === "idle" ? "bg-ember text-ink" : "bg-panel",
       )}
@@ -34,7 +34,7 @@ export function MachineRow({ host }: { host: Host }) {
               : "bg-control",
         )}
       />
-      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+      <span className="flex min-w-0 flex-1 flex-col gap-1">
         <span className="text-body font-semibold break-words">{host.name}</span>
         <span
           className={cn(

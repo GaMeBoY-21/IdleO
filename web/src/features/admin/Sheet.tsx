@@ -34,7 +34,7 @@ export function Sheet({
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay
-          className={cn("appear fixed inset-0 bg-primary opacity-40", above ? "z-50" : "z-30")}
+          className={cn("appear fixed inset-0 bg-primary opacity-40", above ? "z-above" : "z-overlay")}
         />
         <Dialog.Content
           data-tile=""
@@ -53,9 +53,9 @@ export function Sheet({
           {...(description === undefined ? { "aria-describedby": undefined } : {})}
           className={cn(
             "appear fixed mx-auto flex max-w-narrow flex-col bg-panel",
-            above ? "z-50" : "z-40",
+            above ? "z-above" : "z-sheet",
             fullOnPhone
-              ? "inset-0 gap-3 p-4 md:inset-x-4 md:top-1/6 md:bottom-auto md:max-h-2/3 md:rounded-panel md:border md:border-line"
+              ? "inset-0 gap-2 p-4 md:inset-x-4 md:top-1/6 md:bottom-auto md:max-h-2/3 md:rounded-panel md:border md:border-line"
               : "inset-x-4 bottom-4 max-h-11/12 gap-4 overflow-y-auto rounded-panel border border-line p-6 md:top-1/4 md:bottom-auto md:max-h-2/3",
           )}
         >

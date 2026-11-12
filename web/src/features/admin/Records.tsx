@@ -252,7 +252,7 @@ function PayoutsAndChecks({ id, canCheck, canPay }: { id: string; canCheck: bool
         <Section title="PAN and UPI IDs">
           <QueryView query={details} what="how they're paid">
             {(found) => (
-              <div className="flex flex-col gap-3">
+              <div className="flex flex-col gap-2">
                 <Fields
                   items={[["PAN", found.pan ? `Ending ${found.pan.last4}, ${found.pan.state}` : "Not given"]]}
                 />

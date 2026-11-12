@@ -192,7 +192,7 @@ function KeyLines({ title, lines }: { title: string; lines: [string, string][] }
       <h3 className="text-small font-semibold">{title}</h3>
       <dl className="flex flex-col gap-1 text-small">
         {lines.map(([key, what]) => (
-          <div key={key} className="flex gap-3">
+          <div key={key} className="flex gap-2">
             <dt className="tabular w-24 shrink-0 font-semibold">{key}</dt>
             <dd>{what}</dd>
           </div>

@@ -41,14 +41,14 @@ export function PayoutsTile({ enabled }: { enabled: boolean }) {
   return <SummarySkeleton />;
 }
 
-const FIGURE = "flex min-h-18 flex-col justify-center gap-0.5 rounded-control bg-panel-2 px-4 py-3.5";
+const FIGURE = "flex min-h-18 flex-col justify-center gap-1 rounded-control bg-panel-2 px-4 py-4";
 
 export function Summary({ summary }: { summary: PayoutSummary }) {
   const blocked = blockedWords(summary.blockedBy);
   const nextAvailable = summary.pending.find((session) => session.availableAt != null)?.availableAt;
   return (
-    <Tile as="section" aria-labelledby="payouts-title" className="flex flex-col gap-4 xl:p-7">
-      <div className="flex items-baseline justify-between gap-3">
+    <Tile as="section" aria-labelledby="payouts-title" className="flex flex-col gap-4 xl:p-8">
+      <div className="flex items-baseline justify-between gap-2">
         <SectionTitle id="payouts-title">Payouts</SectionTitle>
         <Link href={HOST_PATHS.payoutDetails} className="text-small font-semibold underline">
           Payout details
@@ -79,7 +79,7 @@ export function Summary({ summary }: { summary: PayoutSummary }) {
         </div>
       </dl>
       {/* Four lines kept for what's said here, whichever it is and however it wraps on a phone, so nothing below moves. */}
-      <div className="flex min-h-20 flex-col gap-0.5 text-small">
+      <div className="flex min-h-20 flex-col gap-1 text-small">
         {blocked ? (
           <p className="font-semibold text-warn-fg">
             {blocked}{" "}
@@ -116,7 +116,7 @@ export function Summary({ summary }: { summary: PayoutSummary }) {
           </summary>
           <ul className="flex flex-col divide-y divide-line">
             {summary.pending.map((session) => (
-              <li key={`${session.hostId}${session.sessionId}`} className="flex items-center gap-3 py-2">
+              <li key={`${session.hostId}${session.sessionId}`} className="flex items-center gap-2 py-2">
                 <span className="min-w-0 flex-1 break-words">
                   {session.machineName}
                   <span className="block text-caption text-text-2">
@@ -140,8 +140,8 @@ export function SummarySkeleton() {
   const [year] = useState(() => financialYear(Date.now()));
   // The loaded tile's own structure, its figures waiting: the same title row, labels and lines, so the same height.
   return (
-    <Tile className="flex flex-col gap-4 xl:p-7" role="status" aria-label="Loading your payouts">
-      <div className="flex items-baseline justify-between gap-3">
+    <Tile className="flex flex-col gap-4 xl:p-8" role="status" aria-label="Loading your payouts">
+      <div className="flex items-baseline justify-between gap-2">
         <SectionTitle>Payouts</SectionTitle>
       </div>
       <dl className="grid grid-cols-2 gap-2">
@@ -155,7 +155,7 @@ export function SummarySkeleton() {
           </div>
         ))}
       </dl>
-      <div className="flex min-h-20 flex-col gap-0.5 text-small">
+      <div className="flex min-h-20 flex-col gap-1 text-small">
         <SkeletonLine size="small" width="w-2/3" />
       </div>
       <div className="flex min-h-touch items-center">
@@ -180,7 +180,7 @@ export function PayoutHistory({ enabled }: { enabled: boolean }) {
           </EmptyState>
         ) : (
           <div className="flex flex-col gap-4">
-            <Tile as="div" className="px-4.5 py-0">
+            <Tile as="div" className="px-4 py-0">
               <ul className="flex flex-col divide-y divide-line">
                 {payouts.map((payout) => (
                   <PayoutRow key={payout.id} payout={payout} />
@@ -207,10 +207,10 @@ export function PayoutHistory({ enabled }: { enabled: boolean }) {
           retrying={history.isFetching}
         />
       ) : (
-        <Tile as="div" aria-hidden="true" className="flex flex-col divide-y divide-line px-4.5 py-0">
+        <Tile as="div" aria-hidden="true" className="flex flex-col divide-y divide-line px-4 py-0">
           {[0, 1].map((key) => (
-            <div key={key} className="flex min-h-18 items-center gap-3 py-4">
-              <div className="flex flex-1 flex-col gap-0.5">
+            <div key={key} className="flex min-h-18 items-center gap-2 py-4">
+              <div className="flex flex-1 flex-col gap-1">
                 <SkeletonLine size="option" width="w-1/2" />
                 <SkeletonLine size="small" width="w-1/3" />
               </div>
@@ -226,8 +226,8 @@ export function PayoutHistory({ enabled }: { enabled: boolean }) {
 export function PayoutRow({ payout }: { payout: PayoutView }) {
   const status = payoutStatus(payout.status);
   return (
-    <li className="flex min-h-18 items-center gap-3 py-4">
-      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+    <li className="flex min-h-18 items-center gap-2 py-4">
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
         <p className="text-option font-semibold">
           {formatDay(payout.createdAt)}
           {payout.kind === "final" && " · final"}
@@ -279,18 +279,18 @@ export function Statement({ years }: { years: string[] | null }) {
       as="section"
       aria-labelledby="statement-title"
       aria-busy={years === null}
-      className="flex flex-col gap-3"
+      className="flex flex-col gap-2"
     >
       <SectionTitle id="statement-title">Yearly statement</SectionTitle>
       <p className="text-small text-text-2">
         What you were paid in a financial year (April to March), the tax deducted and the net: for your tax
         return.
       </p>
-      <div className="flex flex-wrap items-end gap-3">
+      <div className="flex flex-wrap items-end gap-2">
         <label className="flex flex-col gap-2 text-small font-medium">
           Year
           <select
-            className="min-h-touch rounded-control bg-panel-2 px-3 text-body"
+            className="min-h-touch rounded-control bg-panel-2 px-4 text-body"
             value={year}
             disabled={years === null}
             onChange={(event) => setChosen(event.target.value)}

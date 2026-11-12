@@ -77,7 +77,7 @@ export function YourRequest({
       <Tile
         tone="night"
         aria-label="Your request"
-        className="sticky bottom-3.5 z-10 mt-auto flex flex-col gap-3"
+        className="sticky bottom-3.5 z-raised mt-auto flex flex-col gap-2"
       >
         {gpu}
         {button}
@@ -85,7 +85,7 @@ export function YourRequest({
     );
   }
   return (
-    <Tile tone="night" as="div" className="flex flex-col gap-5 p-6">
+    <Tile tone="night" as="div" className="flex flex-col gap-4 p-6">
       <h2 className="text-section">Your request</h2>
       <dl className="flex flex-col gap-2 text-body">
         {summaryRows(template, values, uploads).map(([label, value]) => (

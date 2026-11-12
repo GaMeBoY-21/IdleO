@@ -85,7 +85,7 @@ export function SignIn() {
           {!google && <GoogleMark />}
           Continue with Google
         </Button>
-        <div className="flex items-center gap-3 text-caption text-text-2" aria-hidden="true">
+        <div className="flex items-center gap-2 text-caption text-text-2" aria-hidden="true">
           <span className="h-px flex-1 bg-line" />
           or
           <span className="h-px flex-1 bg-line" />

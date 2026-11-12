@@ -180,7 +180,7 @@ function NoteRow({ note, subject, id }: { note: AdminNote; subject: NoteSubject;
   };
   const path = { params: { path: { id: note.id } } };
   return (
-    <li className="flex flex-col gap-2 border-b border-line py-3">
+    <li className="flex flex-col gap-2 border-b border-line py-4">
       <div className="flex flex-wrap items-center gap-2 text-caption text-text-2">
         <Id value={note.authorId} page="user" /> · <RelativeTime value={note.createdAt} />
         {note.editedAt && <span>· changed</span>}
@@ -196,7 +196,7 @@ function NoteRow({ note, subject, id }: { note: AdminNote; subject: NoteSubject;
           maxLength={4000}
           rows={3}
           onChange={(event) => setEditing(event.target.value)}
-          className="rounded-control bg-raised px-3 py-2 text-small text-text"
+          className="rounded-control bg-raised px-4 py-2 text-small text-text"
         />
       )}
       <Problem error={problem} />
@@ -306,7 +306,7 @@ export function RecordNotes({ subject, id }: { subject: NoteSubject; id: string 
       {writable && (
         <Section title="Add a note">
           <form
-            className="flex flex-col gap-3"
+            className="flex flex-col gap-2"
             onSubmit={(event) => {
               event.preventDefault();
               void add();
@@ -318,7 +318,7 @@ export function RecordNotes({ subject, id }: { subject: NoteSubject; id: string 
               maxLength={4000}
               rows={3}
               onChange={(event) => setBody(event.target.value)}
-              className="rounded-control bg-raised px-3 py-2 text-small text-text"
+              className="rounded-control bg-raised px-4 py-2 text-small text-text"
             />
             <div className="flex flex-wrap items-center gap-4 text-small">
               <label className="flex items-center gap-2">
@@ -409,7 +409,7 @@ export function LinkedAccounts({ id }: { id: string }) {
       }
     >
       {(found) => (
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-2">
           <p className="text-caption text-text-2">
             These are signals to look at, not findings. Nothing happens to an account because it&apos;s listed
             here.
@@ -421,9 +421,9 @@ export function LinkedAccounts({ id }: { id: string }) {
           )}
           <ul aria-label="Linked accounts" className="flex flex-col">
             {found.accounts.map((account) => (
-              <li key={account.userId} className="flex flex-col gap-1 border-b border-line py-3">
+              <li key={account.userId} className="flex flex-col gap-1 border-b border-line py-4">
                 <Id value={account.userId} page="user" />
-                <ul className="flex flex-col gap-0.5 text-small">
+                <ul className="flex flex-col gap-1 text-small">
                   {account.signals.map((signal) => (
                     <li
                       key={`${signal.signal}${signal.evidence}`}

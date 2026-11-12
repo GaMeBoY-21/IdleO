@@ -20,7 +20,7 @@ const RevokeDialog = lazy(() =>
   import("./RevokeDialog").then((module) => ({ default: module.RevokeDialog })),
 );
 
-const ROW = "flex min-h-18 items-center gap-3 py-3";
+const ROW = "flex min-h-18 items-center gap-2 py-4";
 const SCOPES: Record<ApiKey["scope"], string> = { full: "Full access", read: "Read only" };
 
 /**
@@ -84,7 +84,7 @@ export function ApiKeys() {
           >
             {[0, 1].map((row) => (
               <div key={row} className={ROW}>
-                <div className="flex flex-1 flex-col gap-0.5">
+                <div className="flex flex-1 flex-col gap-1">
                   <SkeletonLine size="option" width="w-1/2" />
                   <SkeletonLine size="small" width="w-2/3" />
                 </div>
@@ -120,7 +120,7 @@ export function ApiKeys() {
 function KeyRow({ apiKey, onRevoke }: { apiKey: ApiKey; onRevoke: () => void }) {
   return (
     <li className={ROW}>
-      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
         <p className="truncate text-option font-semibold" title={apiKey.name}>
           {apiKey.name}
         </p>

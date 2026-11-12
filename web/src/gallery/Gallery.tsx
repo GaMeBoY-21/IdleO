@@ -301,7 +301,7 @@ function Pieces() {
     <div className="grid gap-4 md:grid-cols-2">
       <Option icon={Layers} title="Fine-tune a model" detail="Your model and data, about 40 min" />
       <Option icon={Cpu} title="Run your code" detail="Your folder, our GPU" selected />
-      <div className="flex gap-3">
+      <div className="flex gap-2">
         <IconTile icon={Cpu} />
         <IconTile icon={Layers} size="lg" />
       </div>

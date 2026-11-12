@@ -63,12 +63,12 @@ export function Shell({
     <>
       <a
         href="#content"
-        className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:rounded-control focus:bg-primary focus:px-4 focus:py-3 focus:text-primary-fg"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:rounded-control focus:bg-primary focus:px-4 focus:py-4 focus:text-primary-fg"
       >
         Skip to the content
       </a>
       <header>
-        <div className={`${column} flex flex-wrap items-center justify-between gap-x-6 gap-y-2 py-5`}>
+        <div className={`${column} flex flex-wrap items-center justify-between gap-x-6 gap-y-2 py-6`}>
           <a href={LANDING} className="flex min-h-touch items-center" aria-label={`${brand.name} home`}>
             <Wordmark />
           </a>
@@ -78,7 +78,7 @@ export function Shell({
                 key={item.href}
                 href={item.href}
                 aria-current={current(item.href)}
-                className="flex min-h-touch items-center rounded-control px-3 text-small font-medium text-text hover:underline hover:underline-offset-4 aria-[current=page]:font-bold aria-[current=page]:underline aria-[current=page]:underline-offset-8 md:px-4"
+                className="flex min-h-touch items-center rounded-control px-4 text-small font-medium text-text hover:underline hover:underline-offset-4 aria-[current=page]:font-bold aria-[current=page]:underline aria-[current=page]:underline-offset-8 md:px-4"
               >
                 {item.label}
               </a>
@@ -129,7 +129,7 @@ export function Shell({
                   type="button"
                   aria-pressed="false"
                   data-choice={choice.value}
-                  className="min-h-touch rounded-control border border-edge bg-ghost px-3 text-small font-semibold text-text hover:bg-ghost-hover aria-pressed:border-transparent aria-pressed:bg-primary aria-pressed:text-primary-fg"
+                  className="min-h-touch rounded-control border border-edge bg-ghost px-4 text-small font-semibold text-text hover:bg-ghost-hover aria-pressed:border-transparent aria-pressed:bg-primary aria-pressed:text-primary-fg"
                 >
                   {choice.label}
                 </button>

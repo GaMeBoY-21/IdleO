@@ -73,13 +73,13 @@ export function Hosting() {
         <Pitch />
       ) : (
         <>
-          <Tile tone="night" aria-labelledby="week-title" className="flex flex-col gap-5">
+          <Tile tone="night" aria-labelledby="week-title" className="flex flex-col gap-4">
             <h2 id="week-title" className="sr-only">
               Your earnings
             </h2>
             {owner ? (
               <>
-                <div className="flex flex-col gap-1.5">
+                <div className="flex flex-col gap-1">
                   <p className="text-small font-semibold text-on-night-2">
                     Earned this week
                     {restored && (
@@ -115,7 +115,7 @@ export function Hosting() {
               <EarnedSkeleton />
             )}
           </Tile>
-          <section aria-labelledby="machines-title" className="flex flex-col gap-3">
+          <section aria-labelledby="machines-title" className="flex flex-col gap-2">
             <SectionTitle id="machines-title">Your machines</SectionTitle>
             {machines ? (
               <ul className="flex flex-col gap-2">
@@ -159,7 +159,7 @@ export function AddLink() {
 /** With no machines: what hosting is, and the one step. */
 export function Pitch() {
   return (
-    <Tile aria-labelledby="pitch-title" className="flex flex-col gap-5 p-6">
+    <Tile aria-labelledby="pitch-title" className="flex flex-col gap-4 p-6">
       <h2 id="pitch-title" className="font-title text-display-feature">
         Earn from the GPU you aren&apos;t using
       </h2>
@@ -177,8 +177,8 @@ export function Pitch() {
 /** What's above the machines before the figures arrive: the same lines, the same bars. */
 function EarnedSkeleton() {
   return (
-    <div role="status" aria-label="Loading your earnings" className="flex flex-col gap-5">
-      <div className="flex flex-col gap-1.5">
+    <div role="status" aria-label="Loading your earnings" className="flex flex-col gap-4">
+      <div className="flex flex-col gap-1">
         <SkeletonLine size="small" width="w-1/3" onDark />
         <SkeletonLine size="timer" width="w-1/2" onDark />
         <SkeletonLine size="small" width="w-2/3" onDark />

@@ -271,7 +271,7 @@ function Items() {
         }
         confirm="Resolve"
         extra={
-          <div className="flex flex-wrap items-end gap-3">
+          <div className="flex flex-wrap items-end gap-2">
             <SmallSelect
               label="How"
               value={resolution}

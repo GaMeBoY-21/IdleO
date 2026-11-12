@@ -27,14 +27,14 @@ export function Option({
       type="button"
       aria-pressed={selected}
       className={cn(
-        "flex w-full items-center gap-4 rounded-panel px-4.5 py-3.5 text-left tiled:rounded-control transition-colors",
+        "flex w-full items-center gap-4 rounded-panel px-4 py-4 text-left tiled:rounded-control transition-colors",
         selected ? "bg-volt text-ink" : "bg-panel hover:bg-raised tiled:bg-panel-2 tiled:hover:bg-raised",
         className,
       )}
       {...props}
     >
       {Icon && <IconTile icon={Icon} strong={selected ?? false} />}
-      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+      <span className="flex min-w-0 flex-1 flex-col gap-1">
         <span className="text-option font-semibold break-words">{title}</span>
         {detail && <span className={cn("text-small", selected ? "text-ink" : "text-text-2")}>{detail}</span>}
       </span>

@@ -91,7 +91,7 @@ function AbuseQueue() {
   });
   return (
     <AdminPage title="Abuse">
-      <div className="flex flex-wrap gap-3">
+      <div className="flex flex-wrap gap-2">
         <ListBar list="abuse" extra={state === "all" ? {} : { state }} />
         <SmallSelect
           label="Show"
@@ -200,7 +200,7 @@ function LearnableBuilds({ found, itemId }: { found: AbuseDetail; itemId: string
   const waiting = new Set(additions.data?.additions.map((entry) => entry.sha256));
   return (
     <Section title="Blocklist">
-      <ul className="flex flex-col gap-3 text-small">
+      <ul className="flex flex-col gap-2 text-small">
         {builds.map((signal) => (
           <li key={signal.sha256} className="flex flex-wrap items-center gap-x-4 gap-y-2">
             <span className="font-medium">{signal.detail}</span>
@@ -419,7 +419,7 @@ function AbuseRecord({ id }: { id: string }) {
             <Section title="Add a note">
               <form
                 noValidate
-                className="flex flex-col gap-3"
+                className="flex flex-col gap-2"
                 onSubmit={(event) => {
                   event.preventDefault();
                   if (note.trim().length < 5) {
@@ -526,7 +526,7 @@ function Summary({ found }: { found: AbuseDetail }) {
       <Section title="What was seen">
         <ol className="flex flex-col gap-2 text-small">
           {found.signals.map((signal, index) => (
-            <li key={`${signal.at}-${index}`} className="flex flex-wrap gap-x-3">
+            <li key={`${signal.at}-${index}`} className="flex flex-wrap gap-x-2">
               <time dateTime={signal.at} className="tabular text-text-2">
                 {formatDateTime(signal.at)}
               </time>
@@ -578,7 +578,7 @@ function Summary({ found }: { found: AbuseDetail }) {
       )}
       {found.notes.length > 0 && (
         <Section title="Notes">
-          <ol className="flex flex-col gap-3">
+          <ol className="flex flex-col gap-2">
             {found.notes.map((note, index) => (
               <li key={`${note.at}-${index}`} className="flex flex-col gap-1 rounded-control bg-canvas p-4">
                 <p className="text-caption text-text-2">{formatDateTime(note.at)}</p>

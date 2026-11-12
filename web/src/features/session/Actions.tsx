@@ -136,11 +136,11 @@ export function ActionFoot({
     </>
   );
   return laptop ? (
-    <Tile className="flex flex-col gap-3">{inside}</Tile>
+    <Tile className="flex flex-col gap-2">{inside}</Tile>
   ) : (
     <div
       data-action-bar=""
-      className="sticky bottom-0 z-10 -mx-3.5 mt-auto flex flex-col gap-2 bg-canvas px-3.5 pt-3 pb-3.5 md:-mx-6 md:px-6"
+      className="sticky bottom-0 z-raised -mx-4 mt-auto flex flex-col gap-2 bg-canvas px-4 pt-4 pb-4 md:-mx-6 md:px-6"
     >
       {inside}
     </div>

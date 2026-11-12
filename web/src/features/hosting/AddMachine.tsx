@@ -44,7 +44,7 @@ export function DownloadButton() {
   const release = useLatestRelease(painted);
   if (release.isPending) {
     return (
-      <div className="flex flex-col gap-3" aria-busy="true" aria-label="Checking for the Windows app">
+      <div className="flex flex-col gap-2" aria-busy="true" aria-label="Checking for the Windows app">
         <Skeleton className="h-14 w-full rounded-full" />
         <Skeleton className="h-5 w-32" />
       </div>
@@ -52,7 +52,7 @@ export function DownloadButton() {
   }
   if (release.isError) {
     return (
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-2">
         <button type="button" className={BUTTON} onClick={() => void release.refetch()}>
           Couldn&apos;t check for the Windows app · Try again
         </button>
@@ -62,7 +62,7 @@ export function DownloadButton() {
   }
   if (release.data === null) {
     return (
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-2">
         <button type="button" disabled className={BUTTON}>
           Windows app: coming soon
         </button>
@@ -71,7 +71,7 @@ export function DownloadButton() {
     );
   }
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-2">
       <a href={`${config.apiUrl}/v1/agent-releases/latest/setup`} className={BUTTON}>
         <MonitorDown className="size-5" strokeWidth={2} aria-hidden="true" />
         Download for Windows
@@ -90,7 +90,7 @@ export function AddMachine() {
   useTitle("Earn with this laptop");
   return (
     <HostFlow back={HOST_PATHS.home} backLabel="Hosting" title="Earn with this laptop" lede={LEDE}>
-      <ol aria-label="How it works" className="flex flex-col gap-3.5">
+      <ol aria-label="How it works" className="flex flex-col gap-4">
         {STEPS.map(({ icon: Icon, title, text }, index) => (
           <li key={title}>
             <Tile className="flex items-start gap-4">
@@ -109,7 +109,7 @@ export function AddMachine() {
           </li>
         ))}
       </ol>
-      <Tile className="flex flex-col gap-3">
+      <Tile className="flex flex-col gap-2">
         <DownloadButton />
         <p className="text-small text-text-2">Windows 10 or 11 · NVIDIA RTX graphics · 40 GB free</p>
         <p className="text-small text-text-2">

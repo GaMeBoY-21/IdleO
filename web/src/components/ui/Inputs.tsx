@@ -44,7 +44,7 @@ export const TextArea = forwardRef<
         rows={4}
         aria-invalid={error ? true : undefined}
         aria-describedby={`${id}-message`}
-        className={cn(control, "py-3", error && "ring-2 ring-danger")}
+        className={cn(control, "py-4", error && "ring-2 ring-danger")}
         {...props}
       />
       <Message id={`${id}-message`} error={error} hint={hint} />
@@ -103,12 +103,12 @@ export const Switch = forwardRef<
             type="checkbox"
             role="switch"
             aria-describedby={`${id}-message`}
-            className="peer h-7 w-12 cursor-pointer appearance-none rounded-full border-2 border-control bg-panel tiled:bg-panel-2 transition-colors duration-120 checked:border-primary checked:bg-primary"
+            className="peer h-7 w-12 cursor-pointer appearance-none rounded-full border-2 border-control bg-panel tiled:bg-panel-2 transition-colors duration-press checked:border-primary checked:bg-primary"
             {...props}
           />
           <span
             aria-hidden="true"
-            className="pointer-events-none absolute left-1.5 size-4 rounded-full bg-control transition-transform duration-120 peer-checked:translate-x-5 peer-checked:bg-primary-fg"
+            className="pointer-events-none absolute left-1.5 size-4 rounded-full bg-control transition-transform duration-press peer-checked:translate-x-5 peer-checked:bg-primary-fg"
           />
         </span>
       </label>
@@ -152,7 +152,7 @@ export function RadioGroup({
         {options.map((option) => (
           <label
             key={option.value}
-            className="flex min-h-touch cursor-pointer items-center gap-2 rounded-full bg-panel px-3.5 text-small font-semibold tiled:bg-panel-2 has-checked:bg-primary has-checked:text-primary-fg"
+            className="flex min-h-touch cursor-pointer items-center gap-2 rounded-full bg-panel px-4 text-small font-semibold tiled:bg-panel-2 has-checked:bg-primary has-checked:text-primary-fg"
           >
             <input
               type="radio"

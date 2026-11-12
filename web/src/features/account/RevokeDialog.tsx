@@ -24,10 +24,10 @@ export function RevokeDialog({
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
-        <Dialog.Overlay className="appear fixed inset-0 z-30 bg-ink opacity-60" />
+        <Dialog.Overlay className="appear fixed inset-0 z-overlay bg-ink opacity-60" />
         <Dialog.Content
           data-tile=""
-          className="appear fixed inset-x-4 bottom-4 z-40 mx-auto flex max-w-narrow flex-col gap-4 rounded-panel bg-panel p-6 border border-line md:top-1/3 md:bottom-auto"
+          className="appear fixed inset-x-4 bottom-4 z-sheet mx-auto flex max-w-narrow flex-col gap-4 rounded-panel bg-panel p-6 border border-line md:top-1/3 md:bottom-auto"
         >
           <Dialog.Title className="text-section">Revoke {name}?</Dialog.Title>
           <Dialog.Description className="text-small text-text-2">

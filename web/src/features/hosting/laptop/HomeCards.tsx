@@ -36,7 +36,7 @@ export function EarningsHero({
       tone="night"
       size="lg"
       aria-labelledby="week-title"
-      className="grid gap-6 md:col-span-6 md:grid-cols-2 xl:col-span-8 xl:h-host-panel xl:grid-cols-5 xl:gap-8 xl:py-7"
+      className="grid gap-6 md:col-span-6 md:grid-cols-2 xl:col-span-8 xl:h-host-panel xl:grid-cols-5 xl:gap-8 xl:py-8"
     >
       {/* Its figures at the foot, so nothing that arrives above them moves them. */}
       <div className="flex flex-col justify-between gap-4 xl:col-span-2">
@@ -65,13 +65,13 @@ export function EarningsHero({
           )}
         </span>
         <dl className="grid grid-cols-2 gap-2 text-small">
-          <div className="flex min-h-20 flex-col justify-start rounded-control bg-on-night/10 px-3 py-2">
+          <div className="flex min-h-20 flex-col justify-start rounded-control bg-on-night/10 px-4 py-2">
             <dt className="text-on-night-2">Pending</dt>
             <dd className="font-semibold tabular">
               {summary ? <Money paise={summary.pendingPaise} /> : "…"}
             </dd>
           </div>
-          <div className="flex min-h-20 flex-col justify-start rounded-control bg-on-night/10 px-3 py-2">
+          <div className="flex min-h-20 flex-col justify-start rounded-control bg-on-night/10 px-4 py-2">
             <dt className="text-on-night-2">Next payout</dt>
             <dd className="font-semibold tabular">
               {summary
@@ -117,7 +117,7 @@ export function DemandTile({
   const band = usePriceBand(host?.id ?? "", enabled && host !== undefined);
   const busiest = demand.data?.hours.reduce((top, hour) => (hour.asked > top.asked ? hour : top));
   return (
-    <Tile as="section" aria-labelledby="demand-title" className={cn("flex flex-col gap-3 xl:p-7", className)}>
+    <Tile as="section" aria-labelledby="demand-title" className={cn("flex flex-col gap-2 xl:p-8", className)}>
       <SectionTitle id="demand-title">Demand for your GPU</SectionTitle>
       {host === undefined ? (
         <p className="text-small text-text-2">Link a laptop, and when renters want its GPU shows here.</p>
@@ -145,7 +145,7 @@ export function DemandTile({
           </p>
         </>
       ) : (
-        <div role="status" aria-label="Loading demand" className="flex flex-col gap-3">
+        <div role="status" aria-label="Loading demand" className="flex flex-col gap-2">
           <SkeletonLine size="small" width="w-3/4" />
           <BarsSkeleton count={24} tone="panel" />
           <SkeletonLine size="small" width="w-1/2" />
@@ -165,7 +165,7 @@ export function ScoreTile({
   className?: string;
 }) {
   return (
-    <Tile as="section" aria-labelledby="score-title" className={cn("flex flex-col gap-2 xl:p-7", className)}>
+    <Tile as="section" aria-labelledby="score-title" className={cn("flex flex-col gap-2 xl:p-8", className)}>
       <SectionTitle id="score-title">Host score</SectionTitle>
       {host ? (
         <>
@@ -196,7 +196,7 @@ export function RecentPayoutsTile({ enabled }: { enabled: boolean }) {
     <Tile
       as="section"
       aria-labelledby="recent-payouts-title"
-      className="flex flex-col gap-1 md:col-span-3 xl:col-span-3 xl:h-host-panel xl:p-7"
+      className="flex flex-col gap-1 md:col-span-3 xl:col-span-3 xl:h-host-panel xl:p-8"
     >
       <SectionTitle
         id="recent-payouts-title"
@@ -241,7 +241,7 @@ export function HelpTile({ className }: { className?: string }) {
     { href: HOST_PATHS.help, label: "All help" },
   ];
   return (
-    <Tile as="section" aria-labelledby="help-title" className={cn("flex flex-col gap-1 xl:p-7", className)}>
+    <Tile as="section" aria-labelledby="help-title" className={cn("flex flex-col gap-1 xl:p-8", className)}>
       <SectionTitle id="help-title">Help</SectionTitle>
       <ul className="flex flex-col divide-y divide-line">
         {links.map((link) => (

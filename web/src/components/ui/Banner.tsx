@@ -20,7 +20,7 @@ export function Banner({
     <div
       role={tone === "danger" ? "alert" : "status"}
       className={cn(
-        "flex items-start gap-3 rounded-inner px-4.5 py-3.5 text-small",
+        "flex items-start gap-2 rounded-inner px-4 py-4 text-small",
         tone === "warning" && "bg-warn text-warn-fg",
         tone === "danger" && "bg-danger-soft text-danger",
         tone === "info" && "bg-panel text-text tiled:bg-panel-2",

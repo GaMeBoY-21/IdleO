@@ -37,7 +37,7 @@ export function Account() {
     <AccountFrame title="Account" className="xl:grid xl:grid-cols-5 xl:items-start">
       {since !== null && <StaleNotice updatedAt={since} />}
       <div className="flex min-w-0 flex-col gap-4 xl:col-span-2">
-        <Tile as="section" aria-labelledby="you-title" className="flex flex-col gap-1 md:p-6 xl:p-7">
+        <Tile as="section" aria-labelledby="you-title" className="flex flex-col gap-1 md:p-6 xl:p-8">
           <SectionTitle id="you-title">
             <span className="md:hidden">You</span>
             <span className="hidden md:inline">Profile</span>
@@ -68,7 +68,7 @@ export function Account() {
                 detail
                   ? [
                       <Link key={href} href={href} className={`${ROW} hover:bg-panel-2 md:hidden`}>
-                        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                        <div className="flex min-w-0 flex-1 flex-col gap-1">
                           <p className="text-option font-semibold">{label}</p>
                           <p className="text-small text-text-2">{detail}</p>
                         </div>
@@ -97,7 +97,7 @@ export function Account() {
             >
               {[0, 1, 2].map((key) => (
                 <div key={key} className={ROW}>
-                  <div className="flex flex-1 flex-col gap-0.5">
+                  <div className="flex flex-1 flex-col gap-1">
                     <SkeletonLine size="caption" width="w-16" />
                     <SkeletonLine size="option" width="w-1/2" />
                   </div>
@@ -117,7 +117,7 @@ export function Account() {
       <Tile
         as="section"
         aria-labelledby="notifications-title"
-        className="flex flex-col gap-1 md:p-6 xl:col-span-3 xl:p-7"
+        className="flex flex-col gap-1 md:p-6 xl:col-span-3 xl:p-8"
       >
         <SectionTitle id="notifications-title">Notifications</SectionTitle>
         <p className="mb-2 max-w-prose text-small text-text-2">
@@ -146,7 +146,7 @@ export function Account() {
           >
             {[0, 1, 2, 3, 4].map((key) => (
               <div key={key} className={ROW}>
-                <div className="flex flex-1 flex-col gap-0.5">
+                <div className="flex flex-1 flex-col gap-1">
                   <SkeletonLine size="option" width="w-2/3" />
                 </div>
                 <Skeleton className="h-7 w-12" />
@@ -177,7 +177,7 @@ export function Fact({
 }) {
   return (
     <div className={ROW}>
-      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
         <p className="text-caption text-text-2">{label}</p>
         {value === undefined ? (
           <SkeletonLine size="option" width="w-1/2" />

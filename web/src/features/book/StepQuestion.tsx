@@ -21,7 +21,7 @@ export function StepParam({
   const [field] = paramFields([param]);
   const id = `param-${param.name}`;
   return (
-    <Tile as="section" aria-labelledby={id} className="flex flex-col gap-3">
+    <Tile as="section" aria-labelledby={id} className="flex flex-col gap-2">
       <StepTitle
         id={id}
         number={number}
@@ -50,7 +50,7 @@ export function StepGpu({
 }) {
   const form = useFormContext<BookValues>();
   return (
-    <Tile as="section" aria-labelledby="gpu-memory" className="flex flex-col gap-3">
+    <Tile as="section" aria-labelledby="gpu-memory" className="flex flex-col gap-2">
       <StepTitle id="gpu-memory" number={number} help={help}>
         {label}
       </StepTitle>

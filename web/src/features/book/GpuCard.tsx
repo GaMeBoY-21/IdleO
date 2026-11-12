@@ -87,7 +87,7 @@ export function GpuCard({
   return (
     <div
       data-testid="gpu-card"
-      className={cn("flex items-center gap-4 rounded-control bg-on-night/10", laptop ? "p-3.5" : "p-3")}
+      className={cn("flex items-center gap-4 rounded-control bg-on-night/10", laptop ? "p-4" : "p-4")}
     >
       <span
         aria-hidden="true"
@@ -98,14 +98,14 @@ export function GpuCard({
       >
         <Cpu className="size-7" strokeWidth={1.75} />
       </span>
-      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
         <p className={cn("font-semibold", laptop ? "text-option" : "text-body")}>{title}</p>
         <div className={cn("text-on-night-2 tabular", laptop ? "text-small" : "text-caption")}>{detail}</div>
       </div>
       {price && (
         <div
           className={cn(
-            "flex shrink-0 flex-col items-end gap-0.5 tabular",
+            "flex shrink-0 flex-col items-end gap-1 tabular",
             laptop ? "w-price text-small" : "w-24 text-caption",
           )}
         >

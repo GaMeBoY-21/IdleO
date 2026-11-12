@@ -22,7 +22,7 @@ export function CheckpointTile({ session }: { session: Session }) {
       <p className="flex items-start gap-2 text-small">
         <Check
           aria-hidden="true"
-          className={cn("mt-0.5 size-4 shrink-0", last ? "text-running" : "text-text-2")}
+          className={cn("mt-1 size-4 shrink-0", last ? "text-running" : "text-text-2")}
           strokeWidth={2.5}
         />
         {last ? (
@@ -126,7 +126,7 @@ export function Outputs({ id }: { id: string }) {
                     href={file.url}
                     download
                     onClick={(event) => void open(event, file.path)}
-                    className="flex min-h-14 items-center gap-3 py-2 hover:underline"
+                    className="flex min-h-14 items-center gap-2 py-2 hover:underline"
                   >
                     <span className="min-w-0 flex-1 text-body font-semibold break-all">{file.path}</span>
                     <span className="text-small text-ink tabular">{formatBytes(file.sizeBytes)}</span>

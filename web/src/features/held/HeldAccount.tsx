@@ -18,7 +18,7 @@ import { useTitle } from "@/lib/title";
 export function HeldShell({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-dvh flex-col">
-      <header className="sticky top-0 z-10 bg-canvas">
+      <header className="sticky top-0 z-raised bg-canvas">
         <div className={`${FRAME} flex h-16 items-center gap-6 md:h-header`}>
           <div className="flex flex-1 items-center">
             <Link href="/" className="flex min-h-touch items-center" aria-label={`${brand.name} home`}>
@@ -42,17 +42,17 @@ export function HeldShell({ children }: { children: ReactNode }) {
 export function HeldAccount() {
   useTitle("Your account is suspended");
   return (
-    <div className="w-full px-3.5 pt-2 md:px-8 md:pt-8 xl:px-10">
+    <div className="w-full px-4 pt-2 md:px-8 md:pt-8 xl:px-10">
       <div className="mx-auto flex w-full max-w-card flex-col gap-6">
         <PageHeading>Your account is suspended</PageHeading>
-        <Tile as="section" aria-labelledby="held-says" className="flex flex-col gap-4 md:p-6 xl:p-7">
+        <Tile as="section" aria-labelledby="held-says" className="flex flex-col gap-4 md:p-6 xl:p-8">
           <SectionTitle id="held-says">What this means</SectionTitle>
           <p className="max-w-prose text-small text-text-2">
             You can&apos;t book, upload or host while it is. You can still see and download everything we hold
             about you, delete your account, and write to us. If you think this is a mistake, write to us and
             say so.
           </p>
-          <div className="flex flex-col gap-3 md:flex-row">
+          <div className="flex flex-col gap-2 md:flex-row">
             <Link href="/account/help/" className={buttonClasses("primary", true)}>
               Write to us
             </Link>

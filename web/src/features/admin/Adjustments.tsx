@@ -155,7 +155,7 @@ function Ask() {
         </ActionButton>
       }
     >
-      <div className="flex flex-wrap items-end gap-3">
+      <div className="flex flex-wrap items-end gap-2">
         <SmallSelect
           label="Template"
           value={template}
@@ -196,7 +196,7 @@ function Ask() {
       {!fixed && (
         <div className="flex flex-col gap-2">
           {legs.map((leg, index) => (
-            <div key={index} className="flex flex-wrap items-end gap-3">
+            <div key={index} className="flex flex-wrap items-end gap-2">
               <SmallSelect
                 label={`Leg ${index + 1}`}
                 value={leg.direction}
@@ -353,7 +353,7 @@ function Posted() {
                   <span className="block text-caption text-text-2">{adjustment.reason}</span>
                 </Cell>
                 <Cell>
-                  <ul className="flex flex-col gap-0.5 text-small">
+                  <ul className="flex flex-col gap-1 text-small">
                     {adjustment.legs.map((leg, index) => (
                       <li key={index} className="tabular">
                         {leg.direction} {word(leg.account)} <Paise paise={leg.amountPaise} />

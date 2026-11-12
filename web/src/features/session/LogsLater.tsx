@@ -29,13 +29,13 @@ export function LogsLater({
       <Tile
         as="section"
         aria-label="Logs"
-        className="flex min-h-session-row flex-col gap-4 px-6 py-5 xl:px-7"
+        className="flex min-h-session-row flex-col gap-4 px-6 py-6 xl:px-8"
       >
         <h2 className="text-section">Logs</h2>
       </Tile>
     </div>
   ) : (
-    <div className="flex min-h-14 items-center gap-3 rounded-panel bg-panel px-4.5 py-3.5 text-body">
+    <div className="flex min-h-14 items-center gap-2 rounded-panel bg-panel px-4 py-4 text-body">
       <ScrollText aria-hidden="true" className="size-5 shrink-0" strokeWidth={1.75} />
       <span className="font-semibold">Logs</span>
     </div>

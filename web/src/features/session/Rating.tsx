@@ -113,7 +113,7 @@ function StarRow({
   label: string;
 }) {
   return (
-    <div role="group" aria-label={label} className="-ml-2.5 flex">
+    <div role="group" aria-label={label} className="-ml-2 flex">
       {STARS.map((star) => {
         const filled = value !== null && star <= value;
         return (
@@ -225,7 +225,7 @@ function CommentBox({
         rows={3}
         maxLength={COMMENT_MAX}
         onChange={(event) => onChange(event.target.value)}
-        className="rounded-control bg-panel-2 px-4 py-3 text-body text-text"
+        className="rounded-control bg-panel-2 px-4 py-4 text-body text-text"
         aria-describedby="rating-comment-help"
       />
       <p id="rating-comment-help" className="text-caption text-text-2">

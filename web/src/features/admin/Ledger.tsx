@@ -169,7 +169,7 @@ function TrialBalance() {
                 credits <Paise paise={balance.creditsPaise} />.
               </p>
             ) : (
-              <p role="alert" className="rounded-control bg-danger-soft p-3 text-small text-danger">
+              <p role="alert" className="rounded-control bg-danger-soft p-4 text-small text-danger">
                 The ledger doesn&apos;t balance: debits <Paise paise={balance.debitsPaise} />, credits{" "}
                 <Paise paise={balance.creditsPaise} />. This pages the on-call admin; see the runbook&apos;s
                 &ldquo;Ledger unbalanced&rdquo;.

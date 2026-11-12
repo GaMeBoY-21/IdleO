@@ -31,7 +31,7 @@ export function sessionLabel(session: Session, catalog: Catalog): string {
 }
 
 /** The row's grid: what, GPU, ran, cost and the action. */
-const COLUMNS = "cols-recent grid items-center gap-x-3";
+const COLUMNS = "cols-recent grid items-center gap-x-2";
 
 /**
  * "Recent sessions", a panel under the credit (approved reference `AppHome`): a table of the last
@@ -43,8 +43,8 @@ export function RecentSessions({ sessions, catalog }: { sessions: Session[]; cat
   const shown = sessions.slice(0, RECENT);
   const offered = new Set(offeredServices(catalog).map((service) => service.id));
   return (
-    <Tile aria-labelledby="recent-title" size="lg" className="flex min-h-0 flex-col gap-1.5">
-      <div className="flex items-baseline justify-between pb-1.5">
+    <Tile aria-labelledby="recent-title" size="lg" className="flex min-h-0 flex-col gap-1">
+      <div className="flex items-baseline justify-between pb-2">
         <h2 id="recent-title" className="text-section">
           Recent sessions
         </h2>
@@ -84,12 +84,12 @@ export function RecentSessions({ sessions, catalog }: { sessions: Session[]; cat
               <div
                 key={session.id}
                 role="row"
-                className={cn(COLUMNS, "border-b border-line py-2.5 text-body tabular last:border-b-0")}
+                className={cn(COLUMNS, "border-b border-line py-2 text-body tabular last:border-b-0")}
               >
                 <Link
                   role="cell"
                   href={`/session/?id=${session.id}`}
-                  className="flex min-w-0 items-center gap-2.5 font-bold hover:underline"
+                  className="flex min-w-0 items-center gap-2 font-bold hover:underline"
                 >
                   {live && (
                     <span
@@ -121,14 +121,14 @@ export function RecentSessions({ sessions, catalog }: { sessions: Session[]; cat
                   {live ? (
                     <Link
                       href={`/session/?id=${session.id}`}
-                      className="flex min-h-touch items-center rounded-control bg-panel-2 px-3.5 text-small font-bold hover:bg-line"
+                      className="flex min-h-touch items-center rounded-control bg-panel-2 px-4 text-small font-bold hover:bg-line"
                     >
                       Open
                     </Link>
                   ) : again ? (
                     <Link
                       href={bookFrom(session)}
-                      className="flex min-h-touch items-center rounded-control bg-panel-2 px-3.5 text-small font-bold hover:bg-line"
+                      className="flex min-h-touch items-center rounded-control bg-panel-2 px-4 text-small font-bold hover:bg-line"
                     >
                       Run again
                     </Link>

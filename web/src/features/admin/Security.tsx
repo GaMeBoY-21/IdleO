@@ -136,7 +136,7 @@ function Passkeys() {
         )}
       </QueryView>
       {passkeysAvailable() ? (
-        <div className="flex flex-wrap items-end gap-3">
+        <div className="flex flex-wrap items-end gap-2">
           <SmallField label="Name this passkey" value={name} onChange={setName} placeholder="My phone" />
           <Button variant="ghost" busy={busy} disabled={name.trim() === ""} onClick={() => void add()}>
             Add a passkey
@@ -341,7 +341,7 @@ function TagVocabulary() {
         {tags.data?.tags.map((tag) => tag.label).join(", ") || "No tags yet."}
       </p>
       <form
-        className="flex flex-wrap items-end gap-3"
+        className="flex flex-wrap items-end gap-2"
         onSubmit={(event) => {
           event.preventDefault();
           void add();

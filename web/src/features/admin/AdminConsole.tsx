@@ -177,7 +177,7 @@ function Layout({ children }: { children: React.ReactNode }) {
           href={screen.href}
           aria-current={current ? "page" : undefined}
           className={cn(
-            "flex min-h-touch items-center gap-3 rounded-control px-3 text-small whitespace-nowrap md:min-h-9",
+            "flex min-h-touch items-center gap-2 rounded-control px-4 text-small whitespace-nowrap md:min-h-9",
             current
               ? "bg-raised font-semibold text-text"
               : "font-medium text-text-2 hover:bg-raised hover:text-text",
@@ -207,31 +207,31 @@ function Layout({ children }: { children: React.ReactNode }) {
   };
   return (
     <div className="flex min-h-dvh flex-col md:flex-row">
-      <header className="flex flex-col gap-2 border-b border-line bg-sidebar px-4 py-3 md:sticky md:top-0 md:h-dvh md:w-sidebar-admin md:shrink-0 md:overflow-y-auto md:border-r md:border-b-0 md:py-6">
+      <header className="flex flex-col gap-2 border-b border-line bg-sidebar px-4 py-4 md:sticky md:top-0 md:h-dvh md:w-sidebar-admin md:shrink-0 md:overflow-y-auto md:border-r md:border-b-0 md:py-6">
         <div className="flex items-center justify-between gap-2 md:flex-col md:items-start">
           <Link
             href="/admin/"
-            className="flex items-center gap-2 md:px-3"
+            className="flex items-center gap-2 md:px-4"
             aria-label="IdleO admin, control room"
           >
             <Wordmark />
           </Link>
-          <span className="text-caption font-bold tracking-wider text-text-3 uppercase md:px-3">Admin</span>
+          <span className="text-caption font-bold tracking-wider text-text-3 uppercase md:px-4">Admin</span>
         </div>
         <div className="flex flex-col gap-2">
           <PaletteButton />
           <HelpButton />
         </div>
-        <nav aria-label="Admin" className="-mx-1 overflow-x-auto md:mx-0 md:mt-3">
+        <nav aria-label="Admin" className="-mx-1 overflow-x-auto md:mx-0 md:mt-4">
           <ul className="flex gap-1 md:hidden">{screens.map(item)}</ul>
           <div className="hidden flex-col gap-4 md:flex">
             {GROUPS.filter((group) => screens.some((screen) => group.hrefs.includes(screen.href))).map(
               (group) => (
-                <section key={group.label} aria-label={group.label} className="flex flex-col gap-0.5">
-                  <h2 className="px-3 pb-1 text-caption font-semibold tracking-wider text-text-3 uppercase">
+                <section key={group.label} aria-label={group.label} className="flex flex-col gap-1">
+                  <h2 className="px-4 pb-1 text-caption font-semibold tracking-wider text-text-3 uppercase">
                     {group.label}
                   </h2>
-                  <ul className="flex flex-col gap-0.5">
+                  <ul className="flex flex-col gap-1">
                     {screens.filter((screen) => group.hrefs.includes(screen.href)).map(item)}
                   </ul>
                 </section>

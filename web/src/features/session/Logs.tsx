@@ -63,14 +63,14 @@ export function Logs({
       <LogPanel id={id} log={log.data} title={laptop ? title : null} live={!settled} />
     )
   ) : failed ? (
-    <div className="flex flex-col items-start gap-3">
+    <div className="flex flex-col items-start gap-2">
       <p className="text-small text-text">{problemMessage(failed)}</p>
       <button type="button" className={logButton} onClick={() => void read()}>
         Try again
       </button>
     </div>
   ) : (
-    <div role="status" aria-label="Loading the logs" className="flex flex-col gap-3">
+    <div role="status" aria-label="Loading the logs" className="flex flex-col gap-2">
       {["w-2/3", "w-1/2", "w-3/4"].map((width) => (
         <span key={width} aria-hidden="true" className={cn("skeleton h-3 rounded-full", width)} />
       ))}
@@ -82,7 +82,7 @@ export function Logs({
       key={log.data ? "log" : "loading"}
       as="section"
       aria-label="Logs"
-      className={cn("flex flex-col gap-4", laptop ? "min-h-session-row px-6 py-5 xl:px-7" : "p-4")}
+      className={cn("flex flex-col gap-4", laptop ? "min-h-session-row px-6 py-6 xl:px-8" : "p-4")}
     >
       {laptop && total === 0 && title}
       {body}
@@ -111,7 +111,7 @@ export function Logs({
         aria-expanded={open}
         aria-controls="logs-panel"
         onClick={() => setOpen(!open)}
-        className="flex min-h-14 items-center gap-3 rounded-panel bg-panel px-4.5 py-3.5 text-left text-body"
+        className="flex min-h-14 items-center gap-2 rounded-panel bg-panel px-4 py-4 text-left text-body"
       >
         <ScrollText aria-hidden="true" className="size-5 shrink-0" strokeWidth={1.75} />
         <span className="min-w-0 flex-1 truncate">
@@ -124,11 +124,11 @@ export function Logs({
         </span>
         <ChevronDown
           aria-hidden="true"
-          className={cn("size-4.5 shrink-0 transition-transform duration-120", open && "rotate-180")}
+          className={cn("size-4.5 shrink-0 transition-transform duration-press", open && "rotate-180")}
           strokeWidth={2}
         />
       </button>
-      <div id="logs-panel" hidden={!open} className="pt-2.5">
+      <div id="logs-panel" hidden={!open} className="pt-2">
         {panel}
       </div>
     </div>

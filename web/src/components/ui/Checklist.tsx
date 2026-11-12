@@ -29,8 +29,8 @@ export function Checklist({ id, title, steps }: { id: string; title: string; ste
   const next = steps.findIndex((step) => step.done !== true);
   const done = steps.filter((step) => step.done === true).length;
   return (
-    <Tile as="section" aria-labelledby={id} className="flex flex-col gap-3 md:p-6 xl:p-7">
-      <div className="flex items-baseline justify-between gap-3">
+    <Tile as="section" aria-labelledby={id} className="flex flex-col gap-2 md:p-6 xl:p-8">
+      <div className="flex items-baseline justify-between gap-2">
         <SectionTitle id={id}>{title}</SectionTitle>
         <span className="text-small text-text-2 tabular">
           {done} of {steps.length} done
@@ -38,7 +38,7 @@ export function Checklist({ id, title, steps }: { id: string; title: string; ste
       </div>
       <ol className="flex flex-col divide-y divide-line">
         {steps.map((step, index) => (
-          <li key={step.title} className="flex min-h-18 items-start gap-3 py-3.5">
+          <li key={step.title} className="flex min-h-18 items-start gap-2 py-4">
             <span
               aria-hidden="true"
               className={cn(
@@ -48,7 +48,7 @@ export function Checklist({ id, title, steps }: { id: string; title: string; ste
             >
               {step.done === true ? <Check className="size-4" strokeWidth={2.5} /> : index + 1}
             </span>
-            <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+            <div className="flex min-w-0 flex-1 flex-col gap-1">
               <p className="text-option font-semibold">
                 {step.title}
                 <span className="sr-only">{step.done === true ? ": done" : ": to do"}</span>

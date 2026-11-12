@@ -114,14 +114,14 @@ export function FilePicker({
         onDragLeave={() => setOver(false)}
         onDrop={drop}
         className={cn(
-          "flex flex-col gap-3 rounded-control border-2 bg-panel-2 px-4 py-3.5",
+          "flex flex-col gap-2 rounded-control border-2 bg-panel-2 px-4 py-4",
           over ? "border-text" : "border-transparent",
           !upload && (missing || refused) && "ring-2 ring-danger",
         )}
       >
-        <div className="flex flex-wrap items-center gap-x-3.5 gap-y-2">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
           <Icon aria-hidden="true" className="size-5.5 shrink-0" strokeWidth={1.75} />
-          <div className="flex min-w-0 flex-1 basis-menu flex-col gap-0.5">
+          <div className="flex min-w-0 flex-1 basis-menu flex-col gap-1">
             <p className="text-body font-semibold break-words">
               {upload
                 ? breakable(`${upload.name}${upload.folder ? "/" : ""}`)

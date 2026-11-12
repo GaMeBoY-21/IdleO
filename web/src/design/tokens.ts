@@ -451,8 +451,12 @@ export const layout = {
   amount: "9ch",
 } as const;
 
+/**
+ * One easing curve and three durations (web/DESIGN.md "Motion"): a press or hover, something small appearing (a menu, a
+ * toast, an expanding row) and something large (a sheet, a dialog). Nothing moves under reduced motion.
+ */
 export const motion = {
-  durations: { press: 120, appear: 180, large: 240 },
+  durations: { press: 120, appear: 150, large: 200 },
   /** The running pulse, and the finding ring's breath: the only continuous motions beside the shimmer and the marquee. */
   pulse: 2_000,
   /** The website's marquee crosses its text in this long; it stops under reduced motion. */
@@ -463,4 +467,19 @@ export const motion = {
 /** Depth comes from colour. The one shadow is the website's hero card's soft violet glow. */
 export const shadows = {
   glow: "0 24px 80px rgb(91 75 232 / 0.18)",
+} as const;
+
+/**
+ * What sits over what, by name (`z-raised`, `z-sheet`…), never a number: sticky rows, bars and the sidebar; a table's sticky
+ * head over its pinned cells; menus and popovers; a dialog's backdrop and the dialog; a toast over everything but a step-up
+ * opened over a sheet (`above`).
+ */
+export const layers = {
+  raised: 10,
+  sticky: 20,
+  popover: 30,
+  overlay: 40,
+  sheet: 50,
+  toast: 60,
+  above: 70,
 } as const;

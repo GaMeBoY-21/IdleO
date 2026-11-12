@@ -37,7 +37,7 @@ export function Budget({ chips }: { chips: number[] }) {
     );
 
   return (
-    <Tile as="section" aria-labelledby="budget" className="flex flex-col gap-3">
+    <Tile as="section" aria-labelledby="budget" className="flex flex-col gap-2">
       <StepTitle id="budget" number={null}>
         Budget
       </StepTitle>

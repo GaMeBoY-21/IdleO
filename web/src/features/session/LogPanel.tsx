@@ -12,7 +12,7 @@ const ROW_PX = 18;
 
 /** A button on the log tile: pressed in with the page's colour. */
 export const logButton =
-  "min-h-touch rounded-control bg-panel-2 px-3.5 text-small font-semibold text-text hover:bg-line focus-visible:outline-focus";
+  "min-h-touch rounded-control bg-panel-2 px-4 text-small font-semibold text-text hover:bg-line focus-visible:outline-focus";
 
 /**
  * A session's log lines in the log tile (web/DESIGN.md "The session screen"): the newest 2,000 at most, in the
@@ -97,7 +97,7 @@ export function LogPanel({
 
   return (
     <>
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-wrap items-center gap-2">
         <div className="min-w-0 flex-1">{title}</div>
         <p className="text-caption text-text-2" aria-live="polite">
           {copied
@@ -107,7 +107,7 @@ export function LogPanel({
               : ""}
         </p>
         <button type="button" className={logButton} onClick={() => void copy()}>
-          <Copy aria-hidden="true" className="mr-1.5 inline size-4" strokeWidth={1.75} />
+          <Copy aria-hidden="true" className="mr-2 inline size-4" strokeWidth={1.75} />
           Copy
         </button>
         <button
@@ -117,7 +117,7 @@ export function LogPanel({
           aria-busy={downloading || undefined}
           onClick={() => void download()}
         >
-          <Download aria-hidden="true" className="mr-1.5 inline size-4" strokeWidth={1.75} />
+          <Download aria-hidden="true" className="mr-2 inline size-4" strokeWidth={1.75} />
           Download
         </button>
       </div>
@@ -137,7 +137,7 @@ export function LogPanel({
               setAtBottom(bottom);
             }
           }}
-          className="absolute inset-0 overflow-auto rounded-inner bg-canvas p-4.5 font-mono text-caption focus-visible:outline-focus"
+          className="absolute inset-0 overflow-auto rounded-inner bg-canvas p-4 font-mono text-caption focus-visible:outline-focus"
           data-testid="log-panel"
         >
           {start > 0 && (

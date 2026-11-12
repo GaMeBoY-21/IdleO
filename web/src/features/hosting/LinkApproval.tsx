@@ -75,13 +75,13 @@ function Machine({ link }: { link: HostLink | undefined }) {
       as="section"
       aria-labelledby="link-title"
       aria-busy={link === undefined}
-      className="flex flex-col gap-5"
+      className="flex flex-col gap-4"
     >
       <TileLabel tone="night">A laptop is asking to be linked</TileLabel>
       <h1 id="link-title" className="font-title text-display-feature">
         Link this laptop to your account?
       </h1>
-      <dl className="flex flex-col gap-3 text-body">
+      <dl className="flex flex-col gap-2 text-body">
         <Row label="Laptop" value={link?.machineName} />
         {link === undefined ? (
           <Row label="Graphics" value={undefined} />
@@ -112,7 +112,7 @@ function Machine({ link }: { link: HostLink | undefined }) {
 
 function Row({ label, value }: { label: string; value: string | undefined }) {
   return (
-    <div className="flex items-center justify-between gap-4 border-b border-on-night/15 pb-3 last:border-0 last:pb-0">
+    <div className="flex items-center justify-between gap-4 border-b border-on-night/15 pb-4 last:border-0 last:pb-0">
       <dt className="shrink-0 text-on-night-2">{label}</dt>
       <dd className="flex min-h-6 min-w-0 items-center justify-end text-right font-semibold break-words">
         {value ?? <Skeleton className="skeleton-dark block h-6 w-32" />}
@@ -134,7 +134,7 @@ function AnswerSkeleton() {
 function LinkError({ error, retry, retrying }: { error: unknown; retry: () => void; retrying: boolean }) {
   const gone = error instanceof ApiError && error.status === 404;
   return gone ? (
-    <Tile size="lg" className="flex flex-col gap-3">
+    <Tile size="lg" className="flex flex-col gap-2">
       <h2 className="text-section">We can&apos;t find that link</h2>
       <p className="text-body text-text-2">
         It may be for another account, or the address is wrong. Start again from the app on your laptop.
@@ -152,7 +152,7 @@ function Answer({ link }: { link: HostLink }) {
       return <Done link={link} />;
     case "denied":
       return (
-        <Tile size="lg" className="flex flex-col gap-3">
+        <Tile size="lg" className="flex flex-col gap-2">
           <h2 className="text-section">Nothing was linked</h2>
           <p className="text-body text-text-2">
             This link was denied. If that was a mistake, start again from the app on your laptop.
@@ -161,7 +161,7 @@ function Answer({ link }: { link: HostLink }) {
       );
     case "expired":
       return (
-        <Tile size="lg" className="flex flex-col gap-3">
+        <Tile size="lg" className="flex flex-col gap-2">
           <h2 className="text-section">This link has expired</h2>
           <p className="text-body text-text-2">
             Links last 10 minutes. Start again from the app on your laptop.
@@ -193,12 +193,12 @@ function Approve({ link }: { link: HostLink }) {
   const ready = nameError === undefined && draft.valid && price !== null;
 
   return (
-    <Tile size="lg" as="section" aria-labelledby="approve-title" className="flex flex-col gap-5">
+    <Tile size="lg" as="section" aria-labelledby="approve-title" className="flex flex-col gap-4">
       <h2 id="approve-title" className="text-section">
         Name it, check the price, and approve
       </h2>
       <form
-        className="flex flex-col gap-5"
+        className="flex flex-col gap-4"
         onSubmit={(event) => {
           event.preventDefault();
           if (ready && draft.keepFree !== null) {
@@ -223,7 +223,7 @@ function Approve({ link }: { link: HostLink }) {
             approve.reset();
           }}
         />
-        <div className="flex flex-col gap-2 rounded-control bg-panel-2 px-4 py-3.5">
+        <div className="flex flex-col gap-2 rounded-control bg-panel-2 px-4 py-4">
           <p className="min-h-12 text-body md:min-h-6" role="status">
             {earn === null || price === null ? (
               <span className="block w-full">
@@ -254,13 +254,13 @@ function Approve({ link }: { link: HostLink }) {
           </p>
         </div>
         {changing && (
-          <div className="flex flex-col gap-3.5">
+          <div className="flex flex-col gap-4">
             <ListingFields draft={draft} band={band} gpuModel={gpu?.model} onChange={() => approve.reset()} />
           </div>
         )}
         {approve.isError && <Banner tone="danger">{problemMessage(approve.error)}</Banner>}
         {deny.isError && <Banner tone="danger">{problemMessage(deny.error)}</Banner>}
-        <div className="flex flex-col items-center gap-3">
+        <div className="flex flex-col items-center gap-2">
           <Button type="submit" large block busy={approve.isPending} disabled={!ready || deny.isPending}>
             Approve and start earning
           </Button>

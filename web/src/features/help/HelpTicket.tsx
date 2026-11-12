@@ -40,7 +40,7 @@ export function HelpTicket() {
         Help
       </Link>
       {since !== null && <StaleNotice updatedAt={since} />}
-      <Tile as="section" aria-labelledby="thread-title" className="flex flex-col gap-3 md:p-6 xl:p-7">
+      <Tile as="section" aria-labelledby="thread-title" className="flex flex-col gap-2 md:p-6 xl:p-8">
         <SectionTitle id="thread-title">{topic ?? " "}</SectionTitle>
         {thread.data && ticket ? (
           <>
@@ -48,7 +48,7 @@ export function HelpTicket() {
               {STATUS_WORDS[ticket.status] ?? ticket.status} · sent {formatDay(ticket.createdAt)}
               {ticket.dueAt ? ` · we answer by ${formatDay(ticket.dueAt)}` : ""}
             </p>
-            <ol className="flex flex-col gap-3">
+            <ol className="flex flex-col gap-2">
               {thread.data.messages.map((entry) => (
                 <li
                   key={`${entry.createdAt}${entry.author}`}
@@ -92,7 +92,7 @@ export function HelpTicket() {
             retrying={thread.isFetching}
           />
         ) : (
-          <div className="flex flex-col gap-3" role="status" aria-label="Loading this message">
+          <div className="flex flex-col gap-2" role="status" aria-label="Loading this message">
             <SkeletonLine size="small" width="w-1/2" />
             <SkeletonLine size="body" width="w-full" />
             <SkeletonLine size="body" width="w-5/6" />

@@ -19,7 +19,7 @@ export function Help({ maker }: { maker: MakerHelp }) {
           {brand.name} runs renters&apos; jobs in a sealed space that needs one setting in your laptop&apos;s
           startup menu turned on. It takes a few minutes and one restart. Close your other programs first.
         </p>
-        <ol className="mt-6 grid gap-2.5 md:gap-3.5">
+        <ol className="mt-6 grid gap-2 md:gap-4">
           <li className={tile}>
             <h2 className="text-option font-semibold">1. Open the startup menu</h2>
             <p className="mt-2 text-body text-text-2">

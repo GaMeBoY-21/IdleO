@@ -25,9 +25,9 @@ const LaptopHome = lazy(() => loadLaptopHome().then((module) => ({ default: modu
 const NO_CATALOG = { services: [], templates: [] };
 
 /** The tile grid (web/DESIGN.md "Shapes and space"): two columns of 88 px rows on a phone, four of 112 px from 768 px. */
-const GRID = "grid grid-cols-2 auto-rows-tile gap-2.5 md:grid-cols-4 md:auto-rows-tile-lg md:gap-3.5";
+const GRID = "grid grid-cols-2 auto-rows-tile gap-2 md:grid-cols-4 md:auto-rows-tile-lg md:gap-4";
 const PHONE_FRAME =
-  "mx-auto flex w-full max-w-content flex-col gap-2.5 px-3.5 pt-1 pb-4 md:gap-3.5 md:px-6 md:pt-2";
+  "mx-auto flex w-full max-w-content flex-col gap-2 px-4 pt-1 pb-4 md:gap-4 md:px-6 md:pt-2";
 
 /**
  * The renter's home (approved reference `AppHome`): tiles on a grid, each a thing to check or to start. A dark
@@ -154,7 +154,7 @@ export function Home() {
         {sessions.data && list.length > 0 && (
           <Link
             href="/sessions/"
-            className="tile-motion col-span-2 hidden items-center justify-between rounded-panel bg-panel p-4.5 text-section md:flex"
+            className="tile-motion col-span-2 hidden items-center justify-between rounded-panel bg-panel p-4 text-section md:flex"
           >
             All sessions
             <span aria-hidden="true">→</span>

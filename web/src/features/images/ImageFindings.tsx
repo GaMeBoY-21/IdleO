@@ -39,7 +39,7 @@ export function ImageFindings({
         </p>
       )}
       {result && result.warnings.length > 0 && (
-        <ul className="flex flex-col gap-1.5" aria-label="Warnings">
+        <ul className="flex flex-col gap-1" aria-label="Warnings">
           {result.warnings.map((warning) => (
             <li key={warning.code + warning.message} className="flex items-start gap-2 text-warn-fg">
               <AlertTriangle aria-hidden="true" className="mt-px size-4 shrink-0" strokeWidth={1.75} />

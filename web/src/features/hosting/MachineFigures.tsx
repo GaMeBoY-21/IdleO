@@ -64,7 +64,7 @@ export const RATINGS_SHOWN_FROM = 5;
 export function RatingLine({ host }: { host: Host }) {
   const rating = host.rating;
   return (
-    <p className="flex min-h-5 items-center gap-1.5 text-small text-on-night-2">
+    <p className="flex min-h-5 items-center gap-1 text-small text-on-night-2">
       {rating ? (
         <>
           <Star aria-hidden="true" className="size-4 text-volt" fill="currentColor" strokeWidth={1.75} />
@@ -95,7 +95,7 @@ export function ReliabilityLine({ host }: { host: Host }) {
         <span className="font-semibold text-on-night">{reliabilityWord(host.reliability.label)}</span>
       </p>
       {lowers.length > 0 && (
-        <ul className="flex flex-col gap-0.5" aria-label="What lowers it">
+        <ul className="flex flex-col gap-1" aria-label="What lowers it">
           {lowers.map((sentence) => (
             <li key={sentence}>{sentence}</li>
           ))}
@@ -139,7 +139,7 @@ export function RightNow({ host }: { host: Host }) {
  */
 export function PrivacyLine({ host }: { host: Host }) {
   return (
-    <div className="flex flex-col gap-1.5 text-small text-text-2">
+    <div className="flex flex-col gap-1 text-small text-text-2">
       <p>Renters never see who you are, and their work never touches your files.</p>
       <p>{uploadLine(host.uploadCapKbps)}</p>
     </div>

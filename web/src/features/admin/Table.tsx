@@ -289,7 +289,7 @@ export function Table({
       <div
         ref={scroller}
         className={cn(
-          "relative overflow-auto rounded-panel border border-edge bg-panel px-3 py-1.5",
+          "relative overflow-auto rounded-panel border border-edge bg-panel px-4 py-2",
           windowed ? "admin-table-window" : "md:admin-table-window",
         )}
         // A wide or long table scrolls; the keyboard must reach it.
@@ -308,7 +308,7 @@ export function Table({
           <thead>
             <tr className="border-b border-line text-left text-caption tracking-wider text-text-3 uppercase">
               {selectable && (
-                <th scope="col" className="sticky top-0 z-20 bg-panel px-2 py-2.5">
+                <th scope="col" className="sticky top-0 z-sticky bg-panel px-2 py-2">
                   <input
                     type="checkbox"
                     aria-label={`Select every row shown, up to ${MOST_SELECTED}`}
@@ -343,8 +343,8 @@ export function Table({
                       ...(pin === undefined ? {} : { left: pin }),
                     }}
                     className={cn(
-                      "group sticky top-0 bg-panel px-2 py-2.5 font-semibold",
-                      pin === undefined ? "z-10" : "z-20",
+                      "group sticky top-0 bg-panel px-2 py-2 font-semibold",
+                      pin === undefined ? "z-raised" : "z-sticky",
                     )}
                   >
                     {key ? (
@@ -424,7 +424,7 @@ export function Row({ children, className }: { children: ReactNode; className?: 
           }
           const element = cell as ReactElement<{ className?: string; style?: CSSProperties }>;
           return cloneElement(element, {
-            className: cn(element.props.className, "sticky z-10 bg-panel"),
+            className: cn(element.props.className, "sticky z-raised bg-panel"),
             style: { ...element.props.style, left: pin },
           });
         });
@@ -465,7 +465,7 @@ export function Cell({
 }) {
   const { compact } = useContext(TableShape);
   return (
-    <td style={style} className={cn("px-2", compact ? "py-0.5" : "py-2", className)}>
+    <td style={style} className={cn("px-2", compact ? "py-1" : "py-2", className)}>
       {children}
     </td>
   );
@@ -519,12 +519,12 @@ function TableControls({
   return (
     <div className="flex flex-wrap items-center gap-2 text-small">
       <details ref={details} className="relative" onToggle={(event) => setOpen(event.currentTarget.open)}>
-        <summary className="flex min-h-touch cursor-pointer items-center rounded-control px-3 font-medium md:min-h-9">
+        <summary className="flex min-h-touch cursor-pointer items-center rounded-control px-4 font-medium md:min-h-9">
           Columns
         </summary>
         {/* Only while it's open, so a closed menu's column names aren't labels on the page beside the real fields. */}
         {open && (
-          <fieldset className="absolute z-30 mt-1 flex flex-col gap-1 rounded-inner border border-line bg-panel p-3">
+          <fieldset className="absolute z-popover mt-1 flex flex-col gap-1 rounded-inner border border-line bg-panel p-4">
             <legend className="sr-only">Columns of {caption}</legend>
             {named.map((index) => {
               const column = columns[index] ?? "";
@@ -600,7 +600,7 @@ function TableControls({
         onClick={() =>
           onChange({ ...settings, density: settings.density === "compact" ? "comfortable" : "compact" })
         }
-        className="flex min-h-touch items-center rounded-control px-3 font-medium md:min-h-9"
+        className="flex min-h-touch items-center rounded-control px-4 font-medium md:min-h-9"
       >
         Compact rows
       </button>

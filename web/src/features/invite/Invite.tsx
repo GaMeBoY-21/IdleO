@@ -57,7 +57,7 @@ function InviteStep() {
         <CodeForm onDone={leave} />
       )}
       <p className="mt-6 text-small text-text-2">Don&apos;t have a code? Ask the person who invited you.</p>
-      <p className="mt-3 text-caption text-text-2">
+      <p className="mt-4 text-caption text-text-2">
         {email ? `Signed in as ${email}. ` : ""}
         <button type="button" className="underline" onClick={() => void signOut()}>
           Sign out

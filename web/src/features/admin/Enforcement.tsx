@@ -124,7 +124,7 @@ export function UserEnforcement({ id }: { id: string }) {
         confirm="Take it"
         destructive
         extra={
-          <div className="flex flex-wrap items-end gap-3">
+          <div className="flex flex-wrap items-end gap-2">
             <SmallSelect
               label="As a"
               value={role}

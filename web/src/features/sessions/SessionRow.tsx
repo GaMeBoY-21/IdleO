@@ -21,7 +21,7 @@ export function SessionRow({ session }: { session: Session }) {
     <li>
       <Link
         href={`/session/?id=${session.id}`}
-        className="tile-motion flex min-h-18 items-center gap-3 rounded-panel bg-panel px-4.5 py-4"
+        className="tile-motion flex min-h-18 items-center gap-2 rounded-panel bg-panel px-4 py-4"
       >
         {live && (
           <span
@@ -29,7 +29,7 @@ export function SessionRow({ session }: { session: Session }) {
             className="size-3 shrink-0 rounded-full bg-running-dot ring-1 ring-ink/30"
           />
         )}
-        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
           <p className="text-option font-semibold break-words">{templateName(session.templateId)}</p>
           <p className="text-small text-text-2">
             {session.startedAt ? (
@@ -50,7 +50,7 @@ export function SessionRow({ session }: { session: Session }) {
             )}
           </p>
         </div>
-        <div className="flex shrink-0 flex-col items-end gap-1.5">
+        <div className="flex shrink-0 flex-col items-end gap-1">
           <StateChip state={session.state} />
           <p className="text-small tabular">
             <span className="sr-only">{live ? "Cost so far" : "Charged"} </span>
@@ -73,7 +73,7 @@ export function SessionTable({ sessions }: { sessions: Session[] }) {
     <Tile as="div" className="flex flex-col px-6 py-2">
       <div
         aria-hidden="true"
-        className="flex items-center gap-4 border-b border-line px-3 py-3 text-caption font-semibold tracking-wider text-text-3 uppercase"
+        className="flex items-center gap-4 border-b border-line px-4 py-4 text-caption font-semibold tracking-wider text-text-3 uppercase"
       >
         <span className="flex-1">Service</span>
         <span className="w-1/5 shrink-0 text-left">Started</span>
@@ -98,9 +98,9 @@ function TableRow({ session }: { session: Session }) {
     <li>
       <Link
         href={`/session/?id=${session.id}`}
-        className="flex min-h-18 items-center gap-4 rounded-control px-3 py-3 hover:bg-panel-2"
+        className="flex min-h-18 items-center gap-4 rounded-control px-4 py-4 hover:bg-panel-2"
       >
-        <span className="flex min-w-0 flex-1 items-center gap-3">
+        <span className="flex min-w-0 flex-1 items-center gap-2">
           {live && (
             <span
               aria-hidden="true"
@@ -146,7 +146,7 @@ function TableRow({ session }: { session: Session }) {
 
 export function SessionList({ sessions }: { sessions: Session[] }) {
   return (
-    <ul className="flex flex-col gap-2.5">
+    <ul className="flex flex-col gap-2">
       {sessions.map((session) => (
         <SessionRow key={session.id} session={session} />
       ))}
@@ -163,7 +163,7 @@ export function SessionRowsSkeleton({ rows = 3, table = false }: { rows?: number
         {Array.from({ length: rows }, (_, key) => (
           <div
             key={key}
-            className="flex min-h-18 items-center gap-4 border-b border-line px-3 py-3 last:border-0"
+            className="flex min-h-18 items-center gap-4 border-b border-line px-4 py-4 last:border-0"
           >
             <SkeletonLine size="option" width="w-1/3" />
           </div>
@@ -172,10 +172,10 @@ export function SessionRowsSkeleton({ rows = 3, table = false }: { rows?: number
     );
   }
   return (
-    <div className="flex flex-col gap-2.5">
+    <div className="flex flex-col gap-2">
       {Array.from({ length: rows }, (_, key) => (
-        <div key={key} className="flex min-h-18 items-center gap-3 rounded-panel bg-panel px-4.5 py-4">
-          <div className="flex flex-1 flex-col gap-0.5">
+        <div key={key} className="flex min-h-18 items-center gap-2 rounded-panel bg-panel px-4 py-4">
+          <div className="flex flex-1 flex-col gap-1">
             <SkeletonLine size="option" width="w-1/2" />
             <SkeletonLine size="small" width="w-2/3" />
           </div>

@@ -14,7 +14,7 @@ import { problemMessage } from "@/lib/problems";
 import { useTitle } from "@/lib/title";
 
 /** A row is as tall whatever its words (its body always has room for two lines), so the list is its skeleton's height. */
-const ROW = "flex items-start gap-3 py-4";
+const ROW = "flex items-start gap-2 py-4";
 
 /**
  * Notifications (ADR 0026): what the sessions and machines have told the person, newest first. Opening one goes to
@@ -44,7 +44,7 @@ export function Notifications() {
         .
       </p>
       <Tile as="section" aria-labelledby="notifications-title" className="flex flex-col gap-1">
-        <div className="flex min-h-touch items-center justify-between gap-3">
+        <div className="flex min-h-touch items-center justify-between gap-2">
           <h2 id="notifications-title" className="text-section">
             {unread > 0 ? `${unread} unread` : "All read"}
           </h2>
@@ -111,8 +111,8 @@ export function Notifications() {
           >
             {[0, 1, 2].map((key) => (
               <div key={key} className={ROW}>
-                <span aria-hidden="true" className="mt-1.5 size-2 shrink-0" />
-                <div className="flex flex-1 flex-col gap-0.5">
+                <span aria-hidden="true" className="mt-2 size-2 shrink-0" />
+                <div className="flex flex-1 flex-col gap-1">
                   <SkeletonLine size="option" width="w-1/2" />
                   <div className="min-h-10">
                     <SkeletonLine size="small" width="w-full" />
@@ -139,7 +139,7 @@ function Row({ item, onOpen }: { item: InboxItem; onOpen: () => void }) {
           aria-hidden="true"
           className={cn("mt-2 size-2 shrink-0 rounded-full", item.read ? "bg-transparent" : "bg-primary")}
         />
-        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
           <p className={cn("truncate text-option", item.read ? "font-medium" : "font-bold")}>
             {item.read ? null : <span className="sr-only">Unread: </span>}
             {item.title}

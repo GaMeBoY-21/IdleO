@@ -108,9 +108,9 @@ export function Landing({ context }: { context: SiteContext }) {
         className={`${column} grid items-center gap-14 pt-6 pb-16 md:pt-12 md:pb-24 xl:grid-cols-2`}
         aria-labelledby="what"
       >
-        <div className="flex flex-col gap-7">
+        <div className="flex flex-col gap-6">
           <span
-            className={`${label} self-start rounded-full bg-raised px-3.5 py-2 text-link`}
+            className={`${label} self-start rounded-full bg-raised px-4 py-2 text-link`}
             data-testid="kicker"
           >
             India&apos;s peer-to-peer GPU cloud
@@ -122,7 +122,7 @@ export function Landing({ context }: { context: SiteContext }) {
             Fine-tune a model or run your code on an RTX GPU that someone nearby isn&apos;t using, and pay in
             rupees for the minutes it ran. We provide the GPU. You bring your own model, data and code.
           </p>
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap gap-2">
             <a href={RENT} className={`${primaryButton} ${largeButton}`}>
               Rent a GPU
             </a>
@@ -136,17 +136,17 @@ export function Landing({ context }: { context: SiteContext }) {
         <div
           role="img"
           aria-label="An example of a live session: a fine-tune running on a laptop RTX GPU, with its time, cost so far and checkpoints"
-          className={`${tileNight} flex flex-col gap-4.5 shadow-glow`}
+          className={`${tileNight} flex flex-col gap-4 shadow-glow`}
         >
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <span className="flex items-center gap-2.5 text-small font-bold text-volt uppercase">
+            <span className="flex items-center gap-2 text-small font-bold text-volt uppercase">
               <span className="size-2.5 rounded-full bg-volt" />
               Running · epoch 4 of 5
             </span>
             <span className="text-small text-text-3">RTX 4080 Laptop · 12 GB</span>
           </div>
           <span className="font-title text-display-feature">Fine-tune your model</span>
-          <div className="grid h-hero-chart grid-cols-14 items-end gap-1.5 rounded-inner bg-canvas p-4.5">
+          <div className="grid h-hero-chart grid-cols-14 items-end gap-1 rounded-inner bg-canvas p-4">
             {CURVE.map((height, index) => (
               <span
                 key={index}
@@ -156,7 +156,7 @@ export function Landing({ context }: { context: SiteContext }) {
             ))}
             <span className="rounded-icon bg-line" style={{ height: "8%" }} />
           </div>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-3 gap-2">
             {(
               [
                 ["Time", "1:24", ""],
@@ -174,7 +174,7 @@ export function Landing({ context }: { context: SiteContext }) {
         </div>
       </section>
 
-      <div aria-hidden="true" className="overflow-hidden bg-ion-deep py-5 text-on-ion-deep">
+      <div aria-hidden="true" className="overflow-hidden bg-ion-deep py-6 text-on-ion-deep">
         <div className="flex w-max animate-marquee font-display text-display-section whitespace-nowrap uppercase">
           {[0, 1].map((half) => (
             <span key={half} className="shrink-0 pr-4">
@@ -190,7 +190,7 @@ export function Landing({ context }: { context: SiteContext }) {
         <h2 id="run" className={`${bandTitle} max-w-form`}>
           What you can run
         </h2>
-        <ul className="mt-10 grid gap-5 md:grid-cols-3">
+        <ul className="mt-10 grid gap-4 md:grid-cols-3">
           {context.services.map((service, index) => (
             <li
               key={service.id}
@@ -199,7 +199,7 @@ export function Landing({ context }: { context: SiteContext }) {
               <h3 className="font-title text-display-card">{service.name}</h3>
               <div>
                 <p className="text-body">{service.tagline}</p>
-                {service.youGet && <p className="mt-3 text-small">You get: {service.youGet}</p>}
+                {service.youGet && <p className="mt-4 text-small">You get: {service.youGet}</p>}
               </div>
             </li>
           ))}
@@ -212,9 +212,9 @@ export function Landing({ context }: { context: SiteContext }) {
         </p>
       </section>
 
-      <section className={`${column} grid gap-5 py-6 xl:grid-cols-2`}>
+      <section className={`${column} grid gap-4 py-6 xl:grid-cols-2`}>
         <div
-          className="flex flex-col gap-5 rounded-hero border border-edge bg-panel p-8 text-text md:p-10"
+          className="flex flex-col gap-4 rounded-hero border border-edge bg-panel p-8 text-text md:p-10"
           aria-labelledby="promises"
         >
           <span className={`${label} text-brand`}>For builders</span>
@@ -234,7 +234,7 @@ export function Landing({ context }: { context: SiteContext }) {
           </a>
         </div>
         <div
-          className="flex flex-col gap-5 rounded-hero bg-volt p-8 text-ink md:p-10"
+          className="flex flex-col gap-4 rounded-hero bg-volt p-8 text-ink md:p-10"
           aria-labelledby="hosts"
         >
           <span className={label}>For gamers</span>
@@ -247,7 +247,7 @@ export function Landing({ context }: { context: SiteContext }) {
           </p>
           <a
             href={EARN}
-            className="mt-auto inline-flex min-h-touch items-center justify-center self-start rounded-control bg-ink px-5 text-small font-bold text-on-night hover:bg-night"
+            className="mt-auto inline-flex min-h-touch items-center justify-center self-start rounded-control bg-ink px-6 text-small font-bold text-on-night hover:bg-night"
           >
             Earn with your GPU
           </a>
@@ -257,7 +257,7 @@ export function Landing({ context }: { context: SiteContext }) {
       <Sealed />
 
       <section
-        className={`${column} flex flex-col gap-7 py-10 md:py-16`}
+        className={`${column} flex flex-col gap-6 py-10 md:py-16`}
         aria-labelledby="pick"
         data-live-prices=""
         data-api={context.apiUrl ?? ""}
@@ -275,16 +275,16 @@ export function Landing({ context }: { context: SiteContext }) {
           <table className="w-full min-w-form border-collapse text-body">
             <thead>
               <tr className="text-left text-caption tracking-wider text-text-3 uppercase">
-                <th scope="col" className="px-7 py-5 font-semibold">
+                <th scope="col" className="px-8 py-6 font-semibold">
                   GPU memory
                 </th>
-                <th scope="col" className="px-7 py-5 font-semibold">
+                <th scope="col" className="px-8 py-6 font-semibold">
                   Typical cards
                 </th>
-                <th scope="col" className="px-7 py-5 font-semibold">
+                <th scope="col" className="px-8 py-6 font-semibold">
                   Fine-tuning, typical
                 </th>
-                <th scope="col" className="px-7 py-5 font-semibold">
+                <th scope="col" className="px-8 py-6 font-semibold">
                   Price per hour
                 </th>
               </tr>
@@ -297,12 +297,12 @@ export function Landing({ context }: { context: SiteContext }) {
                   data-class-row={gpu.gb}
                   data-state="loading"
                 >
-                  <th scope="row" className="px-7 py-5 text-left font-bold">
+                  <th scope="row" className="px-8 py-6 text-left font-bold">
                     {gpu.gb} GB
                   </th>
-                  <td className="px-7 py-5 text-text-2">{gpu.cards.slice(0, 3).join(", ")}</td>
-                  <td className="px-7 py-5 text-text-2">{gpu.qlora}</td>
-                  <td className="px-7 py-5 align-top">
+                  <td className="px-8 py-6 text-text-2">{gpu.cards.slice(0, 3).join(", ")}</td>
+                  <td className="px-8 py-6 text-text-2">{gpu.qlora}</td>
+                  <td className="px-8 py-6 align-top">
                     <span
                       data-role="skeleton"
                       className="skeleton mt-1 block h-6 w-24 rounded-control"
@@ -317,7 +317,7 @@ export function Landing({ context }: { context: SiteContext }) {
           </table>
         </div>
         <div
-          className="flex min-h-14 items-start justify-between gap-x-3 text-caption text-text-3"
+          className="flex min-h-14 items-start justify-between gap-x-2 text-caption text-text-3"
           aria-live="polite"
         >
           <p data-role="status" className="flex-1">
@@ -340,7 +340,7 @@ export function Landing({ context }: { context: SiteContext }) {
       <Questions />
 
       <section className={`${column} pb-24`}>
-        <div className="flex flex-wrap items-center justify-between gap-7 rounded-hero bg-ion-deep px-6 py-12 text-on-ion-deep md:px-11 md:py-16">
+        <div className="flex flex-wrap items-center justify-between gap-6 rounded-hero bg-ion-deep px-6 py-12 text-on-ion-deep md:px-12 md:py-16">
           <h2 className="font-display text-display-section max-w-form uppercase">
             Your first GPU is a minute away.
           </h2>
@@ -360,7 +360,7 @@ export function HowItWorks() {
       <h2 id="steps" className={`${bandTitle} max-w-form`}>
         How it works
       </h2>
-      <ol className="grid gap-5 md:grid-cols-3">
+      <ol className="grid gap-4 md:grid-cols-3">
         {STEPS.map((step, index) => (
           <li
             key={step.title}
@@ -385,13 +385,13 @@ export function HowItWorks() {
 export function Sealed() {
   return (
     <section className={`${column} ${band}`} aria-labelledby="sealed">
-      <div className="scope-night flex flex-col gap-9 rounded-hero bg-black px-6 py-12 text-on-night md:px-11 md:py-14">
+      <div className="scope-night flex flex-col gap-10 rounded-hero bg-black px-6 py-12 text-on-night md:px-12 md:py-14">
         <h2 id="sealed" className={`${sectionHeading} max-w-form text-on-night`}>
           Sealed, on both sides.
         </h2>
-        <ul className="grid gap-7 md:grid-cols-3">
+        <ul className="grid gap-6 md:grid-cols-3">
           {SEALED.map((item) => (
-            <li key={item.title} className="flex flex-col gap-2.5">
+            <li key={item.title} className="flex flex-col gap-2">
               <h3 className="text-section">{item.title}</h3>
               <p className="text-body text-on-night-2">{item.text}</p>
             </li>
@@ -408,14 +408,14 @@ export function Sealed() {
 /** The questions a renter asks first. */
 export function Questions() {
   return (
-    <section className={`${column} flex flex-col gap-3.5 pb-16`} aria-labelledby="questions">
-      <h2 id="questions" className={`${sectionHeading} mb-3.5`}>
+    <section className={`${column} flex flex-col gap-4 pb-16`} aria-labelledby="questions">
+      <h2 id="questions" className={`${sectionHeading} mb-4`}>
         Questions
       </h2>
       {QUESTIONS.map((item) => (
-        <details key={item.question} className="rounded-inner border border-edge bg-panel px-7 py-6">
+        <details key={item.question} className="rounded-inner border border-edge bg-panel px-8 py-6">
           <summary className="cursor-pointer text-option font-semibold">{item.question}</summary>
-          <p className="mt-3.5 text-body text-text-2">{item.answer}</p>
+          <p className="mt-4 text-body text-text-2">{item.answer}</p>
         </details>
       ))}
     </section>

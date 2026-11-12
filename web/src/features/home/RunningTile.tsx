@@ -36,7 +36,7 @@ export function RunningTile({
       size={wide ? "lg" : "md"}
       className={cn(wide ? "gap-4" : "col-span-2 row-span-2")}
     >
-      <span className="flex items-center justify-between gap-3">
+      <span className="flex items-center justify-between gap-2">
         <TileLabel
           tone="night"
           className="flex items-center gap-2 font-bold tracking-wider text-volt uppercase"
@@ -60,7 +60,7 @@ export function RunningTile({
           {!wide && gpu ? ` on ${gpu}` : ""}
         </span>
         {session.startedAt ? (
-          <span className="flex flex-wrap items-baseline gap-x-3.5">
+          <span className="flex flex-wrap items-baseline gap-x-4">
             <span className="font-title text-timer">
               <span className="sr-only">Running for </span>
               <Elapsed from={session.startedAt} />

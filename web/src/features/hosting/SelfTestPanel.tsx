@@ -65,7 +65,7 @@ export function SelfTestPanel({ host }: { host: Host }) {
   const done = rows.filter((row) => row.result).length;
 
   return (
-    <Tile as="section" aria-labelledby={headingId} className="flex flex-col gap-3">
+    <Tile as="section" aria-labelledby={headingId} className="flex flex-col gap-2">
       <h2 id={headingId} className="text-small font-semibold text-text-2">
         Self-test
       </h2>
@@ -128,15 +128,15 @@ function CheckRow({ row, over }: { row: Row; over: boolean }) {
   const { result } = row;
   const state = result ? (result.passed ? "passed" : "failed") : over ? "not run" : "waiting";
   return (
-    <li className="flex items-start gap-2.5">
+    <li className="flex items-start gap-2">
       <span
         aria-hidden="true"
         className={
           state === "failed"
-            ? "mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-danger text-danger-fg"
+            ? "mt-1 flex size-5 shrink-0 items-center justify-center rounded-full bg-danger text-danger-fg"
             : state === "passed"
-              ? "mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-volt text-ink"
-              : "mt-0.5 flex size-5 shrink-0 items-center justify-center text-text-2"
+              ? "mt-1 flex size-5 shrink-0 items-center justify-center rounded-full bg-volt text-ink"
+              : "mt-1 flex size-5 shrink-0 items-center justify-center text-text-2"
         }
       >
         {state === "passed" ? (
@@ -173,7 +173,7 @@ function CheckRow({ row, over }: { row: Row; over: boolean }) {
 /** The panel before its first answer: the same blocks at the same heights. */
 function SelfTestSkeleton() {
   return (
-    <div role="status" aria-label="Loading the self-test" className="flex flex-col gap-3">
+    <div role="status" aria-label="Loading the self-test" className="flex flex-col gap-2">
       <SkeletonLine size="small" width="w-full" />
       <SkeletonLine size="small" width="w-2/3" />
       <Skeleton className="h-14 w-full rounded-full" />

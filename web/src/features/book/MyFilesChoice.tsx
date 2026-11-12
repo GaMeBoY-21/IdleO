@@ -50,7 +50,7 @@ export function MyFilesChoice({
         {[0, 1].map((key) => (
           <div
             key={key}
-            className="flex flex-col gap-0.5 rounded-control border-2 border-transparent px-4 py-3.5"
+            className="flex flex-col gap-1 rounded-control border-2 border-transparent px-4 py-4"
           >
             <SkeletonLine size="option" width="w-1/2" />
             <SkeletonLine size="small" width="w-2/3" />

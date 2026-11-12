@@ -91,7 +91,7 @@ export function DetailsForm({ details }: { details: BillingDetails }) {
           ? `What you pay includes GST at ${details.gstPercent}%; your invoice shows it.`
           : "We aren't registered for GST yet, so you get a receipt, not a tax invoice."}
       </p>
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2">
         <Button type="submit" variant="ghost" busy={save.isPending} disabled={stateCode === ""}>
           Save
         </Button>

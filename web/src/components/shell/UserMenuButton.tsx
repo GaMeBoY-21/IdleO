@@ -49,7 +49,7 @@ export function UserMenuButton({ tab = false }: { tab?: boolean }) {
       type="button"
       className={
         tab
-          ? "flex h-full w-full flex-col items-center justify-center gap-0.5 rounded-bar text-text-2"
+          ? "flex h-full w-full flex-col items-center justify-center gap-1 rounded-bar text-text-2"
           : "flex size-touch items-center justify-center rounded-full"
       }
       aria-label={tab ? "More" : "Your account and settings"}

@@ -40,13 +40,13 @@ export function NotificationChoices({ items }: { items: NotificationItem[] }) {
         {items.map((item) => (
           <li
             key={item.kind}
-            className={cn(ROWS, "min-h-18 py-3 xl:min-h-16", save.isPending && "opacity-60")}
+            className={cn(ROWS, "min-h-18 py-4 xl:min-h-16", save.isPending && "opacity-60")}
           >
-            <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+            <div className="flex min-w-0 flex-1 flex-col gap-1">
               <p className="text-option font-semibold">{item.title}</p>
               {item.locked && (
-                <p className="flex items-start gap-1.5 text-caption text-text-2">
-                  <Lock aria-hidden="true" className="mt-0.5 size-3.5 shrink-0" strokeWidth={2} />
+                <p className="flex items-start gap-1 text-caption text-text-2">
+                  <Lock aria-hidden="true" className="mt-1 size-3.5 shrink-0" strokeWidth={2} />
                   <span>{item.lockedReason}</span>
                 </p>
               )}
@@ -97,12 +97,12 @@ function SwitchBox({
           checked={checked}
           disabled={locked || disabled}
           onChange={(event) => onChange(event.target.checked)}
-          className="peer h-7 w-12 cursor-pointer appearance-none rounded-full border-2 border-control bg-panel transition-colors duration-120 checked:border-primary checked:bg-primary disabled:cursor-not-allowed"
+          className="peer h-7 w-12 cursor-pointer appearance-none rounded-full border-2 border-control bg-panel transition-colors duration-press checked:border-primary checked:bg-primary disabled:cursor-not-allowed"
         />
         <span
           aria-hidden="true"
           className={cn(
-            "pointer-events-none absolute left-1.5 size-4 rounded-full bg-control transition-transform duration-120 peer-checked:translate-x-5 peer-checked:bg-primary-fg",
+            "pointer-events-none absolute left-1.5 size-4 rounded-full bg-control transition-transform duration-press peer-checked:translate-x-5 peer-checked:bg-primary-fg",
             locked && "opacity-60",
           )}
         />

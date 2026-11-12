@@ -5,7 +5,7 @@ import { EXAMPLE_CLASS_GB } from "../examples";
 import { band, column, heading, largeButton, muted, primaryButton, sectionTitle, tile } from "../ui";
 
 /** The same, in lavender, for the two typical examples. */
-const EXAMPLE_ROW = "flex h-24 flex-col justify-center rounded-panel bg-ion px-5 text-ink";
+const EXAMPLE_ROW = "flex h-24 flex-col justify-center rounded-panel bg-ion px-6 text-ink";
 
 /**
  * The pricing page (ADR 0029). Its figures come from GET /v1/public/availability after the page has painted
@@ -39,7 +39,7 @@ export function Pricing({ context }: { context: SiteContext }) {
           {EXAMPLE_CLASS_GB} GB class at the prices above. A job's real cost depends on the model, the data
           and the GPU it gets.
         </p>
-        <ul className="mt-4 grid gap-2.5 md:grid-cols-2 md:gap-3.5">
+        <ul className="mt-4 grid gap-2 md:grid-cols-2 md:gap-4">
           {context.examples.map((example) => (
             <li
               key={example.label}
@@ -66,7 +66,7 @@ export function Pricing({ context }: { context: SiteContext }) {
         <h2 id="billing" className={sectionTitle}>
           How billing works
         </h2>
-        <dl className="mt-4 grid gap-2.5 md:grid-cols-2 md:gap-3.5">
+        <dl className="mt-4 grid gap-2 md:grid-cols-2 md:gap-4">
           {[
             [
               "By the minute",

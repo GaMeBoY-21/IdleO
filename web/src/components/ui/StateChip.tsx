@@ -19,7 +19,7 @@ export function StateChip({ state }: { state: string }) {
     <span
       data-testid="state-chip"
       className={cn(
-        "inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-small font-semibold whitespace-nowrap",
+        "inline-flex items-center gap-2 rounded-full px-4 py-2 text-small font-semibold whitespace-nowrap",
         tones[tone],
       )}
     >

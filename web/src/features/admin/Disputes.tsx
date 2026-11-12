@@ -75,7 +75,7 @@ function DisputeQueue() {
   });
   return (
     <AdminPage title="Reports">
-      <div className="flex flex-wrap gap-3">
+      <div className="flex flex-wrap gap-2">
         <ListBar list="reports" extra={state === "all" ? {} : { open: String(state === "open") }} />
         <SmallSelect
           label="Show"
@@ -486,7 +486,7 @@ function FlagHost({
     return null;
   }
   return (
-    <label className="flex min-h-touch items-center gap-3 text-small">
+    <label className="flex min-h-touch items-center gap-2 text-small">
       <input
         type="checkbox"
         className="size-5"

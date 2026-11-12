@@ -143,7 +143,7 @@ export function Inbox() {
   useScreenKeys(screenKeys);
   return (
     <AdminPage title="Inbox">
-      <div className="flex flex-wrap items-end gap-3">
+      <div className="flex flex-wrap items-end gap-2">
         <SmallSelect label="Show" value={listView} onChange={setListView} options={VIEWS} />
         <SmallSelect label="Kind of work" value={type} onChange={setType} options={KINDS} />
       </div>
@@ -439,7 +439,7 @@ function Macros() {
         )}
       </QueryView>
       <form
-        className="flex flex-wrap items-end gap-3"
+        className="flex flex-wrap items-end gap-2"
         onSubmit={(event) => {
           event.preventDefault();
           void add();

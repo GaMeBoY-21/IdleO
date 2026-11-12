@@ -125,7 +125,7 @@ export function StepImage({ number }: { number: number }) {
             onChange={(event) => setReference(event.target.value)}
             hint="A tag or a digest, from Docker Hub, GHCR, quay.io, NGC or another public registry. It must be linux/amd64."
           />
-          <label className="flex items-center gap-2 pb-3 text-small">
+          <label className="flex items-center gap-2 pb-4 text-small">
             <input
               type="checkbox"
               checked={isPrivate}
@@ -168,7 +168,7 @@ export function StepImage({ number }: { number: number }) {
           </div>
         </div>
         {justChecked && (
-          <div className="rounded-control bg-panel px-4 py-3 tiled:bg-panel-2">
+          <div className="rounded-control bg-panel px-4 py-4 tiled:bg-panel-2">
             <p className="pb-1 text-small font-semibold break-all">{justChecked.reference}</p>
             <ImageFindings
               image={justChecked}
@@ -186,7 +186,7 @@ export function StepImage({ number }: { number: number }) {
   }
 
   return (
-    <Tile as="section" id={`input-${ID}`} aria-labelledby={ID} className="flex flex-col gap-3">
+    <Tile as="section" id={`input-${ID}`} aria-labelledby={ID} className="flex flex-col gap-2">
       <StepTitle
         id={ID}
         number={number}

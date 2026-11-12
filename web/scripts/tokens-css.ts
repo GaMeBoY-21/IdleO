@@ -12,6 +12,7 @@ import {
   radii,
   shadows,
   spacing,
+  layers,
   headingFrom,
   headingStyle,
   plainSizes,
@@ -97,6 +98,12 @@ ${vars(themes.light)}
 ${vars(themes.dark)}
   color-scheme: dark;
 }
+${Object.entries(layers)
+  .map(([name, value]) => `@utility z-${name} {\n  z-index: ${value};\n}\n`)
+  .join("\n")}
+${Object.entries(motion.durations)
+  .map(([name, value]) => `@utility duration-${name} {\n  transition-duration: ${value}ms;\n}\n`)
+  .join("\n")}
 @utility scope-night {
 ${vars(themes.dark)}
   color-scheme: dark;
@@ -163,6 +170,8 @@ ${Object.entries(radii)
   --ease-enter: ${motion.easing.enter};
   --ease-leave: ${motion.easing.leave};
   --default-transition-duration: ${motion.durations.press}ms;
+  --duration-appear: ${motion.durations.appear}ms;
+  --duration-large: ${motion.durations.large}ms;
   --default-transition-timing-function: ${motion.easing.enter};
   --animate-pulse: idleo-pulse ${motion.pulse}ms ease-in-out infinite;
   --animate-breathe: idleo-breathe ${motion.pulse}ms ease-in-out infinite;

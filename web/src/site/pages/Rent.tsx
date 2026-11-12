@@ -12,7 +12,7 @@ import { LivePrices } from "./LivePrices";
 export function Rent({ context }: { context: SiteContext }) {
   return (
     <>
-      <section className={`${column} ${band} flex flex-col gap-5`} aria-labelledby="rent-title">
+      <section className={`${column} ${band} flex flex-col gap-4`} aria-labelledby="rent-title">
         <h1 id="rent-title" className={`${heading} max-w-prose`}>
           Rent a GPU
         </h1>

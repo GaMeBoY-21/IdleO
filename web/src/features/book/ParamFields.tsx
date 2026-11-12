@@ -10,7 +10,7 @@ import { paramFields, type ParamField as Generated, type TemplateParam } from ".
  */
 export function ParamFields({ params }: { params: TemplateParam[] }) {
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-4">
       {paramFields(params).map((field) => (
         <ParamField key={field.param.name} field={field} />
       ))}

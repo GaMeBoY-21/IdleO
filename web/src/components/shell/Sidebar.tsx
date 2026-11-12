@@ -18,11 +18,11 @@ export const SIDEBAR_PUSH = "md:pl-sidebar";
 export function Sidebar() {
   const [pathname] = useLocation();
   return (
-    <aside className="fixed inset-y-0 left-0 z-10 hidden w-sidebar flex-col gap-1.5 border-r border-line bg-sidebar px-4 py-6 md:flex">
-      <Link href="/" className="flex min-h-touch items-center px-3 pb-4" aria-label={`${brand.name} home`}>
+    <aside className="fixed inset-y-0 left-0 z-raised hidden w-sidebar flex-col gap-1 border-r border-line bg-sidebar px-4 py-6 md:flex">
+      <Link href="/" className="flex min-h-touch items-center px-4 pb-4" aria-label={`${brand.name} home`}>
         <Wordmark />
       </Link>
-      <nav aria-label="Main" className="flex flex-col gap-1.5">
+      <nav aria-label="Main" className="flex flex-col gap-1">
         {nav.destinations.map(({ href, label }) => {
           const current = nav.isCurrent(pathname, href);
           return (
@@ -31,10 +31,10 @@ export function Sidebar() {
               href={href}
               aria-current={current ? "page" : undefined}
               className={cn(
-                "flex min-h-touch items-center gap-3 rounded-control py-3 pr-3.5 text-small transition-colors",
+                "flex min-h-touch items-center gap-2 rounded-control py-4 pr-4 text-small transition-colors",
                 current
-                  ? "bg-raised pl-3.5 font-semibold text-text"
-                  : "pl-7.5 font-medium text-text-2 hover:bg-raised hover:text-text",
+                  ? "bg-raised pl-4 font-semibold text-text"
+                  : "pl-8 font-medium text-text-2 hover:bg-raised hover:text-text",
               )}
             >
               {current && <span aria-hidden="true" className="h-4.5 w-1 rounded-full bg-progress" />}

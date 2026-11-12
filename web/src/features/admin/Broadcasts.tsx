@@ -132,7 +132,7 @@ function BroadcastList() {
         title="Write a broadcast"
         change="Another admin approves it; it goes at its time to everyone it's for, once, in the app and by email if you ask."
         extra={
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-2">
             <SmallField
               label="Subject"
               value={form.subject}

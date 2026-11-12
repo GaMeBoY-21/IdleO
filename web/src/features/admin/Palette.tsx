@@ -294,13 +294,13 @@ function PaletteBox({
             <Skeleton className="h-11 w-full" />
           </div>
         ) : options.length === 0 ? (
-          <p className="px-3 py-4 text-small text-text-2">Nothing found for that.</p>
+          <p className="px-4 py-4 text-small text-text-2">Nothing found for that.</p>
         ) : (
           groups.map(([name, members]) => (
             <div key={name} role="group" aria-label={name} className="flex flex-col pb-2">
               <p
                 aria-hidden="true"
-                className="px-3 pb-1 text-caption font-semibold tracking-wider text-text-3 uppercase"
+                className="px-4 pb-1 text-caption font-semibold tracking-wider text-text-3 uppercase"
               >
                 {name}
               </p>
@@ -317,7 +317,7 @@ function PaletteBox({
                     onMouseMove={() => setActiveKey(option.key)}
                     onClick={option.run}
                     className={cn(
-                      "flex min-h-touch w-full cursor-pointer flex-col justify-center rounded-control px-3 text-left text-small md:min-h-9",
+                      "flex min-h-touch w-full cursor-pointer flex-col justify-center rounded-control px-4 text-left text-small md:min-h-9",
                       index === current ? "bg-raised font-semibold" : "font-medium",
                     )}
                   >

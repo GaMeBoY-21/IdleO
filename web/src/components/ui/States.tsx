@@ -16,7 +16,7 @@ export function EmptyState({
   action?: ReactNode;
 }) {
   return (
-    <div className="flex flex-col items-start gap-3 py-2">
+    <div className="flex flex-col items-start gap-2 py-2">
       <p className="text-body font-medium">{title}</p>
       <p className="max-w-prose text-small text-text-2">{children}</p>
       {action}
@@ -47,7 +47,7 @@ export function ErrorState({
   retrying?: boolean;
 }) {
   return (
-    <div className="flex flex-col items-start gap-3 py-2">
+    <div className="flex flex-col items-start gap-2 py-2">
       <p className="max-w-prose text-small">{errorSentence(error, what)}</p>
       <Button variant="ghost" onClick={onRetry} busy={retrying ?? false}>
         {!retrying && <RefreshCw aria-hidden="true" className="size-4" strokeWidth={1.75} />}

@@ -14,7 +14,7 @@ session.wait()`;
  */
 export function DevelopersPanel() {
   return (
-    <Tile size="lg" aria-labelledby="developers-title" className="flex flex-col gap-3">
+    <Tile size="lg" aria-labelledby="developers-title" className="flex flex-col gap-2">
       <h2 id="developers-title" className="text-caption font-bold tracking-wider text-text-2 uppercase">
         From your terminal
       </h2>
@@ -25,10 +25,10 @@ export function DevelopersPanel() {
         <code className="font-mono">pip install ./sdk/python</code>.
       </p>
       {/* Wrapped, never scrolled sideways: nothing in it is out of reach of a keyboard. */}
-      <pre className="rounded-control bg-panel-2 p-3 font-mono text-caption break-words whitespace-pre-wrap">
+      <pre className="rounded-control bg-panel-2 p-4 font-mono text-caption break-words whitespace-pre-wrap">
         <code>{SDK_SNIPPET}</code>
       </pre>
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-wrap items-center gap-2">
         <CopyButton text={SDK_SNIPPET} label="Copy the snippet" />
         <a href={siteLink("/docs/sdk/")} className="text-small font-semibold underline">
           The SDK&apos;s docs

@@ -32,25 +32,25 @@ export function SignInFrame({
 }) {
   const laptop = useLaptop();
   return (
-    <main className="flex min-h-dvh flex-col items-center px-3.5 pt-4 pb-12 md:justify-center md:py-12 xl:items-stretch xl:px-0 xl:py-0">
+    <main className="flex min-h-dvh flex-col items-center px-4 pt-4 pb-12 md:justify-center md:py-12 xl:items-stretch xl:px-0 xl:py-0">
       <div className="flex w-full max-w-narrow flex-col gap-4 xl:max-w-none xl:flex-1 xl:px-10 xl:py-8">
         {back ? (
           <a
             href={siteLink("/")}
             aria-label="Back to the idleo website"
-            className="flex min-h-touch items-center gap-1 self-start px-1.5 xl:px-0"
+            className="flex min-h-touch items-center gap-1 self-start px-2 xl:px-0"
           >
             <ChevronLeft aria-hidden="true" className="size-5" strokeWidth={2} />
             <Wordmark />
           </a>
         ) : (
-          <Wordmark className="self-start px-1.5 xl:px-0" />
+          <Wordmark className="self-start px-2 xl:px-0" />
         )}
         <div
           className={cn(
             "flex flex-col gap-4 xl:flex-1",
             collage
-              ? "xl:grid xl:grid-cols-12 xl:items-center xl:gap-4 2xl:gap-5"
+              ? "xl:grid xl:grid-cols-12 xl:items-center xl:gap-4 2xl:gap-4"
               : "xl:items-center xl:justify-center",
           )}
         >

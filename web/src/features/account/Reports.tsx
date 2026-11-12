@@ -13,7 +13,7 @@ import { cn } from "@/lib/cn";
 import { reasonTitle, reportWords, REPLY_PROMISE } from "@/lib/reports";
 import { useTitle } from "@/lib/title";
 
-const ROW = "flex min-h-18 items-start gap-3 py-4";
+const ROW = "flex min-h-18 items-start gap-2 py-4";
 
 /**
  * Account → Reports (ADR 0028): every problem the person has reported, newest first, and where each stands: open (we
@@ -84,7 +84,7 @@ export function Reports() {
           <div className="flex flex-col divide-y divide-line" role="status" aria-label="Loading your reports">
             {[0, 1, 2].map((key) => (
               <div key={key} className={ROW}>
-                <div className="flex flex-1 flex-col gap-0.5">
+                <div className="flex flex-1 flex-col gap-1">
                   <SkeletonLine size="option" width="w-1/2" />
                   <SkeletonLine size="small" width="w-2/3" />
                   <SkeletonLine size="small" width="w-1/3" />
@@ -105,7 +105,7 @@ function ReportItem({ dispute }: { dispute: Dispute }) {
   return (
     <li>
       <Link href={`/session/?id=${dispute.sessionId}`} className={cn(ROW, "hover:bg-panel-2")}>
-        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
           <p className="text-option font-semibold break-words">{reasonTitle(dispute.reason)}</p>
           <p className="text-small text-text-2 first-letter:uppercase">
             <RelativeTime value={dispute.createdAt} prefix="sent" />

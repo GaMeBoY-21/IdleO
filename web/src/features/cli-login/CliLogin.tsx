@@ -105,7 +105,7 @@ function Approval() {
             </p>
           )}
         </div>
-        <p className="rounded-control bg-panel-2 p-5 text-title tabular" aria-label="The code to compare">
+        <p className="rounded-control bg-panel-2 p-6 text-title tabular" aria-label="The code to compare">
           {code.toUpperCase()}
         </p>
         {approve.isError && <Banner tone="danger">{problemMessage(approve.error)}</Banner>}

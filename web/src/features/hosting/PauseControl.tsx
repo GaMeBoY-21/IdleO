@@ -24,7 +24,7 @@ export function PauseControl({ host }: { host: Host }) {
   const error = pause.error ?? resume.error;
 
   return (
-    <Tile as="section" aria-label="Pause hosting" className="flex flex-col gap-3">
+    <Tile as="section" aria-label="Pause hosting" className="flex flex-col gap-2">
       {error && <Banner tone="danger">{problemMessage(error)}</Banner>}
       {host.paused ? (
         <>

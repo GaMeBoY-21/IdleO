@@ -55,7 +55,7 @@ export function SessionDetail() {
     ) : (
       <div className="flex flex-1 flex-col">
         <FlowHeader back="/sessions/" title="Session" />
-        <div className="flex w-full flex-1 flex-col gap-2.5 px-3.5 pt-1 pb-3.5 md:mx-auto md:max-w-card md:px-6 md:pt-8">
+        <div className="flex w-full flex-1 flex-col gap-2 px-4 pt-1 pb-4 md:mx-auto md:max-w-card md:px-6 md:pt-8">
           {content}
         </div>
       </div>

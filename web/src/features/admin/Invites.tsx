@@ -94,7 +94,7 @@ export function Invites() {
         change={`${Number.isInteger(howMany) && howMany > 0 ? howMany : "Some"} single-use code${howMany === 1 ? "" : "s"} unlocking ${kindOf(unlocks).toLowerCase()}, ${expiry ? `each valid for ${expiry} days` : "with no expiry"}. The reason is the note that says who they're for, and the codes are shown once.`}
         confirm="Make the codes"
         extra={
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap gap-2">
             <SmallSelect
               label="Unlocks"
               value={unlocks}
@@ -142,7 +142,7 @@ export function Invites() {
         }}
       />
       <Section title="Codes">
-        <div className="flex flex-wrap gap-3">
+        <div className="flex flex-wrap gap-2">
           <ListBar
             list="invites"
             tags={false}

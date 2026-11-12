@@ -1,6 +1,7 @@
 /**
  * No colours or sizes typed outside the design tokens (web/DESIGN.md): a string in a component may not hold a
- * hex, rgb(), hsl() or oklch() colour, or a Tailwind arbitrary value such as `p-[13px]` or `bg-[#123]`. The
+ * hex, rgb(), hsl() or oklch() colour, a Tailwind arbitrary value such as `p-[13px]` or `bg-[#123]`, space off the
+ * 4/8 px grid, a z-index or a duration as a number; nor may a `style` prop set spacing, type, a layer or a duration. The
  * tokens, the brand and Google's mark are the only files allowed to name colours (eslint.config.js).
  */
 const COLOUR = /#[0-9a-f]{3,8}\b|\b(?:rgba?|hsla?|oklch|oklab|lab|lch)\(/i;
@@ -8,13 +9,31 @@ const COLOUR = /#[0-9a-f]{3,8}\b|\b(?:rgba?|hsla?|oklch|oklab|lab|lch)\(/i;
 // selectors, not values, so they're allowed.
 const ARBITRARY_VALUE = /(?:^|[\s:])[a-z][\w-]*-\[[^\]]+\](?=$|[\s])/;
 
+// Padding, margin and gaps on the 4/8 px grid (web/DESIGN.md "Shapes and space"): the scale's half steps (2, 6, 10, 12,
+// 14, 18, 20 px and the rest) stay for heights and line heights, never for space between things.
+const OFF_GRID =
+  /(?:^|[\s:])-?(?:p|px|py|pt|pb|pl|pr|ps|pe|m|mx|my|mt|mb|ml|mr|ms|me|gap|gap-x|gap-y|space-x|space-y)-(?:0\.5|1\.25|1\.5|2\.5|3|3\.5|4\.5|5|5\.5|6\.5|7|7\.5|8\.5|9|11|15)(?=$|\s)/;
+// A layer is a token (src/design/tokens.ts, `layers`), never a number: `z-sheet`, not `z-40`.
+const RAW_LAYER = /(?:^|[\s:])-?z-\d+(?=$|\s)/;
+// A duration is a token too: `duration-appear`, not `duration-200`.
+const RAW_DURATION = /(?:^|[\s:])(?:duration|delay)-\d+(?=$|\s)/;
+
 function check(context, node, text) {
   if (COLOUR.test(text)) {
     context.report({ node, messageId: "colour" });
   } else if (ARBITRARY_VALUE.test(text)) {
     context.report({ node, messageId: "arbitrary" });
+  } else if (OFF_GRID.test(text)) {
+    context.report({ node, messageId: "grid" });
+  } else if (RAW_LAYER.test(text)) {
+    context.report({ node, messageId: "layer" });
+  } else if (RAW_DURATION.test(text)) {
+    context.report({ node, messageId: "duration" });
   }
 }
+
+/** A `style` prop's own sizes, layers and durations: in px, as a number of px, or in ms. */
+const STYLED = /^(padding|margin|gap|rowGap|columnGap|fontSize|lineHeight|zIndex|transition|transitionDuration|animation|animationDuration)/;
 
 export default {
   meta: {
@@ -22,6 +41,10 @@ export default {
     messages: {
       colour: "Use a colour token from src/design/tokens.ts, not a raw colour.",
       arbitrary: "Use a token from the design system, not a Tailwind arbitrary value.",
+      grid: "Space between things is on the 4/8 px grid: p-1, p-2, p-4, p-6, p-8… (web/DESIGN.md).",
+      layer: "Use a layer token (z-raised, z-sticky, z-sheet, z-toast…), not a z-index number.",
+      duration: "Use a motion token (duration-press, duration-appear, duration-large), not a number of ms.",
+      styled: "Spacing, type, layers and durations come from the design tokens, not a style prop.",
     },
     schema: [],
   },
@@ -34,6 +57,15 @@ export default {
       },
       TemplateElement(node) {
         check(context, node, node.value.raw);
+      },
+      Property(node) {
+        const name = node.key?.name ?? node.key?.value;
+        const inStyle =
+          node.parent?.parent?.type === "JSXExpressionContainer" &&
+          node.parent.parent.parent?.name?.name === "style";
+        if (inStyle && typeof name === "string" && STYLED.test(name) && node.value.type === "Literal") {
+          context.report({ node, messageId: "styled" });
+        }
       },
     };
   },

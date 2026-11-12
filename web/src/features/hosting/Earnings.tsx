@@ -17,7 +17,7 @@ import { HOST_PATHS } from "@/sites/host/paths";
 
 const PAYOUT_NOTE = "Paid to your UPI ID every Monday, 7 days after each session.";
 
-const ROW = "flex min-h-18 items-center gap-3 py-4";
+const ROW = "flex min-h-18 items-center gap-2 py-4";
 
 /**
  * Earnings across every machine (docs/design/hosting/earnings-phone.html): the total, this week and the time rented,
@@ -94,7 +94,7 @@ export function Earnings() {
 /** The last 8 weeks as bars, and where the payouts are. */
 function WeeksTile({ owner }: { owner: OwnerEarnings }) {
   return (
-    <Tile as="section" aria-labelledby="weeks-title" className="flex flex-col gap-3 xl:p-7">
+    <Tile as="section" aria-labelledby="weeks-title" className="flex flex-col gap-2 xl:p-8">
       <SectionTitle
         id="weeks-title"
         action={
@@ -118,7 +118,7 @@ function Totals({ owner, heading = false }: { owner: OwnerEarnings; heading?: bo
       size={heading ? "lg" : undefined}
       as="section"
       aria-label="Totals"
-      className="flex flex-col gap-5 xl:p-7"
+      className="flex flex-col gap-4 xl:p-8"
     >
       <div className="flex flex-col gap-1">
         <p className="text-small font-semibold text-on-night-2">All machines, in total</p>
@@ -136,7 +136,7 @@ function Totals({ owner, heading = false }: { owner: OwnerEarnings; heading?: bo
       {owner.machines.length > 1 && (
         <ul aria-label="Each machine" className="flex flex-col divide-y divide-on-night/15">
           {owner.machines.map((machine) => (
-            <li key={machine.hostId} className="flex min-h-touch items-center justify-between gap-3 py-2">
+            <li key={machine.hostId} className="flex min-h-touch items-center justify-between gap-2 py-2">
               <span className="text-small font-semibold break-words">
                 {machine.name}
                 {machine.removed && <span className="font-normal text-on-night-2"> (removed)</span>}
@@ -167,7 +167,7 @@ function History({
             What your machines earn, and any time given back for a lost session, will be listed here.
           </EmptyState>
         ) : (
-          <Tile as="div" className="px-4.5 py-0">
+          <Tile as="div" className="px-4 py-0">
             <ul className="flex flex-col divide-y divide-line">
               {entries.map((entry) => (
                 <EntryRow key={entry.id} entry={entry} />
@@ -196,7 +196,7 @@ function TotalsSkeleton() {
     <Tile
       tone="night"
       size="lg"
-      className="flex flex-col gap-5 xl:p-7"
+      className="flex flex-col gap-4 xl:p-8"
       role="status"
       aria-label="Loading your earnings"
     >
@@ -215,10 +215,10 @@ function TotalsSkeleton() {
 
 function HistorySkeleton() {
   return (
-    <Tile as="div" aria-hidden="true" className="flex flex-col divide-y divide-line px-4.5 py-0">
+    <Tile as="div" aria-hidden="true" className="flex flex-col divide-y divide-line px-4 py-0">
       {[0, 1, 2, 3].map((key) => (
         <div key={key} className={ROW}>
-          <div className="flex flex-1 flex-col gap-0.5">
+          <div className="flex flex-1 flex-col gap-1">
             <SkeletonLine size="option" width="w-1/2" />
             <SkeletonLine size="small" width="w-1/3" />
           </div>
@@ -232,8 +232,8 @@ function HistorySkeleton() {
 /** Both sections' shape, as one block that the content replaces whole, so nothing in it moves. */
 function EarningsSkeleton() {
   return (
-    <div role="status" aria-label="Loading your earnings" className="flex flex-col gap-7">
-      <Tile tone="night" className="flex flex-col gap-5">
+    <div role="status" aria-label="Loading your earnings" className="flex flex-col gap-6">
+      <Tile tone="night" className="flex flex-col gap-4">
         <div className="flex flex-col gap-1">
           <SkeletonLine size="small" width="w-1/3" onDark />
           <SkeletonLine size="timer" width="w-1/2" onDark />
@@ -244,10 +244,10 @@ function EarningsSkeleton() {
         </div>
         <p className="max-w-prose text-small text-on-night-2">{PAYOUT_NOTE}</p>
       </Tile>
-      <Tile as="div" className="flex flex-col divide-y divide-line px-4.5 py-0">
+      <Tile as="div" className="flex flex-col divide-y divide-line px-4 py-0">
         {[0, 1, 2, 3].map((key) => (
           <div key={key} className={ROW}>
-            <div className="flex flex-1 flex-col gap-0.5">
+            <div className="flex flex-1 flex-col gap-1">
               <SkeletonLine size="option" width="w-1/2" />
               <SkeletonLine size="small" width="w-1/3" />
             </div>
@@ -261,7 +261,7 @@ function EarningsSkeleton() {
 
 function Figure({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="flex min-h-18 flex-col justify-center gap-0.5 rounded-control bg-on-night/10 px-4 py-3.5">
+    <div className="flex min-h-18 flex-col justify-center gap-1 rounded-control bg-on-night/10 px-4 py-4">
       <dt className="text-small text-on-night-2">{label}</dt>
       <dd className="text-option font-semibold">{children}</dd>
     </div>
@@ -273,7 +273,7 @@ function EntryRow({ entry }: { entry: EarningsEntry }) {
   const givenBack = entry.amountPaise < 0;
   return (
     <li className={ROW}>
-      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
         <p className="text-option font-semibold break-words">
           {entry.label}
           {!givenBack && entry.minutes > 0 && ` · ${formatMinutes(entry.minutes)}`}

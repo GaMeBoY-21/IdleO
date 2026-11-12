@@ -73,7 +73,7 @@ const field = "mt-1 h-14 w-full rounded-control border border-line bg-panel-2 px
  */
 function WindowsDownload({ apiUrl }: { apiUrl: string | null }) {
   return (
-    <div className="flex min-h-14 items-center gap-3 md:min-h-15" data-download="" data-api={apiUrl ?? ""}>
+    <div className="flex min-h-14 items-center gap-2 md:min-h-15" data-download="" data-api={apiUrl ?? ""}>
       <a
         data-role="download"
         hidden
@@ -98,7 +98,7 @@ function WindowsDownload({ apiUrl }: { apiUrl: string | null }) {
 export function Earn({ apiUrl, links }: { apiUrl: string | null; links: EntryLinks }) {
   return (
     <>
-      <section className={`${column} pt-3.5 pb-6 md:pt-6 md:pb-8`}>
+      <section className={`${column} pt-4 pb-6 md:pt-6 md:pb-8`}>
         <div className={tileEmber}>
           <h1 className="font-display text-display-section max-w-form uppercase">Earn with your GPU</h1>
           <p className="mt-4 max-w-prose text-body text-ink md:text-option">
@@ -106,7 +106,7 @@ export function Earn({ apiUrl, links }: { apiUrl: string | null; links: EntryLin
             while you aren&apos;t using it. You set the price and keep {100 - COMMISSION_PERCENT}% of what
             renters pay. Payouts start with the paid pilot; until then earnings are counted but not paid out.
           </p>
-          <div className="mt-8 flex flex-wrap items-center gap-3">
+          <div className="mt-8 flex flex-wrap items-center gap-2">
             <a href={links.startHosting} className={`${primaryButton} ${largeButton}`}>
               Start hosting
             </a>
@@ -119,7 +119,7 @@ export function Earn({ apiUrl, links }: { apiUrl: string | null; links: EntryLin
         <h2 id="how" className={sectionTitle}>
           How it works
         </h2>
-        <ol className="mt-4 grid gap-2.5 md:grid-cols-4 md:gap-3.5">
+        <ol className="mt-4 grid gap-2 md:grid-cols-4 md:gap-4">
           {HOW.map((step, index) => (
             <li key={step.title} className={`${tile} flex flex-col gap-2`}>
               <span className="font-display text-display-number">
@@ -140,7 +140,7 @@ export function Earn({ apiUrl, links }: { apiUrl: string | null; links: EntryLin
           Hosting opens after our safety tests on real Windows laptops. These are the protections it will
           have.
         </p>
-        <ul className="mt-4 grid gap-2.5 md:grid-cols-2 md:gap-3.5">
+        <ul className="mt-4 grid gap-2 md:grid-cols-2 md:gap-4">
           {SAFETY.map((item) => (
             <li key={item.title} className={tile}>
               <h3 className="text-option font-semibold">{item.title}</h3>
@@ -169,14 +169,14 @@ export function Earn({ apiUrl, links }: { apiUrl: string | null; links: EntryLin
         </ul>
       </section>
 
-      <section className={`${column} flex flex-col gap-3 pb-10 md:pb-14`} aria-labelledby="faq">
+      <section className={`${column} flex flex-col gap-2 pb-10 md:pb-14`} aria-labelledby="faq">
         <h2 id="faq" className={sectionTitle}>
           Questions
         </h2>
         {FAQ.map((item) => (
           <details key={item.question} className={tile}>
             <summary className="cursor-pointer text-option font-semibold">{item.question}</summary>
-            <p className={`${muted} mt-3`}>{item.answer}</p>
+            <p className={`${muted} mt-4`}>{item.answer}</p>
           </details>
         ))}
       </section>
@@ -194,7 +194,7 @@ export function Earn({ apiUrl, links }: { apiUrl: string | null; links: EntryLin
           Hours free a day × your price × the share of those hours that get rented ×{" "}
           {100 - COMMISSION_PERCENT}%. Change any of them.
         </p>
-        <div className="mt-6 grid gap-2.5 md:grid-cols-2 md:gap-3.5">
+        <div className="mt-6 grid gap-2 md:grid-cols-2 md:gap-4">
           <div className={`${tile} grid gap-4`}>
             <label className="block text-small font-semibold">
               Your GPU's memory

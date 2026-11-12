@@ -234,11 +234,11 @@ Every text pair meets 4.5:1 (1.4.3; the 24 px and larger headlines need only 3:1
 
 ## Shapes and space
 
-- **Panels, depth from colour.** A panel is `panel` (or a colour, or `night`) with 28 px corners and 18 px of padding on the app, 24 to 40 px on the website. Separation comes from the page's colour between panels, and by day from a 1 px `edge`. A 1 px `line` appears only between rows inside a panel. There are no shadows, but the website's hero card's violet glow.
+- **Panels, depth from colour.** A panel is `panel` (or a colour, or `night`) with 28 px corners and 16 px of padding on the app, 24 to 40 px on the website. Separation comes from the page's colour between panels, and by day from a 1 px `edge`. A 1 px `line` appears only between rows inside a panel. There are no shadows, but the website's hero card's violet glow.
 - **Corners:** 14 px for controls and buttons (`rounded-control`; 16 px for the large button, `rounded-control-lg`); 12 px for chips and icon squares (`rounded-icon`); 20 px for panels inside panels and for question rows (`rounded-inner`); 28 px for panels (`rounded-panel`) and the top of a bottom sheet; 32 px for feature panels (`rounded-feature`); 40 px for the big ones, such as the website's hero card and its bands (`rounded-hero`); 22 px for the phone's tab bar (`rounded-bar`); fully round (9999 px) for chips, status pills, progress bars and avatars.
 - **A panel inside a panel** (a field, a ghost button, an option, a row that opens) is pressed in with the next step of the panel's colour (`panel-2`); the code marks a panel's inside with `data-tile` and does this once (the `tiled` variant and one nested-panel rule in `styles.css`), so no component needs to know where it sits.
 - **The selected option** is a volt panel with a check (`ink` text); the ones not selected are plain panels.
-- **Spacing is an 8 px grid:** 8, 16, 24, 32, 40, 48, 56, 64, 72, 80, 96, 112 px, with 4 px for small gaps inside a control or between an icon and its text. Older half steps (6, 10, 12, 14, 18, 20 and others) remain in the scale for the app's tiles until each screen is rebuilt on the grid, and are not used on the website. Named sizes follow.
+- **Spacing is an 8 px grid:** 8, 16, 24, 32, 40, 48, 56, 64, 72, 80, 96, 112 px, with 4 px for small gaps inside a control or between an icon and its text. The scale's half steps (2, 6, 10, 12, 14, 18, 20 px and the rest) stay only for heights and line heights: padding, margins and gaps never use them, and a lint rule (`idleo/design-tokens`) refuses them. Named sizes follow.
   - Between sections: 24 to 32 px in the app, 80 to 112 px on the website; between a panel's title and its content: 16 px; between options: 8 px.
 - **Heights:** controls at least 44 px (`touch`); fields 56 px; buttons 56 px (`large`: the one at the foot of a flow, 60 px on a laptop).
 - **Named sizes:** the finding ring 88 px on a 168 px grey disc (`finding-ring`, `finding`); the log panel at least 384 px (`panel`); Book's price beside its GPU card 112 px on a laptop (`price`), so it never moves as it arrives; the website's hero chart 168 px (`hero-chart`) and its step cards at least 256 px (`step`).
@@ -270,7 +270,8 @@ Every text pair meets 4.5:1 (1.4.3; the 24 px and larger headlines need only 3:1
 
 ## Motion
 
-- **Durations:** 120 ms for presses, hovers and toggles; 180 ms for small things appearing (menus, popovers, toasts); 240 ms for large things (sheets, dialogs, page content fading in). Nothing longer, but for the two continuous motions below.
+- **Durations** (`motion` in tokens.ts; `duration-press`, `duration-appear`, `duration-large`): 120 ms for presses, hovers and toggles; 150 ms for small things appearing (menus, popovers, toasts, a row that opens); 200 ms for large things (sheets, dialogs). Nothing longer, but for the continuous motions below. A number of milliseconds in a component fails lint.
+- **Layers** (`layers` in tokens.ts), by name, never a z-index number: `z-raised` (sticky rows and bars, the sidebar), `z-sticky` (a table's head over its pinned cells), `z-popover` (menus), `z-overlay` and `z-sheet` (a dialog's backdrop and the dialog), `z-toast`, and `z-above` (a step-up over a sheet).
 - **One easing family**, a decelerating curve:
   - entering: `cubic-bezier(0.2, 0, 0, 1)`;
   - leaving: `cubic-bezier(0.4, 0, 1, 1)`, at two-thirds of the entering duration.

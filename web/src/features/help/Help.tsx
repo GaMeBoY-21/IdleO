@@ -17,7 +17,7 @@ import { formatDay } from "@/lib/time";
 import { useTitle } from "@/lib/title";
 import { useHelpSubjects } from "@site/help";
 
-const ROW = "flex min-h-18 items-center gap-3 py-3";
+const ROW = "flex min-h-18 items-center gap-2 py-4";
 
 /**
  * Account → Help (ADR 0037): a message to us, about one of the person's sessions or machines if they like, and every
@@ -42,7 +42,7 @@ export function Help() {
       <Tile
         as="section"
         aria-labelledby="write-title"
-        className="flex flex-col gap-3 md:p-6 xl:col-span-3 xl:p-7"
+        className="flex flex-col gap-2 md:p-6 xl:col-span-3 xl:p-8"
       >
         <SectionTitle id="write-title">Send us a message</SectionTitle>
         <p className="max-w-prose text-small text-text-2">
@@ -53,7 +53,7 @@ export function Help() {
       <Tile
         as="section"
         aria-labelledby="sent-title"
-        className="flex flex-col gap-1 md:p-6 xl:col-span-2 xl:p-7"
+        className="flex flex-col gap-1 md:p-6 xl:col-span-2 xl:p-8"
       >
         <SectionTitle id="sent-title">Your messages</SectionTitle>
         {tickets.data ? (
@@ -83,7 +83,7 @@ export function Help() {
           >
             {[0, 1].map((key) => (
               <div key={key} className={ROW}>
-                <div className="flex flex-1 flex-col gap-0.5">
+                <div className="flex flex-1 flex-col gap-1">
                   <SkeletonLine size="option" width="w-1/2" />
                   <SkeletonLine size="small" width="w-2/3" />
                 </div>
@@ -103,7 +103,7 @@ function TicketRow({ ticket }: { ticket: SupportTicket }) {
   return (
     <li>
       <Link href={`/account/help/ticket/?id=${ticket.id}`} className={`${ROW} hover:bg-panel-2`}>
-        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
           <p className="truncate text-option font-semibold">
             {ticketNumber(ticket.number)} · {topic}
           </p>
