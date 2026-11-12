@@ -63,9 +63,11 @@ function shellChunk(id: string): string | undefined {
       id,
     ) ||
     // What sign-in and the screen its email link opens share, its words and its form's loader; a session's title, shared by Home and
-    // the session screen; the listing fields, shared by a machine's price and the link screen. Each would otherwise be another file
-    // beside a screen's own, which on a slow connection costs a round trip (ADR 0018).
-    /\/src\/features\/(sign-in\/(messages|LazyEmailForm)|flow\/headline|hosting\/PriceForm)\./.test(id) ||
+    // the session screen. Each would otherwise be another file beside a screen's own, which on a slow connection costs a round
+    // trip (ADR 0018). The listing fields (hosting/PriceForm), shared by a laptop's price and the link screen, are a file of
+    // their own instead: those two paint in about 0.6 s of their 2 s, and the host's home, which never draws them, can't
+    // spare their 1.8 KB.
+    /\/src\/features\/(sign-in\/(messages|LazyEmailForm)|flow\/headline)\./.test(id) ||
     // The mutation code: shared by Book and the session screen, which would otherwise each wait on another small file (ADR 0021).
     /query-core\/build\/modern\/mutationObserver|react-query\/build\/modern\/useMutation/.test(id) ||
     /node_modules\/(\.pnpm\/)?clsx/.test(id)
