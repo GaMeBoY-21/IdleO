@@ -244,7 +244,7 @@ export function Id({ value, page, label }: { value: string; page?: string; label
   );
 }
 
-/** One small labelled field of a search form, or of a sheet. */
+/** One small labelled field of a search form, or of a sheet: its width at most, never wider than the screen. */
 export function SmallField({
   label,
   value,
@@ -264,7 +264,7 @@ export function SmallField({
 }) {
   const id = useId();
   return (
-    <div className="flex flex-col gap-1">
+    <div className="flex min-w-0 max-w-full flex-col gap-1">
       <label htmlFor={id} className="text-caption font-medium">
         {label}
       </label>
@@ -276,7 +276,7 @@ export function SmallField({
         placeholder={placeholder}
         onChange={(event) => onChange(event.target.value)}
         className={cn(
-          "min-h-touch rounded-control border border-edge bg-panel px-4 text-small text-text placeholder:text-text-2",
+          "min-h-touch max-w-full rounded-control border border-edge bg-panel px-4 text-small text-text placeholder:text-text-2",
           width,
         )}
       />

@@ -27,7 +27,7 @@ const STEPS = new Set(
     ...readFileSync(fileURLToPath(new URL("../src/design/tokens.gen.css", import.meta.url)), "utf8").matchAll(
       /--spacing-([\w\\.]+):/g,
     ),
-  ].map((match) => match[1].replace("\\", "")),
+  ].map((match) => match[1].replaceAll("\\", "")),
 );
 const SIZED =
   /(?:^|[\s:])-?(?:h|w|min-h|min-w|max-h|max-w|size|p|px|py|pt|pb|pl|pr|ps|pe|m|mx|my|mt|mb|ml|mr|ms|me|gap|gap-x|gap-y|top|bottom|left|right|inset|inset-x|inset-y|space-x|space-y|translate-x|translate-y|basis)-(\d+(?:\.\d+)?)(?=$|\s)/g;

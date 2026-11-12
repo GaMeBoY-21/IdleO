@@ -41,7 +41,7 @@ export function KeyValueList({
           className={cn(
             layout === "columns"
               ? "flex flex-col md:flex-row md:gap-6"
-              : "flex min-h-touch items-baseline justify-between gap-4",
+              : "flex min-h-touch items-center justify-between gap-4",
             divided && "py-2",
           )}
         >
@@ -56,7 +56,7 @@ export function KeyValueList({
           <dd
             className={cn(
               "min-w-0",
-              layout === "split" ? "text-right font-semibold break-words" : "break-words",
+              layout === "split" ? "flex-1 text-right font-semibold break-words" : "break-words",
             )}
           >
             {value}
@@ -76,6 +76,7 @@ export function StatTile({
   label,
   children,
   note,
+  size = "md",
   onNight = false,
   className,
 }: {
@@ -84,20 +85,25 @@ export function StatTile({
   children: ReactNode;
   /** One line on it, which holds its place even when empty, so tiles in a row line up. */
   note?: ReactNode;
+  /** `sm` in a narrow panel: the figure in small type, with room kept for it on two lines. */
+  size?: "md" | "sm";
   onNight?: boolean;
   className?: string;
 }) {
   return (
     <div
       className={cn(
-        "flex min-h-18 flex-col justify-center gap-1 rounded-control px-4 py-4",
+        "flex flex-col gap-1 rounded-control px-4",
+        size === "md" ? "min-h-18 justify-center py-4" : "min-h-20 justify-start py-2",
         onNight ? "bg-on-night/10" : "bg-panel-2",
         className,
       )}
     >
       <dt className={cn("text-small", onNight ? "text-on-night-2" : "text-text-2")}>{label}</dt>
       <dd className="flex flex-col gap-1">
-        <div className="text-option font-semibold tabular">{children}</div>
+        <div className={cn("font-semibold tabular", size === "md" ? "text-option" : "text-small")}>
+          {children}
+        </div>
         {note !== undefined && (
           <span className={cn("min-h-9 text-caption", onNight ? "text-on-night-2" : "text-text-2")}>
             {note}

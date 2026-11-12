@@ -67,10 +67,11 @@ export function EarningsHero({
           )}
         </span>
         <StatGrid>
-          <StatTile label="Pending" onNight>
+          {/* Small, with room for two lines, so a figure that wraps in the narrow panel moves nothing when it arrives. */}
+          <StatTile label="Pending" size="sm" onNight>
             {summary ? <Money paise={summary.pendingPaise} /> : "…"}
           </StatTile>
-          <StatTile label="Next payout" onNight>
+          <StatTile label="Next payout" size="sm" onNight>
             {summary
               ? `${formatDay(summary.nextPayoutAt)}${nextAmount !== null ? ` · ${formatPaise(nextAmount)}` : ""}`
               : "…"}

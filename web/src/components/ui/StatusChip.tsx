@@ -16,12 +16,14 @@ const TONES: Record<Tone, string> = {
   neutral: "bg-raised text-text-2",
 };
 
-function Mark({ tone }: { tone: Tone }) {
+/** A live state's dot pulses only while the work runs, the one continuous motion allowed (none under reduced motion). */
+function Mark({ tone, running }: { tone: Tone; running: boolean }) {
   if (tone === "live") {
     return (
       <span
         aria-hidden="true"
-        className="size-2 shrink-0 rounded-full bg-running motion-safe:animate-pulse"
+        data-pulse={running ? "" : undefined}
+        className={cn("size-2 shrink-0 rounded-full bg-running", running && "motion-safe:animate-pulse")}
       />
     );
   }
@@ -76,7 +78,7 @@ export function StatusChip({
         TONES[word.tone],
       )}
     >
-      <Mark tone={word.tone} />
+      <Mark tone={word.tone} running={state === "RUNNING"} />
       {label ?? (exact ? (word.exact ?? word.label) : word.label)}
     </span>
   );
