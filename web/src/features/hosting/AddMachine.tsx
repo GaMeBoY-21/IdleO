@@ -69,7 +69,7 @@ export function DownloadButton() {
           Windows app: coming soon
         </button>
         <p id={whyId} className="min-h-5 text-small text-text-2">
-          Its download appears here once it&apos;s signed and released.
+          Not released yet.
         </p>
       </div>
     );
