@@ -27,7 +27,15 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       string[]
     >;
     const modules = Object.values(chunks).flat();
-    const found = strangers(site, chunks);
+    // The component gallery is a development server's alone (vite.config.ts, galleryPage): never in a build.
+    const found = [
+      ...strangers(site, chunks),
+      ...Object.entries(chunks).flatMap(([chunk, held]) =>
+        held
+          .filter((module) => module.startsWith("src/gallery/"))
+          .map((module) => `${chunk}: ${module} (the gallery)`),
+      ),
+    ];
     if (found.length > 0) {
       console.error(`the ${site} site's build holds code that isn't its own:\n${found.join("\n")}`);
       failed = true;

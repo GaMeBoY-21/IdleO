@@ -1,0 +1,120 @@
+name: ui-review
+
+# The UI review (web/README.md "The UI review"): every screen of every site in each of its states, at five widths and in
+# both themes, as pictures on one page per site, with what the checks found on each (web/e2e/ui-review.ts). By hand only:
+# it gates nothing, it's for looking at. Given an earlier run's id, it also lays each picture beside that run's.
+on:
+  workflow_dispatch:
+    inputs:
+      before_run:
+        description: "An earlier ui-review run's id, to compare with (optional)"
+        required: false
+        default: ""
+      states:
+        description: "The data states"
+        required: false
+        default: "full,loading,empty,error,long,many"
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  pictures:
+    name: pictures ${{ matrix.width }} ${{ matrix.theme }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
+    strategy:
+      fail-fast: false
+      matrix:
+        width: [1440, 1280, 1024, 768, 390]
+        theme: [dark, light]
+    env:
+      API_URL: http://localhost:8180
+      SIGN_IN_URL: http://localhost:8099/idleo-local
+      WEB_URL: http://localhost:3000
+      HOST_URL: http://localhost:3003
+      ADMIN_URL: http://localhost:3004
+      SITE_URL: http://localhost:3002
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+        with:
+          package_json_file: web/package.json
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: web/.node-version
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+      - name: Install Playwright's browser and its system libraries
+        run: scripts/e2e/install-browser.sh
+      - name: The sign-in server the sites sign in with; the API answers from fixtures
+        run: docker compose -f control-plane/compose.yaml up -d sign-in
+      - name: Build the four sites against the fixtures' API
+        working-directory: web
+        env:
+          IDLEO_DEPLOYMENT: local
+          IDLEO_SITE_URL: http://localhost:3002
+          IDLEO_APP_URL: http://localhost:3000
+          IDLEO_HOST_URL: http://localhost:3003
+          IDLEO_ADMIN_URL: http://localhost:3004
+          VITE_API_URL: http://localhost:8180
+          VITE_STORAGE_URL: http://localhost:9100
+          VITE_AUTH: oidc-mock
+          VITE_OIDC_ISSUER: http://localhost:8099/idleo-local
+          VITE_OIDC_CLIENT_ID: idleo-local
+          VITE_CHECKOUT_URL: http://localhost:3000/checkout.js
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm build
+          pnpm build:site
+      # ui-review.ts serves each site from its build, and lays out only this job's pictures; the last job joins them.
+      - name: The pictures at ${{ matrix.width }} px, ${{ matrix.theme }}
+        working-directory: web
+        run: >-
+          node e2e/ui-review.ts --out ../ui-review --widths ${{ matrix.width }} --themes ${{ matrix.theme }}
+          --states '${{ inputs.states }}'
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: ui-review-${{ matrix.width }}-${{ matrix.theme }}
+          path: |
+            ui-review/admin
+            ui-review/app
+            ui-review/host
+            ui-review/website
+          retention-days: 7
+
+  pages:
+    name: the pages
+    needs: pictures
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: web/.node-version
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: ui-review-*
+          path: ui-review
+          merge-multiple: true
+      - name: An earlier run's pictures, to compare with
+        if: inputs.before_run != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BEFORE_RUN: ${{ inputs.before_run }}
+        run: gh run download "$BEFORE_RUN" --repo "$GITHUB_REPOSITORY" -n ui-review -D before
+      # Only the script's own imports, which are Node's: no install needed.
+      - name: The pages
+        working-directory: web
+        run: >-
+          node e2e/ui-review.ts --index-only --out ../ui-review --states '${{ inputs.states }}'
+          ${{ inputs.before_run != '' && '--before ../before' || '' }}
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ui-review
+          path: ui-review
+          retention-days: 30

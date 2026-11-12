@@ -6,7 +6,7 @@ import { capture, expectAccessible, fakeApi, onPhone, signIn, type Answer } from
 
 /**
  * Every screen in every state (web/DESIGN.md "States"), in light and dark, on a phone and a laptop: zero axe
- * violations, compared with its visual baseline, and copied into the review gallery when GALLERY_DIR is set.
+ * violations, compared with its visual baseline, and pictured for the UI review when UI_REVIEW_DIR is set.
  * The API answers from fixtures; sign-in goes through the local sign-in server.
  */
 

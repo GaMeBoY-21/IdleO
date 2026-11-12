@@ -8,8 +8,9 @@ import {
   type Route,
   type TestInfo,
 } from "@playwright/test";
-import { appendFileSync, copyFileSync, mkdirSync, readFileSync } from "node:fs";
+import { appendFileSync, copyFileSync, mkdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { review, siteOf } from "./ui-review-capture";
 
 /** Whether this Playwright project is a phone: the laptop layout starts at 1200 px (web/DESIGN.md "Laptop layout"). */
 export const onPhone = (info: TestInfo): boolean => info.project.name.includes("phone");
@@ -209,6 +210,11 @@ export function watchConsole(page: Page): () => void {
 
 /** Zero axe violations, WCAG 2.2 A and AA (ADR 0018). */
 export async function expectAccessible(page: Page): Promise<void> {
+  // The UI review runs axe itself on every page's full state and reports, so a violation at a width the specs don't
+  // gate doesn't stop the pictures after it (e2e/ui-review.ts).
+  if (process.env.UI_REVIEW_DIR) {
+    return;
+  }
   // Contrast is measured on the settled screen, not halfway through a fade-in. Two frames first, so an animation
   // that something just opened has started, and is waited for, rather than missed.
   await page.evaluate(
@@ -276,7 +282,7 @@ export async function recordLayoutShifts(
     });
 }
 
-/** The screen as it is now: compared with its visual baseline, and copied into the review gallery when asked. */
+/** The screen as it is now: compared with its visual baseline, and pictured for the UI review when it runs. */
 export async function capture(page: Page, testInfo: TestInfo, name: string): Promise<void> {
   await page.evaluate(() => document.fonts.ready);
   // No screen is cramped or broken at either size (web/DESIGN.md): nothing scrolls sideways.
@@ -287,16 +293,18 @@ export async function capture(page: Page, testInfo: TestInfo, name: string): Pro
     await page.evaluate(() => window.innerWidth),
   );
   const overflow = await page.evaluate((fits) => document.documentElement.scrollWidth - fits, width);
-  expect(overflow, `${name} scrolls sideways by ${overflow} px`).toBeLessThanOrEqual(0);
-  const gallery = process.env.GALLERY_DIR;
-  if (gallery) {
-    mkdirSync(gallery, { recursive: true });
-    await page.screenshot({
-      path: `${gallery}/${name}--${testInfo.project.name.replace("screens-", "")}.png`,
-      fullPage: true,
-      style: readFileSync(FULL_PAGE_STYLE, "utf8"),
+  // The UI review (e2e/ui-review.ts) pictures every state at five widths and reports what's wrong rather than stopping.
+  if (process.env.UI_REVIEW_DIR) {
+    const url = new URL(page.url());
+    await review(page, testInfo, {
+      site: siteOf(page.url()),
+      screen: url.pathname,
+      path: `${url.pathname}${url.search}`,
+      state: name,
     });
+    return;
   }
+  expect(overflow, `${name} scrolls sideways by ${overflow} px`).toBeLessThanOrEqual(0);
   // Comparing with visual baselines is off while the redesign settles (the product owner, Oct 8): the screens are checked by
   // hand. VISUAL_COMPARE=1 turns it back on; axe, the overflow check and layout shift run either way.
   if (process.env.VISUAL_COMPARE === "1" && !process.env.SKIP_VISUAL) {

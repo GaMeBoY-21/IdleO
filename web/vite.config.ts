@@ -1,5 +1,6 @@
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
+import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { defineConfig, loadEnv, type Plugin } from "vite";
 import { assertBuildSettings, type BuildEnv } from "./src/build-settings.ts";
@@ -11,6 +12,34 @@ function themeBoot(): Plugin {
   return {
     name: "idleo-theme-boot",
     transformIndexHtml: (html) => html.replace("%IDLEO_THEME_BOOT%", themeBootScript),
+  };
+}
+
+/**
+ * The component gallery at /_gallery (web/README.md "The component gallery"): a development server's alone (`apply:
+ * "serve"`), so no build has it; gallery.html is no build's input, and scripts/site-modules.ts fails a build that holds
+ * any of src/gallery/.
+ */
+function galleryPage(): Plugin {
+  return {
+    name: "idleo-gallery",
+    apply: "serve",
+    configureServer(server) {
+      server.middlewares.use((request, response, next) => {
+        if (!/^\/_gallery\/?(\?.*)?$/.test(request.url ?? "")) {
+          next();
+          return;
+        }
+        const page = readFileSync(fileURLToPath(new URL("./gallery.html", import.meta.url)), "utf8");
+        server
+          .transformIndexHtml(request.url!, page)
+          .then((html) => {
+            response.setHeader("Content-Type", "text/html; charset=utf-8");
+            response.end(html);
+          })
+          .catch(next);
+      });
+    },
   };
 }
 
@@ -94,7 +123,7 @@ export default defineConfig(({ mode }) => {
   // bundle exists (ADR 0018).
   assertBuildSettings(env);
   return {
-    plugins: [react(), tailwindcss(), themeBoot(), mainScriptModules()],
+    plugins: [react(), tailwindcss(), themeBoot(), mainScriptModules(), galleryPage()],
     resolve: {
       alias: {
         "@site": fileURLToPath(new URL(`./src/sites/${site}`, import.meta.url)),
