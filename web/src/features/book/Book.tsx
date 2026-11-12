@@ -6,6 +6,7 @@ import { Banner } from "@/components/ui/Banner";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { ErrorState } from "@/components/ui/States";
 import { YourSession } from "@/features/flow/YourSession";
+import { FreeGpus } from "@/features/home/laptop/FreeGpus";
 import { afterFirstScreen, useAfterPaint } from "@/lib/after-first-screen";
 import { bookHref, offeredServices, serviceOf, templatesOf } from "@/lib/catalog";
 import { useLaptop } from "@/lib/media";
@@ -43,6 +44,8 @@ export function Book() {
   const template = templateId === null ? inService[0] : inService.find((t) => t.id === templateId);
   // Once the service's screen has been painted, from the catalog, not just the skeleton before it.
   const painted = useAfterPaint(template !== undefined);
+  // On the choice of a service, what's free now is asked for once the choice has painted.
+  const choicePainted = useAfterPaint(catalog !== undefined && !service);
 
   if (!catalog || !service || !template) {
     const unknown = catalog !== undefined && (serviceId !== null || templateId !== null);
@@ -79,6 +82,8 @@ export function Book() {
             ) : (
               <StepsSkeleton count={3} />
             )}
+            {/* On a laptop, what each GPU size costs and how many are free now, to choose with. */}
+            {laptop && catalog && <FreeGpus enabled={choicePainted} />}
           </>
         }
       />

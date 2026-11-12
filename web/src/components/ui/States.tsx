@@ -24,6 +24,21 @@ export function EmptyState({
   );
 }
 
+/**
+ * What replaces a loading shape (an error, a short empty state) drawn in the space that shape held, so it doesn't pull
+ * up what's below it: the shape stays, unseen and unread, and the content sits over it.
+ */
+export function InShape({ shape, children }: { shape: ReactNode; children: ReactNode }) {
+  return (
+    <div className="grid">
+      <div aria-hidden="true" className="invisible col-start-1 row-start-1">
+        {shape}
+      </div>
+      <div className="col-start-1 row-start-1 flex flex-col justify-center">{children}</div>
+    </div>
+  );
+}
+
 /** What went wrong, in a sentence, and a way to try again. Never a raw status code. */
 export function errorSentence(error: unknown, what: string): string {
   if (error instanceof ApiError && error.status === 404) {
