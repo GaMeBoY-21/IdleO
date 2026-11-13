@@ -138,7 +138,7 @@ function Row({ item, onOpen }: { item: InboxItem; onOpen: () => void }) {
       <AppLink href={item.link} site={item.site} onClick={onOpen} className={cn(ROW, "hover:bg-surface-2")}>
         <span
           aria-hidden="true"
-          className={cn("mt-2 size-2 shrink-0 rounded-full", item.read ? "bg-transparent" : "bg-volt")}
+          className={cn("mt-2 size-2 shrink-0 rounded-full", item.read ? "bg-transparent" : "bg-live")}
         />
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           <p className={cn("truncate text-card", item.read ? "font-medium" : "font-semibold")}>

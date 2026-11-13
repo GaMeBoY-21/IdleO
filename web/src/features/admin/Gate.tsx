@@ -85,7 +85,7 @@ function GateSkeleton() {
     <main className="mx-auto flex min-h-dvh max-w-narrow flex-col justify-center gap-6 px-4 py-12">
       <div role="status" aria-label="Loading the admin console" className="flex flex-col gap-6">
         <Skeleton className="h-8.5 w-48" />
-        <Skeleton className="h-14 w-full" />
+        <Skeleton className="h-control pointer-coarse:h-touch w-full" />
         <Skeleton className="h-touch w-32" />
       </div>
     </main>

@@ -105,7 +105,7 @@ export function AddCredit({ details }: { details: UseQueryResult<BillingDetails>
 function chip(selected: boolean) {
   return cn(
     "flex min-h-touch items-center rounded-full px-4 text-small font-semibold transition-colors disabled:opacity-60",
-    selected ? "bg-volt text-on-volt" : "bg-surface-2 hover:bg-hairline",
+    selected ? "bg-surface-4 text-ink ring-1 ring-ink-tertiary" : "bg-surface-2 hover:bg-surface-3",
   );
 }
 

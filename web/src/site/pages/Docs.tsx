@@ -16,7 +16,7 @@ export function Docs({ page, pages }: { page: DocPage; pages: DocPage[] }) {
               <a
                 href={item.path}
                 aria-current={item.path === page.path ? "page" : undefined}
-                className="flex min-h-touch items-center rounded-full bg-surface-1 px-4 text-small font-semibold text-ink hover:bg-surface-3 aria-[current=page]:bg-volt aria-[current=page]:text-on-volt xl:rounded-control"
+                className="flex min-h-touch items-center rounded-full border border-hairline bg-surface-1 px-4 text-small font-semibold text-ink hover:bg-surface-3 aria-[current=page]:bg-volt aria-[current=page]:text-on-volt xl:rounded-control"
               >
                 {item.title}
               </a>

@@ -46,7 +46,7 @@ function DetailsSkeleton() {
       {[0, 1, 2].map((key) => (
         <div key={key} className="flex flex-col gap-2">
           <SkeletonLine size="small" width="w-1/3" />
-          <div className="min-h-14 rounded-control bg-surface-2" />
+          <div className="h-control pointer-coarse:h-touch rounded-control bg-surface-2" />
           <div className="min-h-4.5" />
         </div>
       ))}

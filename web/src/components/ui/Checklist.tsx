@@ -44,7 +44,7 @@ export function Checklist({ id, title, steps }: { id: string; title: string; ste
               aria-hidden="true"
               className={cn(
                 "flex size-8 shrink-0 items-center justify-center rounded-full text-small font-semibold",
-                step.done === true ? "bg-volt text-on-volt" : "bg-surface-3 text-ink-subtle",
+                step.done === true ? "bg-surface-3 text-success" : "bg-surface-3 text-ink-subtle",
               )}
             >
               {step.done === true ? <Check className="size-4" strokeWidth={2.5} /> : index + 1}

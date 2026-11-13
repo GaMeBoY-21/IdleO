@@ -159,7 +159,7 @@ export function Home() {
         {sessions.data && list.length > 0 && (
           <Link
             href="/sessions/"
-            className="tile-motion col-span-2 hidden items-center justify-between rounded-card bg-surface-1 p-4 text-section md:flex"
+            className="tile-motion col-span-2 hidden items-center justify-between rounded-card border border-hairline bg-surface-1 p-4 text-section md:flex"
           >
             All sessions
             <span aria-hidden="true">→</span>

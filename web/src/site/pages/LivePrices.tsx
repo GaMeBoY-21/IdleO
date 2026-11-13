@@ -2,7 +2,8 @@ import { GPU_CLASSES } from "../gpus";
 import { sectionTitle } from "../ui";
 
 /** A row's place on the page, 96 px high whatever it holds, so what arrives never moves anything. */
-const ROW = "flex h-24 flex-col justify-center rounded-card bg-surface-1 px-6 text-ink";
+const ROW =
+  "flex h-24 flex-col justify-center rounded-card border border-hairline bg-surface-1 px-6 text-ink";
 
 /**
  * The live prices by GPU memory (ADR 0029): one row each, filled by src/site/islands/pricing.ts from

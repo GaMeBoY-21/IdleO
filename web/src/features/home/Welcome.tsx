@@ -66,7 +66,7 @@ function WelcomeCard() {
             <li key={step.title} className="flex gap-2">
               <span
                 aria-hidden="true"
-                className="flex size-8 shrink-0 items-center justify-center rounded-full bg-volt text-small font-semibold text-on-volt"
+                className="flex size-8 shrink-0 items-center justify-center rounded-full border border-hairline bg-surface-3 text-small text-ink"
               >
                 {index + 1}
               </span>
