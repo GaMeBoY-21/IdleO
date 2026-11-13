@@ -46,7 +46,7 @@ const TITLE = {
   page: "text-title",
   dense: "text-figure",
   display: "text-hero",
-  panel: "text-section",
+  panel: "text-title",
   "panel-lg": "text-hero",
   card: "text-section",
   section: "text-section",
