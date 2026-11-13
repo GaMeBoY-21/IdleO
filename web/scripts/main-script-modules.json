@@ -130,7 +130,6 @@
   "src/components/ui/Tile.tsx": 1755,
   "src/components/ui/Time.tsx": 888,
   "src/config.ts": 455,
-  "src/design/fonts.ts": 338,
   "src/design/tokens.ts": 3928,
   "src/features/after-sign-in.ts": 1063,
   "src/features/flow/headline.ts": 623,

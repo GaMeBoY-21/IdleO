@@ -94,14 +94,14 @@ export function UserEnforcement({ id }: { id: string }) {
                   <Cell>
                     {each.step}
                     {each.limitKind && (
-                      <span className="block text-caption text-text-2">{each.limitKind}</span>
+                      <span className="block text-caption text-ink-subtle">{each.limitKind}</span>
                     )}
                   </Cell>
                   <Cell className="max-w-64">{each.reason ?? "—"}</Cell>
                   <Cell>{each.endsAt ? formatDateTime(each.endsAt) : "—"}</Cell>
                   <Cell>
                     <StatusChip size="sm" domain="enforcement" state={each.state} />
-                    {each.appealed && <span className="block text-caption text-text-2">Appealed</span>}
+                    {each.appealed && <span className="block text-caption text-ink-subtle">Appealed</span>}
                   </Cell>
                   <Cell>
                     {each.state === "active" && can("enforcement.lift") && (
@@ -290,7 +290,7 @@ function AppealRecord({ id }: { id: string }) {
               <p className="text-body whitespace-pre-wrap">{found.appeal.body ?? "—"}</p>
               {found.appeal.attachments.length > 0 && (
                 <div className="flex flex-col gap-1 text-small">
-                  <p className="text-text-2">
+                  <p className="text-ink-subtle">
                     Files they attached. They aren&apos;t checked for malware: each opens as a download, and
                     each opening is logged.
                   </p>

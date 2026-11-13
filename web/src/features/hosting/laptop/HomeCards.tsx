@@ -18,7 +18,7 @@ import { PayoutRow } from "../Payouts";
 import { WeeksBars } from "../WeekBars";
 
 /**
- * The earnings on the host site's home (ADR 0058), the dark tile: this week, what's pending, the next payout's day and
+ * The earnings on the host site's home (ADR 0058), the raised card: this week, what's pending, the next payout's day and
  * amount, and the last 8 weeks as bars. Every figure is the server's; the payouts' once the screen has painted.
  */
 export function EarningsHero({
@@ -35,7 +35,7 @@ export function EarningsHero({
     summary && summary.availablePaise >= summary.minimumPaise ? summary.availablePaise : null;
   return (
     <Tile
-      tone="night"
+      tone="raised"
       size="lg"
       aria-labelledby="week-title"
       className="grid grid-cols-1 gap-6 md:col-span-6 md:grid-cols-2 xl:col-span-8 xl:h-host-panel xl:grid-cols-5 xl:gap-8 xl:py-8"
@@ -43,7 +43,7 @@ export function EarningsHero({
       {/* Its figures at the foot, so nothing that arrives above them moves them. */}
       <div className="flex flex-col justify-between gap-4 xl:col-span-2">
         {/* Two lines kept, so the note on figures from an earlier visit coming and going moves nothing. */}
-        <h2 id="week-title" className="min-h-9 text-caption text-on-night-2">
+        <h2 id="week-title" className="min-h-9 text-caption text-ink-subtle">
           Earned this week, all laptops
           {restoredAt !== null && (
             <>
@@ -56,22 +56,22 @@ export function EarningsHero({
         <span className="flex min-h-24 flex-col gap-1">
           {owner ? (
             <>
-              <Money paise={owner.weekPaise} className="block font-title text-timer-lg" />
-              <span className="truncate text-small text-on-night-2 tabular">
+              <Money paise={owner.weekPaise} className="block text-timer-lg" />
+              <span className="truncate text-small text-ink-subtle tabular">
                 <Money paise={owner.totalPaise} /> in total · {formatMinutes(owner.minutesRentedThisWeek)}{" "}
                 rented
               </span>
             </>
           ) : (
-            <Skeleton className="skeleton-dark h-15 w-48" />
+            <Skeleton className="skeleton h-15 w-48" />
           )}
         </span>
         <StatGrid>
           {/* Small, with room for two lines, so a figure that wraps in the narrow panel moves nothing when it arrives. */}
-          <StatTile label="Pending" size="sm" onNight>
+          <StatTile label="Pending" size="sm">
             {summary ? <Money paise={summary.pendingPaise} /> : "…"}
           </StatTile>
-          <StatTile label="Next payout" size="sm" onNight>
+          <StatTile label="Next payout" size="sm">
             {summary
               ? `${formatDay(summary.nextPayoutAt)}${nextAmount !== null ? ` · ${formatPaise(nextAmount)}` : ""}`
               : "…"}
@@ -79,7 +79,7 @@ export function EarningsHero({
         </StatGrid>
       </div>
       <div className="flex flex-col justify-end gap-2 xl:col-span-3">
-        {owner ? <WeeksBars weeks={owner.weeks} /> : <BarsSkeleton count={8} tone="night" />}
+        {owner ? <WeeksBars weeks={owner.weeks} /> : <BarsSkeleton count={8} />}
         <AppLink
           href={HOST_PATHS.earnings}
           className="self-start text-small font-semibold text-volt hover:underline"
@@ -117,17 +117,16 @@ export function DemandTile({
     <Tile as="section" aria-labelledby="demand-title" className={cn("flex flex-col gap-2 xl:p-8", className)}>
       <SectionHeader id="demand-title">Demand for your GPU</SectionHeader>
       {host === undefined ? (
-        <p className="text-small text-text-2">Link a laptop, and when renters want its GPU shows here.</p>
+        <p className="text-small text-ink-subtle">Link a laptop, and when renters want its GPU shows here.</p>
       ) : demand.data ? (
         <>
-          <p className="text-small text-text-2">
+          <p className="text-small text-ink-subtle">
             {demand.data.enough && busiest
               ? `In the last ${demand.data.days} days renters asked for a GPU like this ${demand.data.asked} times, most around ${hourLabel(busiest.hour)}${busiest.hour < 12 ? " am" : " pm"}; ${demand.data.unmet} found no host free.`
               : `Too few bookings in the last ${demand.data.days} days to show a pattern yet (${demand.data.asked}).`}
           </p>
           <Bars
             label="Bookings a GPU like this could run, by hour of the day"
-            tone="panel"
             bars={demand.data.hours.map((hour) => ({
               key: String(hour.hour),
               value: hour.asked,
@@ -144,7 +143,7 @@ export function DemandTile({
       ) : (
         <div role="status" aria-label="Loading demand" className="flex flex-col gap-2">
           <SkeletonLine size="small" width="w-3/4" />
-          <BarsSkeleton count={24} tone="panel" />
+          <BarsSkeleton count={24} />
           <SkeletonLine size="small" width="w-1/2" />
         </div>
       )}
@@ -166,9 +165,9 @@ export function ScoreTile({
       <SectionHeader id="score-title">Host score</SectionHeader>
       {host ? (
         <>
-          <p className="font-title text-display-card">{reliabilityWord(host.reliability.label)}</p>
+          <p className="text-section">{reliabilityWord(host.reliability.label)}</p>
           {host.rating && (
-            <p className="text-small text-text-2 tabular">
+            <p className="text-small text-ink-subtle tabular">
               {host.rating.averageStars.toFixed(1)} stars from at least {host.rating.countAtLeast} renters
             </p>
           )}
@@ -179,7 +178,9 @@ export function ScoreTile({
           </ul>
         </>
       ) : (
-        <p className="text-small text-text-2">Each laptop earns its own score from the sessions it runs.</p>
+        <p className="text-small text-ink-subtle">
+          Each laptop earns its own score from the sessions it runs.
+        </p>
       )}
     </Tile>
   );
@@ -207,14 +208,14 @@ export function RecentPayoutsTile({ enabled }: { enabled: boolean }) {
       </SectionHeader>
       {payouts ? (
         payouts.length === 0 ? (
-          <p className="text-small text-text-2">
+          <p className="text-small text-ink-subtle">
             None yet. Earnings are paid every Monday once enough is available.{" "}
             <AppLink href={HOST_PATHS.payoutDetails} className="font-semibold underline">
               Payout details
             </AppLink>
           </p>
         ) : (
-          <ul className="flex flex-col divide-y divide-line">
+          <ul className="flex flex-col divide-y divide-hairline">
             {payouts.map((payout) => (
               <PayoutRow key={payout.id} payout={payout} />
             ))}
@@ -222,7 +223,7 @@ export function RecentPayoutsTile({ enabled }: { enabled: boolean }) {
         )
       ) : (
         <div role="status" aria-label="Loading your payouts" className="flex flex-col gap-2 py-2">
-          <SkeletonLine size="option" width="w-3/4" />
+          <SkeletonLine size="card" width="w-3/4" />
           <SkeletonLine size="small" width="w-1/2" />
         </div>
       )}
@@ -240,7 +241,7 @@ export function HelpTile({ className }: { className?: string }) {
   return (
     <Tile as="section" aria-labelledby="help-title" className={cn("flex flex-col gap-1 xl:p-8", className)}>
       <SectionHeader id="help-title">Help</SectionHeader>
-      <ul className="flex flex-col divide-y divide-line">
+      <ul className="flex flex-col divide-y divide-hairline">
         {links.map((link) => (
           <li key={link.href}>
             <AppLink href={link.href} className="flex min-h-touch items-center text-body hover:underline">

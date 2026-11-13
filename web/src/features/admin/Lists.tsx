@@ -101,7 +101,7 @@ export function ListBar({
   return (
     <div className="flex flex-wrap items-end gap-2 text-small">
       {tags && can("notes.read") && (vocabulary.data?.tags.length ?? 0) > 0 && (
-        <label className="flex flex-col gap-1 text-caption text-text-2">
+        <label className="flex flex-col gap-1 text-caption text-ink-subtle">
           Tag
           <select
             value={params.get(name("tag")) ?? ""}
@@ -114,7 +114,7 @@ export function ListBar({
                 }
               })
             }
-            className="min-h-touch rounded-control bg-raised px-2 text-small text-text md:min-h-9"
+            className="min-h-touch rounded-control bg-surface-3 px-2 text-small text-ink md:min-h-9"
           >
             <option value="">Any</option>
             {vocabulary.data?.tags.map((tag) => (
@@ -125,7 +125,7 @@ export function ListBar({
           </select>
         </label>
       )}
-      <label className="flex flex-col gap-1 text-caption text-text-2">
+      <label className="flex flex-col gap-1 text-caption text-ink-subtle">
         Saved view
         <select
           value=""
@@ -135,7 +135,7 @@ export function ListBar({
               navigate(view.query ? `${path}?${view.query}` : path);
             }
           }}
-          className="min-h-touch rounded-control bg-raised px-2 text-small text-text md:min-h-9"
+          className="min-h-touch rounded-control bg-surface-3 px-2 text-small text-ink md:min-h-9"
         >
           <option value="">Choose…</option>
           {mine.map((view) => (
@@ -156,7 +156,7 @@ export function ListBar({
         ))}
       {/* Saving a view is now and then: behind its own line, so the list's toolbar stays one row on a phone. */}
       <details className="group" open={saveOpen} onToggle={(event) => setSaveOpen(event.currentTarget.open)}>
-        <summary className="inline-flex min-h-touch cursor-pointer items-center font-semibold text-text-2 hover:text-text md:min-h-9">
+        <summary className="inline-flex min-h-touch cursor-pointer items-center font-semibold text-ink-subtle hover:text-ink md:min-h-9">
           Save this view…
         </summary>
         {/* Only while open: a closed fold's fields would be in the page but out of the keyboard's reach. */}
@@ -170,14 +170,14 @@ export function ListBar({
               }
             }}
           >
-            <label htmlFor={id} className="flex flex-col gap-1 text-caption text-text-2">
+            <label htmlFor={id} className="flex flex-col gap-1 text-caption text-ink-subtle">
               Save this view as
               <input
                 id={id}
                 value={saving}
                 maxLength={80}
                 onChange={(event) => setSaving(event.target.value)}
-                className="min-h-touch rounded-control bg-raised px-2 text-small text-text md:min-h-9"
+                className="min-h-touch rounded-control bg-surface-3 px-2 text-small text-ink md:min-h-9"
               />
             </label>
             <label className="flex min-h-touch items-center gap-2 md:min-h-9">

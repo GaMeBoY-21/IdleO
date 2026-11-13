@@ -53,20 +53,20 @@ export function Months() {
                         <li key={item.name} className={item.done ? "" : "text-danger"}>
                           <span aria-hidden="true">{item.done ? "✓" : "✗"}</span> {item.name}
                           <span className="sr-only">{item.done ? ": done" : ": not yet"}</span>
-                          <span className="block text-caption text-text-2">{item.detail}</span>
+                          <span className="block text-caption text-ink-subtle">{item.detail}</span>
                         </li>
                       ))}
                     </ul>
                   </Cell>
                   <Cell>
                     {period.events.length === 0 ? (
-                      <span className="text-text-2">—</span>
+                      <span className="text-ink-subtle">—</span>
                     ) : (
                       <ul className="flex flex-col gap-1 text-small">
                         {period.events.map((event, index) => (
                           <li key={index}>
                             {event.action} by {event.actor} <RelativeTime value={event.at} />
-                            <span className="block text-caption text-text-2">{event.reason}</span>
+                            <span className="block text-caption text-ink-subtle">{event.reason}</span>
                           </li>
                         ))}
                       </ul>

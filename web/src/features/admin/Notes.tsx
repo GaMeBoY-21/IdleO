@@ -28,7 +28,7 @@ export function NoteBody({ body }: { body: string }) {
         pieces.push(<em key={key}>{found[2]}</em>);
       } else {
         pieces.push(
-          <code key={key} className="tabular rounded-control bg-raised px-1">
+          <code key={key} className="tabular rounded-control bg-surface-3 px-1">
             {found[3]}
           </code>,
         );
@@ -124,7 +124,7 @@ function Tags({ subject, id }: { subject: NoteSubject; id: string }) {
           </span>
         ))}
         {writable && others.length > 0 && (
-          <label className="flex items-center gap-2 text-caption text-text-2">
+          <label className="flex items-center gap-2 text-caption text-ink-subtle">
             Add a tag
             <select
               value=""
@@ -140,7 +140,7 @@ function Tags({ subject, id }: { subject: NoteSubject; id: string }) {
                   );
                 }
               }}
-              className="min-h-touch rounded-control bg-raised px-2 text-small text-text md:min-h-9"
+              className="min-h-touch rounded-control bg-surface-3 px-2 text-small text-ink md:min-h-9"
             >
               <option value="">Choose…</option>
               {others.map((tag) => (
@@ -178,8 +178,8 @@ function NoteRow({ note, subject, id }: { note: AdminNote; subject: NoteSubject;
   };
   const path = { params: { path: { id: note.id } } };
   return (
-    <li className="flex flex-col gap-2 border-b border-line py-4">
-      <div className="flex flex-wrap items-center gap-2 text-caption text-text-2">
+    <li className="flex flex-col gap-2 border-b border-hairline py-4">
+      <div className="flex flex-wrap items-center gap-2 text-caption text-ink-subtle">
         <Id value={note.authorId} page="user" /> · <RelativeTime value={note.createdAt} />
         {note.editedAt && <span>· changed</span>}
         {note.pinned && <Tag>Pinned</Tag>}
@@ -194,7 +194,7 @@ function NoteRow({ note, subject, id }: { note: AdminNote; subject: NoteSubject;
           maxLength={4000}
           rows={3}
           onChange={(event) => setEditing(event.target.value)}
-          className="rounded-control bg-raised px-4 py-2 text-small text-text"
+          className="rounded-control bg-surface-3 px-4 py-2 text-small text-ink"
         />
       )}
       <Problem error={problem} />
@@ -316,7 +316,7 @@ export function RecordNotes({ subject, id }: { subject: NoteSubject; id: string 
               maxLength={4000}
               rows={3}
               onChange={(event) => setBody(event.target.value)}
-              className="rounded-control bg-raised px-4 py-2 text-small text-text"
+              className="rounded-control bg-surface-3 px-4 py-2 text-small text-ink"
             />
             <div className="flex flex-wrap items-center gap-4 text-small">
               <label className="flex min-h-touch items-center gap-2 md:min-h-0">
@@ -345,7 +345,7 @@ export function RecordNotes({ subject, id }: { subject: NoteSubject; id: string 
                       setMentions([...mentions, who]);
                     }
                   }}
-                  className="min-h-touch rounded-control bg-raised px-2 text-small text-text md:min-h-9"
+                  className="min-h-touch rounded-control bg-surface-3 px-2 text-small text-ink md:min-h-9"
                 >
                   <option value="">Someone…</option>
                   {(mentionable.data?.admins ?? []).map((admin) => (
@@ -407,18 +407,18 @@ export function LinkedAccounts({ id }: { id: string }) {
     >
       {(found) => (
         <div className="flex flex-col gap-2">
-          <p className="text-caption text-text-2">
+          <p className="text-caption text-ink-subtle">
             These are signals to look at, not findings. Nothing happens to an account because it&apos;s listed
             here.
           </p>
           {found.unanswered > 0 && (
-            <p className="text-caption text-text-2">
+            <p className="text-caption text-ink-subtle">
               Some signals didn&apos;t answer in time, so there may be more.
             </p>
           )}
           <ul aria-label="Linked accounts" className="flex flex-col">
             {found.accounts.map((account) => (
-              <li key={account.userId} className="flex flex-col gap-1 border-b border-line py-4">
+              <li key={account.userId} className="flex flex-col gap-1 border-b border-hairline py-4">
                 <Id value={account.userId} page="user" />
                 <ul className="flex flex-col gap-1 text-small">
                   {account.signals.map((signal) => (
@@ -429,7 +429,7 @@ export function LinkedAccounts({ id }: { id: string }) {
                       <StatusChip size="sm" domain="signal" state={signal.strength} />
                       {signal.evidence}
                       {signal.at && (
-                        <span className="text-caption text-text-2">
+                        <span className="text-caption text-ink-subtle">
                           · <RelativeTime value={signal.at} />
                         </span>
                       )}

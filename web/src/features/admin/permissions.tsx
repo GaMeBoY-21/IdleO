@@ -54,9 +54,9 @@ export function NeedsPermission({ permission, children }: { permission: string; 
     return <>{children}</>;
   }
   return (
-    <div className="flex flex-col gap-2 rounded-inner border border-line p-6">
+    <div className="flex flex-col gap-2 rounded-card border border-hairline p-6">
       <PageTitle variant="section">You can&apos;t open this section</PageTitle>
-      <p className="text-small text-text-2">
+      <p className="text-small text-ink-subtle">
         It needs the {permission} permission, which your roles don&apos;t include. An Owner can grant a role
         that has it.
       </p>

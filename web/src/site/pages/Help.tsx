@@ -21,8 +21,8 @@ export function Help({ maker }: { maker: MakerHelp }) {
         </p>
         <ol className="mt-6 grid grid-cols-1 gap-2 md:gap-4">
           <li className={tile}>
-            <h2 className="text-option font-semibold">1. Open the startup menu</h2>
-            <p className="mt-2 text-body text-text-2">
+            <h2 className="text-card font-semibold">1. Open the startup menu</h2>
+            <p className="mt-2 text-body text-ink-subtle">
               From Windows: Settings, then System, then Recovery. Next to Advanced startup, choose Restart
               now. Then choose Troubleshoot, Advanced options, UEFI Firmware Settings, and Restart. Or restart
               and press {maker.key} as soon as the screen goes dark.
@@ -30,13 +30,13 @@ export function Help({ maker }: { maker: MakerHelp }) {
           </li>
           {maker.steps.map((step, index) => (
             <li key={step} className={tile}>
-              <h2 className="text-option font-semibold">{index + 2}. In the menu</h2>
-              <p className="mt-2 text-body text-text-2">{step}</p>
+              <h2 className="text-card font-semibold">{index + 2}. In the menu</h2>
+              <p className="mt-2 text-body text-ink-subtle">{step}</p>
             </li>
           ))}
           <li className={tile}>
-            <h2 className="text-option font-semibold">{maker.steps.length + 2}. Save and restart</h2>
-            <p className="mt-2 text-body text-text-2">
+            <h2 className="text-card font-semibold">{maker.steps.length + 2}. Save and restart</h2>
+            <p className="mt-2 text-body text-ink-subtle">
               Press F10 (or choose Save and Exit), then confirm. When Windows is back, open {brand.name}
               &apos;s setup again: it carries on from where it stopped.
             </p>

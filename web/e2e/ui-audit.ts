@@ -1,6 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import type { Page } from "@playwright/test";
-import { displayScale, typeScale } from "../src/design/tokens";
+import { typeScale } from "../src/design/tokens";
 
 /**
  * The UI review's checks of one screen as drawn (web/DESIGN.md, the UI standard): what a machine can see that breaks a
@@ -11,9 +11,8 @@ import { displayScale, typeScale } from "../src/design/tokens";
 export type Severity = "P0" | "P1" | "P2";
 export type Problem = { rule: string; severity: Severity; detail: string; count: number };
 
-/** Inter's sizes from the type scale; Archivo's are fluid between their smallest and largest. */
+/** Inter's sizes from the type scale. */
 const INTER_SIZES: number[] = Object.values(typeScale).map(([size]) => size);
-const DISPLAY_RANGES = Object.values(displayScale).map(([min, , max]) => [min, max] as const);
 
 /** Words that are names, so a title with them in capitals is still sentence case. */
 const PROPER = new Set(
@@ -28,7 +27,7 @@ export async function audit(
   { phone, axe, shifts }: { phone: boolean; axe: boolean; shifts?: number },
 ): Promise<Problem[]> {
   const found = await page.evaluate(
-    ({ interSizes, displayRanges, proper, phone }) => {
+    ({ interSizes, proper, phone }) => {
       const problems: { rule: string; severity: "P0" | "P1" | "P2"; detail: string }[] = [];
       const add = (rule: string, severity: "P0" | "P1" | "P2", detail: string) =>
         problems.push({ rule, severity, detail });
@@ -114,14 +113,13 @@ export async function audit(
         }
       }
 
-      // Type: only the scale's sizes; Archivo only for page titles; body lines no longer than about 75 characters.
+      // Type: only the scale's sizes; body lines no longer than about 75 characters.
       const zero = document.createElement("span");
       zero.textContent = "0";
       zero.style.position = "absolute";
       zero.style.visibility = "hidden";
       document.body.append(zero);
       const sizes = new Map<string, string>();
-      const archivo: string[] = [];
       for (const element of document.querySelectorAll("body *")) {
         if (!visible(element) || element.closest("svg") || hidden(element)) {
           continue;
@@ -135,15 +133,7 @@ export async function audit(
         const style = getComputedStyle(element);
         const size = Number.parseFloat(style.fontSize);
         const family = style.fontFamily;
-        if (/Archivo/i.test(family)) {
-          const inRange = displayRanges.some(([min, max]) => size >= min - 0.5 && size <= max + 0.5);
-          if (!inRange) {
-            sizes.set(`Archivo ${size}px`, describe(element));
-          }
-          if (!element.closest("h1") && !element.closest("[data-wordmark],[aria-label='idleo']")) {
-            archivo.push(describe(element));
-          }
-        } else if (!/mono/i.test(family) && !interSizes.includes(Math.round(size * 10) / 10)) {
+        if (!/mono/i.test(family) && !interSizes.includes(Math.round(size * 10) / 10)) {
           sizes.set(`${size}px`, describe(element));
         }
         if (/^(P|LI|DD)$/.test(element.tagName) && element.textContent.length > 90) {
@@ -156,13 +146,6 @@ export async function audit(
         }
       }
       zero.remove();
-      if (archivo.length > 0) {
-        add(
-          "archivo-for-page-titles-only",
-          "P2",
-          `${archivo.length} text${archivo.length === 1 ? "" : "s"} besides the page title in Archivo: ${archivo.slice(0, 3).join(", ")}`,
-        );
-      }
       for (const [size, where] of sizes) {
         add("type-scale-only", "P1", `${size} isn't on the type scale (${where})`);
       }
@@ -323,7 +306,7 @@ export async function audit(
       }
       return problems;
     },
-    { interSizes: INTER_SIZES, displayRanges: DISPLAY_RANGES, proper: [...PROPER], phone },
+    { interSizes: INTER_SIZES, proper: [...PROPER], phone },
   );
 
   if (shifts !== undefined && shifts > 0) {

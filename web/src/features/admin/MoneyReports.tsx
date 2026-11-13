@@ -141,7 +141,7 @@ function FigureLinks({
   return (
     <span className="flex flex-col">
       <Paise paise={paise} />
-      <span className="text-caption text-text-2">
+      <span className="text-caption text-ink-subtle">
         {figure.terms.map((term, index) => (
           <span key={index}>
             {index > 0 ? ", " : ""}

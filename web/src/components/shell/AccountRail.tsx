@@ -32,7 +32,7 @@ export function AccountRail({
           <button
             type="button"
             onClick={() => void signOut()}
-            className="min-h-12 rounded-control bg-panel text-small font-bold hover:bg-raised"
+            className="min-h-12 rounded-control bg-surface-1 text-small font-semibold hover:bg-surface-3"
           >
             Sign out
           </button>
@@ -49,7 +49,7 @@ export function AccountRail({
   );
 }
 
-/** Who this is: the dark tile of the rail. The shapes are drawn first, so the name arriving moves nothing. */
+/** Who this is: the raised card of the rail. The shapes are drawn first, so the name arriving moves nothing. */
 function ProfileTile() {
   const me = useMeAfterPaint();
   const kept = useCachedMe();
@@ -59,22 +59,22 @@ function ProfileTile() {
       ? (kept.displayName ?? kept.emailName ?? "You")
       : null;
   return (
-    <Tile tone="night" size="lg" aria-label="You" className="flex flex-col gap-4">
+    <Tile tone="raised" size="lg" aria-label="You" className="flex flex-col gap-4">
       <span
         aria-hidden="true"
-        className="flex size-16 items-center justify-center rounded-full bg-volt text-headline font-bold text-ink"
+        className="flex size-16 items-center justify-center rounded-full bg-volt text-title font-semibold text-ink"
       >
         {(name ?? " ").charAt(0).toUpperCase()}
       </span>
       {name === null ? (
         <span role="status" aria-label="Loading your account" className="flex flex-col">
-          <Skeleton className="skeleton-dark h-7 w-1/2" />
-          <Skeleton className="skeleton-dark h-5 w-3/4" />
+          <Skeleton className="skeleton h-7 w-1/2" />
+          <Skeleton className="skeleton h-5 w-3/4" />
         </span>
       ) : (
         <span className="flex flex-col">
           <span className="min-h-7 text-section break-words">{name}</span>
-          <span className="min-h-5 text-small break-words text-on-night-2">{me.data?.email}</span>
+          <span className="min-h-5 text-small break-words text-ink-subtle">{me.data?.email}</span>
         </span>
       )}
     </Tile>
@@ -95,7 +95,7 @@ function SectionNav() {
               aria-current={current ? "page" : undefined}
               className={cn(
                 "flex min-h-touch items-center rounded-control px-4 text-body",
-                current ? "bg-raised font-bold" : "font-semibold text-text-2 hover:text-text",
+                current ? "bg-surface-3 font-semibold" : "font-semibold text-ink-subtle hover:text-ink",
               )}
             >
               {label}

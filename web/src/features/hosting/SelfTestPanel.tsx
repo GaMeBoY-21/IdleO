@@ -67,7 +67,7 @@ export function SelfTestPanel({ host }: { host: Host }) {
 
   return (
     <Tile as="section" aria-labelledby={headingId} className="flex flex-col gap-2">
-      <h2 id={headingId} className="text-small font-semibold text-text-2">
+      <h2 id={headingId} className="text-small font-semibold text-ink-subtle">
         Self-test
       </h2>
       {!body ? (
@@ -84,7 +84,7 @@ export function SelfTestPanel({ host }: { host: Host }) {
       ) : (
         <>
           {since !== null && <StaleNotice updatedAt={since} />}
-          <p className="text-small text-text-2">
+          <p className="text-small text-ink-subtle">
             Checks this machine the way renters rely on it: its Linux, your GPU, the lockdown that keeps jobs
             away from your files, the disk and the speed of its line. It takes a minute or two.
           </p>
@@ -93,7 +93,7 @@ export function SelfTestPanel({ host }: { host: Host }) {
             {run && run.state !== "running" && run.finishedAt ? (
               <>
                 {" "}
-                · <RelativeTime value={run.finishedAt} className="font-normal text-text-2" />
+                · <RelativeTime value={run.finishedAt} className="font-normal text-ink-subtle" />
               </>
             ) : null}
           </p>
@@ -116,7 +116,7 @@ export function SelfTestPanel({ host }: { host: Host }) {
           >
             Run self-test
           </Button>
-          <p id={`${host.id}-self-test-why`} className="min-h-5 text-center text-small text-text-2">
+          <p id={`${host.id}-self-test-why`} className="min-h-5 text-center text-small text-ink-subtle">
             {body.canRun ? `Up to ${body.perDay} a day.` : (body.whyNot?.message ?? "")}
           </p>
         </>
@@ -138,7 +138,7 @@ function CheckRow({ row, over }: { row: Row; over: boolean }) {
             ? "mt-1 flex size-5 shrink-0 items-center justify-center rounded-full bg-danger text-danger-fg"
             : state === "passed"
               ? "mt-1 flex size-5 shrink-0 items-center justify-center rounded-full bg-volt text-ink"
-              : "mt-1 flex size-5 shrink-0 items-center justify-center text-text-2"
+              : "mt-1 flex size-5 shrink-0 items-center justify-center text-ink-subtle"
         }
       >
         {state === "passed" ? (
@@ -160,8 +160,8 @@ function CheckRow({ row, over }: { row: Row; over: boolean }) {
         <span
           className={
             state === "failed"
-              ? "min-h-4.5 text-caption break-words text-text-2"
-              : "min-h-4.5 truncate text-caption text-text-2"
+              ? "min-h-4.5 text-caption break-words text-ink-subtle"
+              : "min-h-4.5 truncate text-caption text-ink-subtle"
           }
           title={result?.detail}
         >

@@ -64,7 +64,7 @@ export function Logs({
     )
   ) : failed ? (
     <div className="flex flex-col items-start gap-2">
-      <p className="text-small text-text">{problemMessage(failed)}</p>
+      <p className="text-small text-ink">{problemMessage(failed)}</p>
       <button type="button" className={logButton} onClick={() => void read()}>
         Try again
       </button>
@@ -111,12 +111,12 @@ export function Logs({
         aria-expanded={open}
         aria-controls="logs-panel"
         onClick={() => setOpen(!open)}
-        className="flex min-h-14 items-center gap-2 rounded-panel bg-panel px-4 py-4 text-left text-body"
+        className="flex min-h-14 items-center gap-2 rounded-card bg-surface-1 px-4 py-4 text-left text-body"
       >
         <ScrollText aria-hidden="true" className="size-5 shrink-0" strokeWidth={1.75} />
         <span className="min-w-0 flex-1 truncate">
           <span className="font-semibold">Logs</span>
-          <span className="font-medium text-text-2">
+          <span className="font-medium text-ink-subtle">
             {newest?.kind === "line"
               ? ` · ${newest.text}`
               : ` · ${count.toLocaleString("en-IN")} ${count === 1 ? "line" : "lines"}`}
@@ -136,5 +136,5 @@ export function Logs({
 }
 
 function Quiet({ children }: { children: string }) {
-  return <p className="text-small text-text-2">{children}</p>;
+  return <p className="text-small text-ink-subtle">{children}</p>;
 }

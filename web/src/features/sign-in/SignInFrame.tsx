@@ -9,7 +9,7 @@ import { useLaptop } from "@/lib/media";
 import { siteLink } from "@/lib/site-links";
 
 /**
- * The signed-out screens, and the pages for a wrong link or a broken screen: the name, and one white tile on the page
+ * The signed-out screens, and the pages for a wrong link or a broken screen: the name, and one card on the page
  * colour holding one big question and what answers it. On a phone and a tablet a narrow column. From 1200 px the tile
  * is 7 columns of the grid, centred (web/DESIGN.md "Laptop layout"); with `collage`, as on sign-in, it is the left 5
  * with a collage of what the product is, in colour tiles, in the 7 beside it. The collage says only what the public

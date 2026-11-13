@@ -10,11 +10,14 @@ import { DemandTile, EarningsHero, HelpTile, RecentPayoutsTile, ScoreTile } from
 import { MachineTile } from "./MachineTile";
 import { HOST_PATHS } from "@/sites/host/paths";
 
-/** The apricot tile: what a machine needs, and that a one-time code links it. */
+/** The card: what a machine needs, and that a one-time code links it. */
 export function AddTile({ className }: { className?: string }) {
   return (
-    <TileLink href={HOST_PATHS.add} tone="ember" size="lg" className={cn("gap-4 xl:p-8", className)}>
-      <span aria-hidden="true" className="flex size-14 items-center justify-center rounded-icon bg-ink/10">
+    <TileLink href={HOST_PATHS.add} size="lg" className={cn("gap-4 xl:p-8", className)}>
+      <span
+        aria-hidden="true"
+        className="flex size-14 items-center justify-center rounded-control border border-hairline bg-surface-2"
+      >
         <Plus className="size-6" strokeWidth={2} />
       </span>
       <span className="flex flex-col gap-2">
@@ -24,7 +27,7 @@ export function AddTile({ className }: { className?: string }) {
           <li>Plugged in, with an internet connection that stays on</li>
         </ul>
         <span className="flex flex-col gap-1">
-          <span className="font-title text-display-card">Add a machine</span>
+          <span className="text-section">Add a machine</span>
           <span className="text-body text-ink">
             A one-time code links your laptop. Takes about 5 minutes.
           </span>
@@ -34,12 +37,12 @@ export function AddTile({ className }: { className?: string }) {
   );
 }
 
-/** With no machine yet: what hosting is, in the dark tile, and "Add a machine" beside it. */
+/** With no machine yet: what hosting is, in the raised card, and "Add a machine" beside it. */
 export function LaptopPitch() {
   return (
     <div className={cn(FIT_FRAME, GRID)}>
       <Tile
-        tone="night"
+        tone="raised"
         size="lg"
         aria-labelledby="pitch-title"
         className="flex flex-col justify-between gap-6 md:col-span-6 xl:col-span-8 xl:min-h-96 xl:p-8"
@@ -47,7 +50,7 @@ export function LaptopPitch() {
         <PageTitle variant="panel-lg" id="pitch-title">
           Earn from the GPU you aren&apos;t using
         </PageTitle>
-        <p className="max-w-prose text-body text-on-night-2">
+        <p className="max-w-prose text-body text-ink-subtle">
           Add a gaming laptop or desktop with an NVIDIA RTX GPU. Renters&apos; jobs run in a locked box, never
           in your files, and you set the price. Pause or take it back whenever you like.
         </p>
@@ -59,7 +62,7 @@ export function LaptopPitch() {
 
 /**
  * The host site's home from 768 px (web/DESIGN.md "Laptop layout", ADR 0058's "full and simple"): the earnings in the
- * dark tile (this week, pending, the next payout, 8 weeks of bars) and Add a laptop beside it; each laptop as a tile;
+ * raised card (this week, pending, the next payout, 8 weeks of bars) and Add a laptop beside it; each laptop as a tile;
  * then the demand for its GPU, its score and the last payouts; and a new host's checklist beside Help. Every figure is
  * the server's; what isn't the first paint's is asked for once the screen has painted.
  */

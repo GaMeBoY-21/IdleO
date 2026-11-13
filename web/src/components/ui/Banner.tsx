@@ -3,8 +3,9 @@ import type { ReactNode } from "react";
 import { cn } from "@/lib/cn";
 
 /**
- * A line of status above or inside a view: a warning, an error, or plain information. Banners push the content below
- * them down; they never cover it (web/DESIGN.md "Motion", the product owner, Oct 8).
+ * A line of status above or inside a view: a warning, an error, or plain information. A surface-1 card with a hairline,
+ * and an icon in the status colour (never colour alone: the words say it too). Banners push the content below them
+ * down; they never cover it (web/DESIGN.md "Motion", the product owner, Oct 8).
  */
 export function Banner({
   tone,
@@ -19,14 +20,18 @@ export function Banner({
   return (
     <div
       role={tone === "danger" ? "alert" : "status"}
-      className={cn(
-        "flex items-start gap-2 rounded-inner px-4 py-4 text-small",
-        tone === "warning" && "bg-warn text-warn-fg",
-        tone === "danger" && "bg-danger-soft text-danger",
-        tone === "info" && "bg-panel text-text tiled:bg-panel-2",
-      )}
+      className="flex items-start gap-2 rounded-card border border-hairline bg-surface-1 px-4 py-4 text-small text-ink"
     >
-      <Icon aria-hidden="true" className="mt-px size-5 shrink-0" strokeWidth={1.75} />
+      <Icon
+        aria-hidden="true"
+        className={cn(
+          "mt-px size-5 shrink-0",
+          tone === "warning" && "text-warning",
+          tone === "danger" && "text-danger",
+          tone === "info" && "text-info",
+        )}
+        strokeWidth={1.75}
+      />
       <div className="flex-1">{children}</div>
       {action}
     </div>

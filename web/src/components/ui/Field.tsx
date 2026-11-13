@@ -29,13 +29,13 @@ export const Field = forwardRef<
         aria-invalid={error ? true : undefined}
         aria-describedby={messageId}
         className={cn(
-          "min-h-14 rounded-control border border-line bg-panel px-4 text-body text-text tiled:bg-panel-2",
-          "placeholder:text-text-3",
-          error && "ring-2 ring-danger",
+          "min-h-control rounded-control border border-control bg-surface-1 px-button text-body text-ink pointer-coarse:min-h-touch pointer-coarse:text-card",
+          "placeholder:text-ink-tertiary",
+          error && "border-danger ring-1 ring-danger",
         )}
         {...props}
       />
-      <p id={messageId} className={cn("min-h-4.5 text-caption", error ? "text-danger" : "text-text-2")}>
+      <p id={messageId} className={cn("min-h-4.5 text-caption", error ? "text-danger" : "text-ink-subtle")}>
         {error ?? hint ?? ""}
       </p>
     </div>

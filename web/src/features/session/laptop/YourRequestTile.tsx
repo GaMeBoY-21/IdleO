@@ -8,7 +8,7 @@ import { aboutRuntime } from "@/lib/catalog";
 import { inputLine, type InputFact } from "@/lib/inputs";
 
 /**
- * "Your request", the white tile on the finding screen (web/DESIGN.md "The session screen"): what was asked for, as the
+ * "Your request", the card on the finding screen (web/DESIGN.md "The session screen"): what was asked for, as the
  * session itself says it: each input, the preset chosen, the spending cap and what is held until it runs. Never a
  * figure the session doesn't carry.
  */
@@ -55,7 +55,7 @@ export function YourRequestTile({
           ["Held until it runs", <Money key="held" paise={session.reservedPaise} />],
         ]}
       />
-      <p className="text-caption text-text-2">Nothing is charged until it runs.</p>
+      <p className="text-caption text-ink-subtle">Nothing is charged until it runs.</p>
     </Tile>
   );
 }

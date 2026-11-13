@@ -76,7 +76,7 @@ export function DeleteAccount() {
         className="flex flex-col gap-2 md:p-6 xl:col-span-3 xl:p-8"
       >
         <SectionHeader id="what-title">What happens</SectionHeader>
-        <p className="text-option font-semibold">We erase</p>
+        <p className="text-card font-semibold">We erase</p>
         <ul className="flex flex-col gap-1">
           {ERASED.map((line) => (
             <li key={line} className={LINE}>
@@ -85,7 +85,7 @@ export function DeleteAccount() {
             </li>
           ))}
         </ul>
-        <p className="pt-2 text-option font-semibold">We must keep</p>
+        <p className="pt-2 text-card font-semibold">We must keep</p>
         {/* Kept for as long as the server's periods say, which arrive with the rest: the list's room is kept for it
             from the start, so nothing below moves when it does. */}
         {standing.data ? (
@@ -151,10 +151,10 @@ function Deletion({ standing }: { standing: DeletionStanding }) {
   if (request?.state === "scheduled" && request.deleteAfter) {
     return (
       <div className="flex flex-col gap-2">
-        <p className="text-option font-semibold">
+        <p className="text-card font-semibold">
           Your account will be deleted on {formatDay(request.deleteAfter)}.
         </p>
-        <p className="text-small text-text-2">
+        <p className="text-small text-ink-subtle">
           {request.legalOrder
             ? "A legal order requires it."
             : "Changed your mind? Cancel now, or with the link in our email, until then."}
@@ -181,13 +181,13 @@ function Deletion({ standing }: { standing: DeletionStanding }) {
           {standing.waitingDays} days, and you can cancel any time until then.
         </p>
       ) : (
-        <p className="text-small text-text-2">
+        <p className="text-small text-ink-subtle">
           We email you a link to confirm. Then we wait {standing.waitingDays} days before deleting anything,
           and you can cancel any time until then.
         </p>
       )}
       {standing.losses.map((loss) => (
-        <p key={loss.code} className="text-small font-semibold text-warn-fg">
+        <p key={loss.code} className="text-small font-semibold text-ink">
           You give up <Money paise={loss.amountPaise} /> of free credit: it can&apos;t be paid out.
         </p>
       ))}
@@ -227,7 +227,9 @@ function Deletion({ standing }: { standing: DeletionStanding }) {
         </Button>
       ) : (
         <>
-          <p className="text-small text-text-2">For your safety, sign in again first. It takes a moment.</p>
+          <p className="text-small text-ink-subtle">
+            For your safety, sign in again first. It takes a moment.
+          </p>
           <Button
             variant="ghost"
             disabled={blocked}

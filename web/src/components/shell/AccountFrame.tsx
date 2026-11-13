@@ -12,7 +12,7 @@ const AccountRail = lazy(() => loadRail().then((module) => ({ default: module.Ac
 
 /**
  * The frame of Account and the screens under it (web/DESIGN.md "Laptop layout"): on a phone a titled page, as every
- * list is; from 768 px a 320 px rail (the person's dark tile, the four sections, appearance and Sign out) and the
+ * list is; from 768 px a 320 px rail (the person's raised card, the four sections, appearance and Sign out) and the
  * screen beside it. What the avatar's menu held on a phone is here on a laptop, where the avatar is a link.
  */
 export function AccountFrame({

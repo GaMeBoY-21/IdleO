@@ -97,7 +97,7 @@ function RefundList() {
                 <Cell>
                   <RelativeTime value={refund.requestedAt} />
                   {refund.ticketNumber != null && (
-                    <span className="block text-caption text-text-2">message #{refund.ticketNumber}</span>
+                    <span className="block text-caption text-ink-subtle">message #{refund.ticketNumber}</span>
                   )}
                 </Cell>
                 <Cell>
@@ -113,7 +113,7 @@ function RefundList() {
                 <Cell>
                   <StatusChip size="sm" domain="refund" state={refund.status} />
                   {refund.decision && (
-                    <span className="block text-caption text-text-2">{refund.decision}</span>
+                    <span className="block text-caption text-ink-subtle">{refund.decision}</span>
                   )}
                 </Cell>
                 <Cell>

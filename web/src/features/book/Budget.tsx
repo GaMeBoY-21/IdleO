@@ -33,7 +33,7 @@ export function Budget({ chips }: { chips: number[] }) {
   const chip = (selected: boolean) =>
     cn(
       "flex min-h-touch items-center rounded-full px-4 text-small font-semibold transition-colors",
-      selected ? "bg-primary text-primary-fg" : "bg-panel-2 hover:bg-line",
+      selected ? "bg-volt text-on-volt" : "bg-surface-2 hover:bg-hairline",
     );
 
   return (
@@ -73,7 +73,7 @@ export function Budget({ chips }: { chips: number[] }) {
         />
       ) : (
         <p
-          className={cn("text-caption", error ? "text-danger" : "text-text-2")}
+          className={cn("text-caption", error ? "text-danger" : "text-ink-subtle")}
           role={error ? "alert" : undefined}
         >
           {error ?? "It saves its progress and stops if it ever costs this much."}

@@ -110,7 +110,7 @@ function Chart() {
                 </Cell>
                 <Cell>
                   {account.type}
-                  <span className="block text-caption text-text-2">
+                  <span className="block text-caption text-ink-subtle">
                     raised by {account.normalSide}s{account.owned ? ", owned" : ""}
                   </span>
                 </Cell>
@@ -153,12 +153,12 @@ function TrialBalance() {
         {(balance) => (
           <>
             {balance.balanced ? (
-              <p className="text-small text-text-2">
+              <p className="text-small text-ink-subtle">
                 <StatusChip size="sm" domain="ledger" state="balanced" /> Debits{" "}
                 <Paise paise={balance.debitsPaise} /> equal credits <Paise paise={balance.creditsPaise} />.
               </p>
             ) : (
-              <p role="alert" className="rounded-control bg-danger-soft p-4 text-small text-danger">
+              <p role="alert" className="rounded-control border border-danger p-4 text-small text-danger">
                 The ledger doesn&apos;t balance: debits <Paise paise={balance.debitsPaise} />, credits{" "}
                 <Paise paise={balance.creditsPaise} />. This pages the on-call admin; see the runbook&apos;s
                 &ldquo;Ledger unbalanced&rdquo;.
@@ -195,7 +195,7 @@ function Transaction({ txn }: { txn: string }) {
       <QueryView query={found} what="the transaction">
         {(transaction) => (
           <>
-            <p className="text-small text-text-2">
+            <p className="text-small text-ink-subtle">
               <Id value={transaction.txnId} /> <RelativeTime value={transaction.createdAt} />, from{" "}
               {transaction.source.page && transaction.source.pageId ? (
                 <Link

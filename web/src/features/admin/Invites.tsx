@@ -74,12 +74,12 @@ export function Invites() {
             </Button>
           }
         >
-          <p className="text-small text-text-2">
+          <p className="text-small text-ink-subtle">
             For &ldquo;{made.note}&rdquo;, unlocking {kindOf(made.unlocks).toLowerCase()}. Shown only now:
             only their hashes are kept. Each works once.
           </p>
           <ul
-            className="tabular grid grid-cols-1 gap-2 rounded-inner border border-edge bg-panel p-4 text-body md:grid-cols-3"
+            className="tabular grid grid-cols-1 gap-2 rounded-card border border-hairline bg-surface-1 p-4 text-body md:grid-cols-3"
             aria-label="New invite codes"
           >
             {made.codes.map((code) => (
@@ -187,7 +187,7 @@ export function Invites() {
                     {invite.usedAt ? (
                       <span>
                         {invite.usedByEmail ?? invite.usedBy}{" "}
-                        <RelativeTime value={invite.usedAt} className="text-text-2" />
+                        <RelativeTime value={invite.usedAt} className="text-ink-subtle" />
                       </span>
                     ) : (
                       <StatusChip size="sm" domain="invite" state="unused" />

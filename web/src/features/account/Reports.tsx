@@ -32,7 +32,7 @@ export function Reports() {
   return (
     <AccountFrame trail={[{ label: "Account", href: "/account/" }]} title="Reports">
       {since !== null && <StaleNotice updatedAt={since} />}
-      <p className="max-w-prose text-small text-text-2">
+      <p className="max-w-prose text-small text-ink-subtle">
         A person reads every report. {REPLY_PROMISE} A refund goes straight to your credit.
       </p>
       <Decisions />
@@ -45,7 +45,7 @@ export function Reports() {
                 If a session goes wrong, open it and choose Report a problem. It will be listed here.
               </EmptyState>
             ) : (
-              <ul className="flex flex-col divide-y divide-line">
+              <ul className="flex flex-col divide-y divide-hairline">
                 {rows.map((dispute) => (
                   <ReportItem key={dispute.id} dispute={dispute} />
                 ))}
@@ -75,11 +75,15 @@ export function Reports() {
             retrying={reports.isFetching}
           />
         ) : (
-          <div className="flex flex-col divide-y divide-line" role="status" aria-label="Loading your reports">
+          <div
+            className="flex flex-col divide-y divide-hairline"
+            role="status"
+            aria-label="Loading your reports"
+          >
             {[0, 1, 2].map((key) => (
               <div key={key} className={ROW}>
                 <div className="flex flex-1 flex-col gap-1">
-                  <SkeletonLine size="option" width="w-1/2" />
+                  <SkeletonLine size="card" width="w-1/2" />
                   <SkeletonLine size="small" width="w-2/3" />
                   <SkeletonLine size="small" width="w-1/3" />
                 </div>
@@ -98,20 +102,24 @@ function ReportItem({ dispute }: { dispute: Dispute }) {
   const words = reportWords(dispute);
   return (
     <li>
-      <Link href={`/session/?id=${dispute.sessionId}`} className={cn(ROW, "hover:bg-panel-2")}>
+      <Link href={`/session/?id=${dispute.sessionId}`} className={cn(ROW, "hover:bg-surface-2")}>
         <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <p className="text-option font-semibold break-words">{reasonTitle(dispute.reason)}</p>
-          <p className="text-small text-text-2 first-letter:uppercase">
+          <p className="text-card font-semibold break-words">{reasonTitle(dispute.reason)}</p>
+          <p className="text-small text-ink-subtle first-letter:">
             <RelativeTime value={dispute.createdAt} prefix="sent" />
           </p>
-          <p className={cn("text-small font-semibold", words.resolved ? "text-text" : "text-warn-fg")}>
+          <p className={cn("text-small font-semibold", words.resolved ? "text-ink" : "text-ink")}>
             {words.headline}
           </p>
           {words.resolved && words.line !== "" && (
-            <p className="text-small break-words text-text-2">{words.line}</p>
+            <p className="text-small break-words text-ink-subtle">{words.line}</p>
           )}
         </div>
-        <ChevronRight aria-hidden="true" className="mt-1 size-5 shrink-0 text-text-2" strokeWidth={1.75} />
+        <ChevronRight
+          aria-hidden="true"
+          className="mt-1 size-5 shrink-0 text-ink-subtle"
+          strokeWidth={1.75}
+        />
       </Link>
     </li>
   );

@@ -134,8 +134,10 @@ function ImageRow({ image, onAct }: { image: AdminImage; onAct: (acting: Acting)
       </Cell>
       <Cell>
         <span className="break-all">{image.reference}</span>
-        {image.privateRegistry && <span className="block text-caption text-text-2">private registry</span>}
-        {image.reason && <span className="block text-caption text-text-2">{image.reason}</span>}
+        {image.privateRegistry && (
+          <span className="block text-caption text-ink-subtle">private registry</span>
+        )}
+        {image.reason && <span className="block text-caption text-ink-subtle">{image.reason}</span>}
       </Cell>
       <Cell>
         <StatusChip size="sm" domain="image" state={image.state} />

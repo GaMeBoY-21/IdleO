@@ -12,7 +12,7 @@ const ROW_PX = 18;
 
 /** A button on the log tile: pressed in with the page's colour. */
 export const logButton =
-  "min-h-touch rounded-control bg-panel-2 px-4 text-small font-semibold text-text hover:bg-line focus-visible:outline-focus";
+  "min-h-touch rounded-control bg-surface-2 px-4 text-small font-semibold text-ink hover:bg-hairline focus-visible:outline-focus";
 
 /**
  * A session's log lines in the log tile (web/DESIGN.md "The session screen"): the newest 2,000 at most, in the
@@ -99,7 +99,7 @@ export function LogPanel({
     <>
       <div className="flex flex-wrap items-center gap-2">
         <div className="min-w-0 flex-1">{title}</div>
-        <p className="text-caption text-text-2" aria-live="polite">
+        <p className="text-caption text-ink-subtle" aria-live="polite">
           {copied
             ? `Copied ${shown.length.toLocaleString("en-IN")} lines`
             : following && live
@@ -137,7 +137,7 @@ export function LogPanel({
               setAtBottom(bottom);
             }
           }}
-          className="absolute inset-0 overflow-auto rounded-inner bg-canvas p-4 font-mono text-caption focus-visible:outline-focus"
+          className="absolute inset-0 overflow-auto rounded-card bg-canvas p-4 font-mono text-caption focus-visible:outline-focus"
           data-testid="log-panel"
         >
           {start > 0 && (
@@ -227,7 +227,7 @@ export function blocks(lines: LogLine[], start: number, drawn: Map<string, LogBl
 const Block = memo(function Block({ block }: { block: LogBlock }) {
   if (block.kind === "attempt") {
     return (
-      <div className="flex h-4.5 items-center gap-2 border-t border-line font-sans text-text-2">
+      <div className="flex h-4.5 items-center gap-2 border-t border-hairline font-sans text-ink-subtle">
         <span className="-mt-px bg-canvas pr-2 text-caption">
           Attempt {block.attempt}: moved to another host
         </span>
@@ -239,7 +239,7 @@ const Block = memo(function Block({ block }: { block: LogBlock }) {
   // whenever the window moved or the panel scrolled to the end held a tap back 195 ms on a CPU slowed 40 times.
   return (
     <div
-      className="min-h-4.5 whitespace-pre text-text"
+      className="min-h-4.5 whitespace-pre text-ink"
       style={{ contentVisibility: "auto", containIntrinsicSize: `auto ${block.count * ROW_PX}px` }}
       data-lines={block.count}
     >

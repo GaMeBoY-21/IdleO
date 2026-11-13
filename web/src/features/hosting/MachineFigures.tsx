@@ -25,9 +25,9 @@ export function GpuLine({ host }: { host: Host }) {
       </p>
       {/* Two lines are always kept for the reading, which can wrap on a phone, so it arriving moves nothing. */}
       {host.presence === "UNKNOWN" ? (
-        <p className="min-h-10 text-small text-text-2">Status unknown, checking…</p>
+        <p className="min-h-10 text-small text-ink-subtle">Status unknown, checking…</p>
       ) : !host.online ? (
-        <p className="min-h-10 text-small text-text-2">
+        <p className="min-h-10 text-small text-ink-subtle">
           {host.lastSeenAt ? (
             <>
               Offline · last seen <RelativeTime value={host.lastSeenAt} />
@@ -37,7 +37,7 @@ export function GpuLine({ host }: { host: Host }) {
           )}
         </p>
       ) : reading ? (
-        <p className="min-h-10 text-small text-text-2 tabular">
+        <p className="min-h-10 text-small text-ink-subtle tabular">
           {reading.tempC}°C{cap ? ` of ${cap}°C limit` : ""} · {reading.utilPct}% busy
           {peak > 0 && ` · peak ${peak}°C in the last hour`}
         </p>
@@ -46,7 +46,7 @@ export function GpuLine({ host }: { host: Host }) {
           <Skeleton className="h-5 w-2/3" />
         </div>
       ) : (
-        <p className="min-h-10 text-small text-text-2">No reading yet</p>
+        <p className="min-h-10 text-small text-ink-subtle">No reading yet</p>
       )}
     </Tile>
   );
@@ -64,7 +64,7 @@ export const RATINGS_SHOWN_FROM = 5;
 export function RatingLine({ host }: { host: Host }) {
   const rating = host.rating;
   return (
-    <p className="flex min-h-5 items-center gap-1 text-small text-on-night-2">
+    <p className="flex min-h-5 items-center gap-1 text-small text-ink-subtle">
       {rating ? (
         <>
           <Star aria-hidden="true" className="size-4 text-volt" fill="currentColor" strokeWidth={1.75} />
@@ -89,10 +89,9 @@ export function RatingLine({ host }: { host: Host }) {
 export function ReliabilityLine({ host }: { host: Host }) {
   const lowers = reliabilityLowers(host.reliability.lowers);
   return (
-    <div className="flex flex-col gap-1 text-small text-on-night-2">
+    <div className="flex flex-col gap-1 text-small text-ink-subtle">
       <p>
-        Reliability:{" "}
-        <span className="font-semibold text-on-night">{reliabilityWord(host.reliability.label)}</span>
+        Reliability: <span className="font-semibold text-ink">{reliabilityWord(host.reliability.label)}</span>
       </p>
       {lowers.length > 0 && (
         <ul className="flex flex-col gap-1" aria-label="What lowers it">
@@ -113,19 +112,19 @@ export function RightNow({ host }: { host: Host }) {
   const session = host.currentSession;
   return (
     <Tile as="section" aria-labelledby="right-now" className="flex flex-col gap-2">
-      <h2 id="right-now" className="text-small font-semibold text-text-2">
+      <h2 id="right-now" className="text-small font-semibold text-ink-subtle">
         Right now
       </h2>
       {session ? (
         <>
-          <p className="text-option font-semibold">
+          <p className="text-card font-semibold">
             {session.runningLabel} · <Elapsed from={session.startedAt} />
           </p>
           <Money paise={session.earnedSoFarPaise} className="block text-title" />
-          <p className="text-small text-text-2">earned so far · you keep {100 - COMMISSION_PERCENT}%</p>
+          <p className="text-small text-ink-subtle">earned so far · you keep {100 - COMMISSION_PERCENT}%</p>
         </>
       ) : (
-        <p className="text-small text-text-2">
+        <p className="text-small text-ink-subtle">
           Nothing is running. You earn as soon as a renter&apos;s job starts here.
         </p>
       )}
@@ -139,7 +138,7 @@ export function RightNow({ host }: { host: Host }) {
  */
 export function PrivacyLine({ host }: { host: Host }) {
   return (
-    <div className="flex flex-col gap-1 text-small text-text-2">
+    <div className="flex flex-col gap-1 text-small text-ink-subtle">
       <p>Renters never see who you are, and their work never touches your files.</p>
       <p>{uploadLine(host.uploadCapKbps)}</p>
     </div>

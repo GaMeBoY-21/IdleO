@@ -115,9 +115,9 @@ export function Appeal() {
         </EmptyState>
       ) : (
         <Tile as="section" className="flex flex-col gap-4 md:p-6">
-          <h2 className="text-option font-semibold">{decision.title}</h2>
+          <h2 className="text-card font-semibold">{decision.title}</h2>
           {decision.reason && <p className="text-body">Why: {decision.reason}</p>}
-          <p className="text-small text-text-2">
+          <p className="text-small text-ink-subtle">
             Decided {formatDay(decision.createdAt)}, under {decision.clause}.
             {decision.endsAt ? ` It lasts until ${formatDay(decision.endsAt)}.` : ""}
           </p>

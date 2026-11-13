@@ -45,7 +45,7 @@ export function HostSessions() {
         ) : (
           <div className="flex flex-col gap-4">
             <Tile as="div" className="px-4 py-0">
-              <ul className="flex flex-col divide-y divide-line">
+              <ul className="flex flex-col divide-y divide-hairline">
                 {sessions.map((session) => (
                   <SessionRow key={session.id} session={session} />
                 ))}
@@ -80,15 +80,15 @@ export function HostSessions() {
           as="div"
           role="status"
           aria-label="Loading the sessions it ran"
-          className="flex flex-col divide-y divide-line px-4 py-0"
+          className="flex flex-col divide-y divide-hairline px-4 py-0"
         >
           {[0, 1, 2, 3].map((key) => (
             <div key={key} className={ROW}>
               <div className="flex flex-1 flex-col gap-1">
-                <SkeletonLine size="option" width="w-1/2" />
+                <SkeletonLine size="card" width="w-1/2" />
                 <SkeletonLine size="small" width="w-2/3" />
               </div>
-              <SkeletonLine size="option" width="w-1/4" />
+              <SkeletonLine size="card" width="w-1/4" />
             </div>
           ))}
         </Tile>
@@ -102,14 +102,14 @@ function SessionRow({ session }: { session: HostSession }) {
   return (
     <li className={ROW}>
       <div className="flex min-w-0 flex-1 flex-col gap-1">
-        <p className="text-option font-semibold break-words">
+        <p className="text-card font-semibold break-words">
           {session.runningLabel} · {formatMinutes(session.minutes)}
         </p>
-        <p className="text-small text-text-2">
+        <p className="text-small text-ink-subtle">
           <RelativeTime value={session.startedAt} /> · {outcomeLabel(session)}
         </p>
       </div>
-      <p className={cn("text-option font-semibold tabular", session.earnedPaise > 0 && "text-running")}>
+      <p className={cn("text-card font-semibold tabular", session.earnedPaise > 0 && "text-live")}>
         <span className="sr-only">Earned </span>
         {session.earnedPaise > 0 && <span aria-hidden="true">+</span>}
         <Money paise={session.earnedPaise} />

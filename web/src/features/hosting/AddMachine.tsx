@@ -31,7 +31,7 @@ const STEPS = [
 ] as const;
 
 const BUTTON =
-  "flex min-h-14 w-full items-center justify-center gap-2 rounded-full bg-primary px-6 text-option font-semibold text-primary-fg disabled:opacity-40";
+  "flex min-h-14 w-full items-center justify-center gap-2 rounded-full bg-volt px-6 text-card font-semibold text-on-volt disabled:opacity-40";
 
 /**
  * The main button (ADR 0034): Download for Windows, with the release's version and size, once the API says there is
@@ -58,7 +58,7 @@ export function DownloadButton() {
         <button type="button" className={BUTTON} onClick={() => void release.refetch()}>
           Couldn&apos;t check for the Windows app · Try again
         </button>
-        <p className="min-h-5 text-small text-text-2">Check you&apos;re online, then try again.</p>
+        <p className="min-h-5 text-small text-ink-subtle">Check you&apos;re online, then try again.</p>
       </div>
     );
   }
@@ -68,7 +68,7 @@ export function DownloadButton() {
         <button type="button" disabled aria-describedby={whyId} className={BUTTON}>
           Windows app: coming soon
         </button>
-        <p id={whyId} className="min-h-5 text-small text-text-2">
+        <p id={whyId} className="min-h-5 text-small text-ink-subtle">
           Not released yet.
         </p>
       </div>
@@ -80,7 +80,7 @@ export function DownloadButton() {
         <MonitorDown className="size-5" strokeWidth={2} aria-hidden="true" />
         Download for Windows
       </a>
-      <p className="min-h-5 text-small text-text-2 tabular">{releaseLine(release.data)}</p>
+      <p className="min-h-5 text-small text-ink-subtle tabular">{releaseLine(release.data)}</p>
     </div>
   );
 }
@@ -100,14 +100,14 @@ export function AddMachine() {
             <Tile className="flex items-start gap-4">
               <span
                 aria-hidden="true"
-                className="flex size-12 shrink-0 items-center justify-center rounded-icon bg-panel-2"
+                className="flex size-12 shrink-0 items-center justify-center rounded-control bg-surface-2"
               >
                 <Icon className="size-6" strokeWidth={1.75} />
               </span>
               <div className="flex min-w-0 flex-col gap-1">
-                <p className="text-small text-text-2">Step {index + 1}</p>
-                <h2 className="text-option font-semibold">{title}</h2>
-                <p className="text-small text-text-2">{text}</p>
+                <p className="text-small text-ink-subtle">Step {index + 1}</p>
+                <h2 className="text-card font-semibold">{title}</h2>
+                <p className="text-small text-ink-subtle">{text}</p>
               </div>
             </Tile>
           </li>
@@ -115,8 +115,8 @@ export function AddMachine() {
       </ol>
       <Tile className="flex flex-col gap-2">
         <DownloadButton />
-        <p className="text-small text-text-2">Windows 10 or 11 · NVIDIA RTX graphics · 40 GB free</p>
-        <p className="text-small text-text-2">
+        <p className="text-small text-ink-subtle">Windows 10 or 11 · NVIDIA RTX graphics · 40 GB free</p>
+        <p className="text-small text-ink-subtle">
           Have a developer setup? Run <span className="font-semibold">idleo-agent link</span> on the laptop.
         </p>
       </Tile>

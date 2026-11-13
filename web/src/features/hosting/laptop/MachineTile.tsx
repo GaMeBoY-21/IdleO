@@ -11,7 +11,7 @@ import { laptopPath } from "@/sites/host/paths";
 import { PauseSwitch } from "../PauseSwitch";
 
 /**
- * One machine on a laptop's Hosting tab (web/DESIGN.md "Laptop layout"), a white tile: its state, with a dot,
+ * One machine on a laptop's Hosting tab (web/DESIGN.md "Laptop layout"), a card: its state, with a dot,
  * and its temperature and use when it is online; its name, its GPU, memory and price an hour; and, at the foot,
  * what it is earning now, or the pause with a "Resume" pill. The top is the link into the machine. What it earns is
  * the server's, read again while it runs a session.
@@ -29,8 +29,8 @@ export function MachineTile({ host, className }: { host: Host; className?: strin
         <span className="flex items-center justify-between gap-2 text-caption">
           <span
             className={cn(
-              "flex items-center gap-2 font-bold",
-              state.kind === "running" ? "text-running" : "text-text-2",
+              "flex items-center gap-2 font-semibold",
+              state.kind === "running" ? "text-live" : "text-ink-subtle",
             )}
           >
             <span
@@ -38,16 +38,16 @@ export function MachineTile({ host, className }: { host: Host; className?: strin
               className={cn(
                 "size-2 rounded-full",
                 state.kind === "running"
-                  ? "bg-running motion-safe:animate-pulse"
+                  ? "bg-live motion-safe:animate-pulse"
                   : state.active
-                    ? "bg-running"
+                    ? "bg-live"
                     : "bg-control",
               )}
             />
             {label}
           </span>
           {/* As wide as its longest reading, so a reading arriving moves nothing. */}
-          <span className="w-28 shrink-0 text-left text-text-2 tabular">
+          <span className="w-28 shrink-0 text-left text-ink-subtle tabular">
             {reading
               ? `${reading.tempC}°C · ${reading.utilPct}% busy`
               : host.online
@@ -58,7 +58,7 @@ export function MachineTile({ host, className }: { host: Host; className?: strin
           </span>
         </span>
         <span className="flex flex-col gap-2">
-          <span className="flex flex-col gap-1 text-small text-text-2">
+          <span className="flex flex-col gap-1 text-small text-ink-subtle">
             {host.currentSession && (
               <span>
                 {host.currentSession.runningLabel} · <Elapsed from={host.currentSession.startedAt} />
@@ -82,19 +82,19 @@ export function MachineTile({ host, className }: { host: Host; className?: strin
         </span>
         <span className="flex flex-col gap-1">
           <span className="text-section break-words">{host.name}</span>
-          <span className="text-small text-text-2 tabular">
+          <span className="text-small text-ink-subtle tabular">
             {gpu ? `${gpuName(gpu.model)} · ${gigabytes(gpu.vramMb)}` : "No GPU reported yet"}
             {host.listing && ` · ${rupeesAnHour(host.listing.batchPricePaisePerMin)}`}
           </span>
         </span>
       </Link>
       {host.currentSession ? (
-        <span className="flex items-baseline justify-between text-text-2">
+        <span className="flex items-baseline justify-between text-ink-subtle">
           <span className="text-caption">Earning now</span>
-          <Money paise={host.currentSession.earnedSoFarPaise} className="text-title text-text" />
+          <Money paise={host.currentSession.earnedSoFarPaise} className="text-title text-ink" />
         </span>
       ) : (
-        <span className="text-caption text-text-2">
+        <span className="text-caption text-ink-subtle">
           {host.paused ? "No new sessions while paused" : state.detail}
         </span>
       )}

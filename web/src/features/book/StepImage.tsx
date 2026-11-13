@@ -172,14 +172,14 @@ export function StepImage({ number }: { number: number }) {
           </div>
         </div>
         {justChecked && (
-          <div className="rounded-control bg-panel px-4 py-4 tiled:bg-panel-2">
+          <div className="rounded-control bg-surface-1 px-4 py-4">
             <p className="pb-1 text-small font-semibold break-all">{justChecked.reference}</p>
             <ImageFindings
               image={justChecked}
               vulnerabilitiesHref={`/account/images/?id=${justChecked.id}`}
             />
             {!checking(justChecked) && justChecked.state !== "ready" && (
-              <p className="pt-1 text-small text-text-2">
+              <p className="pt-1 text-small text-ink-subtle">
                 Fix it and check it again, or choose another image.
               </p>
             )}

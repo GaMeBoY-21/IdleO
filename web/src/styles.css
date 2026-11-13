@@ -1,28 +1,14 @@
 @import "tailwindcss";
 @import "./design/tokens.gen.css";
 
-/* web/DESIGN.md: Inter for text and Archivo for headlines (the fonts are in tokens.gen.css), tabular figures for
-   numbers, the reading measure, motion that respects prefers-reduced-motion, and a focus ring on every focusable thing.
-   Night Shift (ADR 0043): a deep indigo page (a pale lilac by day), panels on it, and a few loud colours. */
-
-/* Inside a tile (components/ui/Tile.tsx marks it with data-tile), a filled thing is pressed in with the next step of the
-   tile's colour. */
-@custom-variant tiled (&:where([data-tile] *));
-
-/* A panel inside a tile is pressed into it... */
-[data-tile] [data-tile="panel"] {
-  background-color: var(--panel-2);
-}
-
-/* ...and what is pressed into the tile that was pressed in is the tile's colour again. */
-[data-tile] [data-tile] [class*="tiled:bg-panel-2"] {
-  background-color: var(--panel);
-}
+/* web/DESIGN.md: Inter for everything and JetBrains Mono for ids, logs and code (the fonts are in tokens.gen.css),
+   tabular figures for numbers, the reading measure, motion that respects prefers-reduced-motion, and a focus ring on
+   every focusable thing. The IdleO system (ADR 0060): a surface ladder, hairlines, and one accent. */
 
 @layer base {
   html {
     background: var(--canvas);
-    color: var(--text);
+    color: var(--ink);
     font-family: var(--font-sans);
     -webkit-text-size-adjust: 100%;
     text-rendering: optimizeLegibility;
@@ -32,34 +18,47 @@
   body {
     @apply text-body;
     min-height: 100dvh;
+    /* Numbers line up everywhere. */
+    font-variant-numeric: tabular-nums;
   }
   :focus-visible {
     outline: 2px solid var(--focus);
     outline-offset: 2px;
   }
   ::selection {
-    background: var(--raised);
+    background: var(--surface-4);
+  }
+  /* Identifiers, logs and code. */
+  code,
+  kbd,
+  samp,
+  pre {
+    font-family: var(--font-mono);
   }
 }
 
-/* The floating tab bar is 64 px, 14 px above the phone's home-indicator inset; content clears it with room to
-   spare. */
+/* The console sets text at 14 px: the same scale, one step down for its body. */
+.dense {
+  --text-body: 0.875rem;
+}
+
+/* The phone's tab bar is 56 px, docked to the bottom edge above the home-indicator inset; content clears it. */
 @utility pb-safe {
   padding-bottom: env(safe-area-inset-bottom);
 }
 
-/* The floating tab bar is 14 px above the bottom edge, and the phone's home-indicator inset. */
+/* The tab bar sits on the bottom edge, above the phone's home-indicator inset. */
 @utility bottom-tab {
-  bottom: calc(var(--spacing-3\.5) + env(safe-area-inset-bottom));
+  bottom: env(safe-area-inset-bottom);
 }
 
 /* The phone's action bar sits on the tab bar (web/DESIGN.md "The phone action bar"). */
 @utility bottom-clear-tabs {
-  bottom: calc(var(--spacing-18) + var(--spacing-6) + env(safe-area-inset-bottom));
+  bottom: calc(var(--spacing-14) + env(safe-area-inset-bottom));
 }
 
 @utility pb-clear-nav {
-  padding-bottom: calc(var(--spacing-18) + var(--spacing-8) + env(safe-area-inset-bottom));
+  padding-bottom: calc(var(--spacing-14) + var(--spacing-8) + env(safe-area-inset-bottom));
 }
 
 @utility tabular {
@@ -106,43 +105,21 @@
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 23.75rem), 1fr));
 }
 
-/* A tile that is a link or a button lifts a little on hover (a laptop) and presses in on tap (a phone), in 120 ms.
-   Nothing else moves, and nothing under reduced motion. */
+/* A card that is a link or a button goes up one step of the ladder on hover (a laptop), in 150 ms. Nothing moves, and
+   nothing changes under reduced motion. */
 @utility tile-motion {
-  transition: transform var(--default-transition-duration) var(--ease-enter);
+  transition: background-color var(--default-transition-duration) var(--ease-enter);
   @media (hover: hover) {
     &:hover {
-      transform: translateY(-2px);
-    }
-  }
-  &:active {
-    transform: scale(0.98);
-  }
-  @media (prefers-reduced-motion: reduce) {
-    &:hover,
-    &:active {
-      transform: none;
+      background-color: var(--surface-2);
     }
   }
 }
 
-/* A placeholder is bone-coloured: it shows on the page and on a tile alike. */
+/* A placeholder is a surface of the ladder with a faint shimmer across it. */
 @utility skeleton {
-  background: var(--bone);
-  background-image: linear-gradient(90deg, transparent, var(--bone-shine), transparent);
-  background-size: 200% 100%;
-  animation: idleo-shimmer 1.4s linear infinite;
-}
-
-/* The same, on the dark tile. */
-@utility skeleton-dark {
-  background: color-mix(in srgb, var(--on-night) 14%, transparent);
-  background-image: linear-gradient(
-    90deg,
-    transparent,
-    color-mix(in srgb, var(--on-night) 10%, transparent),
-    transparent
-  );
+  background: var(--surface-3);
+  background-image: linear-gradient(90deg, transparent, var(--surface-4), transparent);
   background-size: 200% 100%;
   animation: idleo-shimmer 1.4s linear infinite;
 }
@@ -215,7 +192,7 @@
   }
 }
 
-/* A bottom sheet rises from the edge of the screen; a side drawer slides in from the right. */
+/* A sheet or a menu rises a few pixels as it appears. */
 @keyframes idleo-rise {
   from {
     transform: translateY(8px);

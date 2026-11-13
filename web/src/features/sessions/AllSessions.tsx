@@ -39,7 +39,7 @@ export function AllSessions() {
             aria-current={tab.current ? "page" : undefined}
             className={cn(
               "flex min-h-touch items-center rounded-full px-4 text-small font-semibold",
-              tab.current ? "bg-primary text-primary-fg" : "bg-panel text-text hover:bg-raised",
+              tab.current ? "bg-volt text-on-volt" : "bg-surface-1 text-ink hover:bg-surface-3",
             )}
           >
             {tab.label}

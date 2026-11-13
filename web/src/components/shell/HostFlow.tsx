@@ -25,7 +25,7 @@ export function HostFlow({
 }: {
   back: string;
   backLabel: string;
-  /** The dark tile of the rail; without one, a tile made of `title` and `lede`. */
+  /** The raised card of the rail; without one, a tile made of `title` and `lede`. */
   summary?: ReactNode;
   /** The screen's heading, in the rail's tile from 768 px (children then leave it out there). */
   title?: string;
@@ -37,7 +37,7 @@ export function HostFlow({
   const pill = (
     <Link
       href={back}
-      className="flex min-h-touch items-center gap-1 self-start rounded-full bg-panel px-4 text-small font-semibold hover:bg-raised"
+      className="flex min-h-touch items-center gap-1 self-start rounded-full bg-surface-1 px-4 text-small font-semibold hover:bg-surface-3"
     >
       <ChevronLeft aria-hidden="true" className="size-4" strokeWidth={2} />
       {backLabel}
@@ -46,9 +46,9 @@ export function HostFlow({
   const head =
     summary ??
     (title && (
-      <Tile tone="night" size="lg" className="flex flex-col gap-2 xl:p-8">
+      <Tile tone="raised" size="lg" className="flex flex-col gap-2 xl:p-8">
         <PageTitle variant="panel">{title}</PageTitle>
-        {lede && <p className="text-body text-on-night-2">{lede}</p>}
+        {lede && <p className="text-body text-ink-subtle">{lede}</p>}
       </Tile>
     ));
   if (wide) {

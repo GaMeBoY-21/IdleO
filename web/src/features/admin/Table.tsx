@@ -352,7 +352,7 @@ export function Table({
       <div
         ref={scroller}
         className={cn(
-          "relative overflow-auto rounded-panel border border-edge bg-panel px-4 py-2",
+          "relative overflow-auto rounded-card border border-hairline bg-surface-1 px-4 py-2",
           windowed ? "admin-table-window" : "md:admin-table-window",
         )}
         // A wide or long table scrolls; the keyboard must reach it.
@@ -369,9 +369,9 @@ export function Table({
         >
           <caption className="sr-only">{caption}</caption>
           <thead>
-            <tr className="border-b border-line text-left text-caption tracking-wider text-text-3 uppercase">
+            <tr className="border-b border-hairline text-left text-caption text-ink-tertiary">
               {selectable && (
-                <th scope="col" className="sticky top-0 z-sticky bg-panel px-0 py-0">
+                <th scope="col" className="sticky top-0 z-sticky bg-surface-1 px-0 py-0">
                   <label className={TICK}>
                     <input
                       type="checkbox"
@@ -408,7 +408,7 @@ export function Table({
                       ...(pin === undefined ? {} : { left: pin }),
                     }}
                     className={cn(
-                      "group sticky top-0 bg-panel px-2 py-2 font-semibold",
+                      "group sticky top-0 bg-surface-1 px-2 py-2 font-semibold",
                       numeric.has(index) && "text-right",
                       pin === undefined ? "z-raised" : "z-sticky",
                     )}
@@ -418,7 +418,7 @@ export function Table({
                         type="button"
                         title="Shift-click to sort by this as well"
                         onClick={(event) => view.sortBy(key, event.shiftKey)}
-                        className="-my-2 inline-flex min-h-touch items-center uppercase underline md:min-h-0"
+                        className="-my-2 inline-flex min-h-touch items-center underline md:min-h-0"
                       >
                         {column}
                         {now === "asc" ? " ↑" : now === "desc" ? " ↓" : ""}
@@ -431,7 +431,7 @@ export function Table({
                       <span
                         aria-hidden="true"
                         onPointerDown={(event) => startResize(event, index, column)}
-                        className="absolute inset-y-0 right-0 w-2 cursor-col-resize opacity-0 group-hover:bg-line group-hover:opacity-100"
+                        className="absolute inset-y-0 right-0 w-2 cursor-col-resize opacity-0 group-hover:bg-hairline group-hover:opacity-100"
                       />
                     )}
                   </th>
@@ -448,7 +448,7 @@ export function Table({
                 {items.map((item) =>
                   flicking ? (
                     <tbody key={item.key} aria-hidden="true">
-                      <tr className="border-b border-line" style={{ height: item.size }}>
+                      <tr className="border-b border-hairline" style={{ height: item.size }}>
                         <td colSpan={colSpan} />
                       </tr>
                     </tbody>
@@ -493,7 +493,7 @@ export function Row({ children, className }: { children: ReactNode; className?: 
             className: cn(
               element.props.className,
               numeric.has(index) && NUMERIC,
-              pin !== undefined && "sticky z-raised bg-panel",
+              pin !== undefined && "sticky z-raised bg-surface-1",
             ),
             style: pin === undefined ? element.props.style : { ...element.props.style, left: pin },
           });
@@ -504,8 +504,8 @@ export function Row({ children, className }: { children: ReactNode; className?: 
       {...(row.index >= 0 ? { "data-row-index": row.index } : {})}
       aria-current={row.active ? "true" : undefined}
       className={cn(
-        "border-b border-line align-top last:border-b-0",
-        row.active && "bg-raised outline-2 -outline-offset-2 outline-progress",
+        "border-b border-hairline align-top last:border-b-0",
+        row.active && "bg-surface-3 outline-2 -outline-offset-2 outline-live",
         className,
       )}
     >
@@ -590,7 +590,7 @@ function TableControls({
         : [...settings.pinned, id],
     });
   };
-  const small = "min-h-6 min-w-6 rounded-control bg-raised px-1 text-caption font-medium";
+  const small = "min-h-6 min-w-6 rounded-control bg-surface-3 px-1 text-caption font-medium";
   return (
     <div className="flex flex-wrap items-center gap-2 text-small">
       <details ref={details} className="relative" onToggle={(event) => setOpen(event.currentTarget.open)}>
@@ -599,7 +599,7 @@ function TableControls({
         </summary>
         {/* Only while it's open, so a closed menu's column names aren't labels on the page beside the real fields. */}
         {open && (
-          <fieldset className="absolute z-popover mt-1 flex flex-col gap-1 rounded-inner border border-line bg-panel p-4">
+          <fieldset className="absolute z-popover mt-1 flex flex-col gap-1 rounded-card border border-hairline bg-surface-1 p-4">
             <legend className="sr-only">Columns of {caption}</legend>
             {named.map((index) => {
               const column = columns[index] ?? "";

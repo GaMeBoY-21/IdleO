@@ -31,7 +31,7 @@ export function HomeHeader() {
   return (
     <div className="flex flex-wrap items-end justify-between gap-4">
       <div className="flex flex-col gap-1">
-        <span className="text-body text-text-3">Or drop a folder anywhere on this page</span>
+        <span className="text-body text-ink-tertiary">Or drop a folder anywhere on this page</span>
         <PageTitle id="question" tabTitle="Home">
           What do you want to run?
         </PageTitle>

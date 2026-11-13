@@ -39,14 +39,14 @@ export function LossChart({ losses }: { losses: number[] }) {
         <h2 id="loss-title" className="text-section">
           Training loss
         </h2>
-        <span className="text-body text-text-2 tabular">
-          {fmt(first)} → <span className="font-bold text-text">{fmt(latest)}</span>
+        <span className="text-body text-ink-subtle tabular">
+          {fmt(first)} → <span className="font-semibold text-ink">{fmt(latest)}</span>
         </span>
       </div>
       <div
         role="img"
         aria-label={`Training loss, from ${fmt(first)} to ${fmt(latest)}`}
-        className="flex h-loss items-end gap-1 rounded-inner bg-canvas p-4"
+        className="flex h-loss items-end gap-1 rounded-card bg-canvas p-4"
       >
         {heights.map((height, index) => (
           <span
@@ -55,8 +55,8 @@ export function LossChart({ losses }: { losses: number[] }) {
             style={{ height: `${height}%` }}
             className={
               index === heights.length - 1
-                ? "min-w-0 flex-1 rounded-full bg-running-dot"
-                : "min-w-0 flex-1 rounded-full bg-ion-deep"
+                ? "min-w-0 flex-1 rounded-full bg-live"
+                : "min-w-0 flex-1 rounded-full bg-hairline-tertiary"
             }
           />
         ))}

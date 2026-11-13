@@ -63,20 +63,17 @@ export function FreeGpus({ enabled }: { enabled: boolean }) {
   const rows = availability.data ? classRows(availability.data.gpus) : [];
   return (
     <Tile size="lg" aria-labelledby="free-gpus" className="flex min-h-0 flex-1 flex-col gap-2">
-      <div className="flex items-center justify-between text-caption text-text-2">
-        <h2
-          id="free-gpus"
-          className="flex items-center gap-2 text-caption font-bold tracking-wider uppercase"
-        >
-          <span aria-hidden="true" className="size-2 rounded-full bg-running-dot" />
+      <div className="flex items-center justify-between text-caption text-ink-subtle">
+        <h2 id="free-gpus" className="flex items-center gap-2 text-caption font-semibold">
+          <span aria-hidden="true" className="size-2 rounded-full bg-live" />
           GPUs online now
         </h2>
         <span>live</span>
       </div>
       <ul className="flex flex-1 flex-col">
         {availability.data && rows.length === 0 ? (
-          <li className="flex flex-1 flex-col justify-center gap-1 text-small text-text-2">
-            <span className="text-body font-semibold text-text">No GPU is online right now</span>
+          <li className="flex flex-1 flex-col justify-center gap-1 text-small text-ink-subtle">
+            <span className="text-body font-semibold text-ink">No GPU is online right now</span>
             <span>
               Hosts&apos; laptops come and go through the day; this updates by itself.{" "}
               <a href={siteLink(PRICING)} className="font-semibold underline">
@@ -89,15 +86,15 @@ export function FreeGpus({ enabled }: { enabled: boolean }) {
             <li
               key={row.gb}
               className={cn(
-                "flex flex-1 items-center gap-2 border-b border-line py-2 text-body tabular last:border-b-0",
-                row.free === 0 && "text-text-2",
+                "flex flex-1 items-center gap-2 border-b border-hairline py-2 text-body tabular last:border-b-0",
+                row.free === 0 && "text-ink-subtle",
               )}
             >
-              <span className="w-16 font-bold">{row.gb} GB</span>
+              <span className="w-16 font-semibold">{row.gb} GB</span>
               <span className="flex-1">
                 {row.online} online · {row.free === 0 ? "none free" : `${row.free} free`}
               </span>
-              <span className={cn(row.free > 0 && "font-bold text-running")}>
+              <span className={cn(row.free > 0 && "font-semibold text-live")}>
                 {row.range ? `${formatPaiseRange(row.range.min * 60, row.range.max * 60)}/h` : "—"}
               </span>
             </li>

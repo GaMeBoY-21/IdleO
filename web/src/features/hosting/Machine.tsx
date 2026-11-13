@@ -30,10 +30,10 @@ const SelfTestPanel = lazy(() =>
 const PAGE_OPENED_AT = Date.now();
 
 /**
- * One machine (designed for the phone first): in the dark tile its state, name and rating, then its GPU with
+ * One machine (designed for the phone first): in the raised card its state, name and rating, then its GPU with
  * temperature and use against the limit, what it's running now and what that has earned so far, the privacy line, rows
  * to its price and limits, the sessions it ran, and renaming or removing it; and, at the foot, Pause hosting or Resume,
- * then Run self-test, last so what it shows as it loads and runs moves nothing. The dark tile also says how reliable the
+ * then Run self-test, last so what it shows as it loads and runs moves nothing. The raised card also says how reliable the
  * machine has been.
  */
 export function Machine() {
@@ -88,10 +88,10 @@ export function Machine() {
       backLabel="Hosting"
       className="xl:grid xl:grid-cols-2 xl:items-start"
       summary={
-        <Tile tone="night" size="lg" className="flex flex-col gap-2 xl:p-8">
+        <Tile tone="raised" size="lg" className="flex flex-col gap-2 xl:p-8">
           <StatusChip domain="machine" state={state.kind} label={state.label} testId="machine-chip" />
           <PageTitle variant="panel">{machine.name}</PageTitle>
-          <p className="min-h-5 text-small text-on-night-2">
+          <p className="min-h-5 text-small text-ink-subtle">
             {restored ? (
               <>
                 Updated <span className="tabular">{formatTime(host.dataUpdatedAt)}</span> · refreshing
@@ -149,11 +149,11 @@ export function Machine() {
 function MachineSkeleton() {
   return (
     <div role="status" aria-label="Loading this machine" className="flex flex-col gap-4">
-      <Tile tone="night" className="flex flex-col gap-2">
+      <Tile tone="raised" className="flex flex-col gap-2">
         <Skeleton className="h-9 w-1/3 rounded-full" />
-        <SkeletonLine size="title" width="w-2/3" onDark />
-        <SkeletonLine size="small" width="w-1/2" onDark />
-        <SkeletonLine size="small" width="w-1/3" onDark />
+        <SkeletonLine size="title" width="w-2/3" />
+        <SkeletonLine size="small" width="w-1/2" />
+        <SkeletonLine size="small" width="w-1/3" />
       </Tile>
       <Tile className="flex min-h-18 flex-col gap-1">
         <SkeletonLine size="section" width="w-1/2" />

@@ -67,9 +67,7 @@ function WeeksOnTheWay({ enabled }: { enabled: boolean }) {
   return (
     <Tile as="section" aria-labelledby="weeks-paid-title" className="flex flex-col gap-2 xl:p-8">
       <SectionHeader id="weeks-paid-title">Earned, the last 8 weeks</SectionHeader>
-      <div className="h-18">
-        {owner ? <WeeksBars weeks={owner.weeks} tone="panel" /> : <BarsSkeleton count={8} tone="panel" />}
-      </div>
+      <div className="h-18">{owner ? <WeeksBars weeks={owner.weeks} /> : <BarsSkeleton count={8} />}</div>
     </Tile>
   );
 }

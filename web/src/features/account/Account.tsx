@@ -44,7 +44,7 @@ export function Account() {
             <span className="hidden md:inline">Profile</span>
           </SectionHeader>
           {me.data || (kept && !me.isError) ? (
-            <div className="flex flex-col divide-y divide-line">
+            <div className="flex flex-col divide-y divide-hairline">
               <NameRow
                 name={
                   me.data
@@ -68,14 +68,14 @@ export function Account() {
               {nav.accountSections.flatMap(({ href, label, detail }) =>
                 detail
                   ? [
-                      <Link key={href} href={href} className={`${ROW} hover:bg-panel-2 md:hidden`}>
+                      <Link key={href} href={href} className={`${ROW} hover:bg-surface-2 md:hidden`}>
                         <div className="flex min-w-0 flex-1 flex-col gap-1">
-                          <p className="text-option font-semibold">{label}</p>
-                          <p className="text-small text-text-2">{detail}</p>
+                          <p className="text-card font-semibold">{label}</p>
+                          <p className="text-small text-ink-subtle">{detail}</p>
                         </div>
                         <ChevronRight
                           aria-hidden="true"
-                          className="size-5 shrink-0 text-text-2"
+                          className="size-5 shrink-0 text-ink-subtle"
                           strokeWidth={1.75}
                         />
                       </Link>,
@@ -92,7 +92,7 @@ export function Account() {
             />
           ) : (
             <div
-              className="flex flex-col divide-y divide-line"
+              className="flex flex-col divide-y divide-hairline"
               role="status"
               aria-label="Loading your account"
             >
@@ -100,7 +100,7 @@ export function Account() {
                 <div key={key} className={ROW}>
                   <div className="flex flex-1 flex-col gap-1">
                     <SkeletonLine size="caption" width="w-16" />
-                    <SkeletonLine size="option" width="w-1/2" />
+                    <SkeletonLine size="card" width="w-1/2" />
                   </div>
                   {key === 0 && <Skeleton className="h-touch w-16" />}
                 </div>
@@ -121,7 +121,7 @@ export function Account() {
         className="flex flex-col gap-1 md:p-6 xl:col-span-3 xl:p-8"
       >
         <SectionHeader id="notifications-title">Notifications</SectionHeader>
-        <p className="mb-2 max-w-prose text-small text-text-2">
+        <p className="mb-2 max-w-prose text-small text-ink-subtle">
           Choose what we tell you about. Messages about your money and your safety always stay on.
         </p>
         {notifications.data ? (
@@ -141,14 +141,14 @@ export function Account() {
           />
         ) : (
           <div
-            className="flex flex-col divide-y divide-line"
+            className="flex flex-col divide-y divide-hairline"
             role="status"
             aria-label="Loading your notification choices"
           >
             {[0, 1, 2, 3, 4].map((key) => (
               <div key={key} className={ROW}>
                 <div className="flex flex-1 flex-col gap-1">
-                  <SkeletonLine size="option" width="w-2/3" />
+                  <SkeletonLine size="card" width="w-2/3" />
                 </div>
                 <Skeleton className="h-7 w-12" />
                 <Skeleton className="h-7 w-12" />
@@ -179,15 +179,15 @@ export function Fact({
   return (
     <div className={ROW}>
       <div className="flex min-w-0 flex-1 flex-col gap-1">
-        <p className="text-caption text-text-2">{label}</p>
+        <p className="text-caption text-ink-subtle">{label}</p>
         {value === undefined ? (
-          <SkeletonLine size="option" width="w-1/2" />
+          <SkeletonLine size="card" width="w-1/2" />
         ) : (
-          <p className="truncate text-option font-semibold" title={value}>
+          <p className="truncate text-card font-semibold" title={value}>
             {value}
           </p>
         )}
-        {note !== undefined && <p className="text-small font-semibold text-warn-fg">{note}</p>}
+        {note !== undefined && <p className="text-small font-semibold text-ink">{note}</p>}
       </div>
       {action}
     </div>

@@ -58,7 +58,7 @@ export function ReportSheet({
       onOpenChange={close}
       title={sent ? "Report sent" : "Report a problem"}
       description={
-        <p className="text-small text-text-2">
+        <p className="text-small text-ink-subtle">
           {sent ? (
             <>
               {REPLY_PROMISE} You&apos;ll see what we decided on this session&apos;s screen, and under

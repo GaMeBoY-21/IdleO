@@ -1,8 +1,7 @@
 import { Clock, Cpu, Lock, Zap, type LucideIcon } from "lucide-react";
 import { Tile } from "@/components/ui/Tile";
-import { cn } from "@/lib/cn";
 
-/** What the product is, in colour tiles, beside the sign-in tile (from 1200 px only). */
+/** What the product is, in cards, beside the sign-in tile (from 1200 px only). */
 export function Collage() {
   return (
     <aside
@@ -10,38 +9,38 @@ export function Collage() {
       className="hidden xl:col-span-7 xl:grid xl:grid-cols-2 xl:gap-4 2xl:gap-4"
     >
       <Tile
-        tone="night"
+        tone="raised"
         size="lg"
         className="flex min-h-session-tile flex-col justify-between gap-2 xl:row-span-2 xl:p-8"
       >
-        <Icon icon={Cpu} onDark />
+        <Icon icon={Cpu} />
         <div className="flex flex-col gap-2">
-          <h2 className="font-title text-display-panel">Rent a GPU by the minute</h2>
-          <p className="text-body text-on-night-2">
+          <h2 className="text-hero">Rent a GPU by the minute</h2>
+          <p className="text-body text-ink-subtle">
             Paid in rupees, and only for the minutes it ran. We provide the GPU; you bring your own model,
             data and code.
           </p>
         </div>
       </Tile>
-      <Tile tone="volt" size="lg" className="flex flex-col justify-between gap-2">
+      <Tile size="lg" className="flex flex-col justify-between gap-2">
         <Icon icon={Clock} />
         <div className="flex flex-col gap-2">
-          <h2 className="font-title text-display-feature">Fine-tune a model</h2>
+          <h2 className="text-title">Fine-tune a model</h2>
           <p className="text-body text-ink">Upload your model and examples, and download the adapter.</p>
         </div>
       </Tile>
       <div className="grid grid-cols-2 gap-4 2xl:gap-4">
-        <Tile tone="ember" size="lg" className="flex flex-col justify-between gap-2 xl:p-6">
+        <Tile size="lg" className="flex flex-col justify-between gap-2 xl:p-6">
           <Icon icon={Zap} />
           <div className="flex flex-col gap-1">
-            <h2 className="font-title text-display-card">Earn with your GPU</h2>
+            <h2 className="text-section">Earn with your GPU</h2>
             <p className="text-small text-ink">Host the one you aren&apos;t using.</p>
           </div>
         </Tile>
-        <Tile tone="ion" size="lg" className="flex flex-col justify-between gap-2 xl:p-6">
+        <Tile size="lg" className="flex flex-col justify-between gap-2 xl:p-6">
           <Icon icon={Lock} />
           <div className="flex flex-col gap-1">
-            <h2 className="font-title text-display-card">A locked box</h2>
+            <h2 className="text-section">A locked box</h2>
             <p className="text-small text-ink">Jobs never touch a host&apos;s files.</p>
           </div>
         </Tile>
@@ -50,16 +49,13 @@ export function Collage() {
   );
 }
 
-function Icon({ icon: Glyph, onDark = false }: { icon: LucideIcon; onDark?: boolean }) {
+function Icon({ icon: Glyph }: { icon: LucideIcon }) {
   return (
     <span
       aria-hidden="true"
-      className={cn(
-        "flex size-14 items-center justify-center rounded-icon",
-        onDark ? "bg-on-night/10" : "bg-ink/10",
-      )}
+      className="flex size-10 items-center justify-center rounded-control border border-hairline bg-surface-2 text-ink-muted"
     >
-      <Glyph className="size-6" strokeWidth={2} />
+      <Glyph className="size-5" strokeWidth={1.75} />
     </span>
   );
 }

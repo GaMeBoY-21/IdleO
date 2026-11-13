@@ -23,7 +23,7 @@ export function CheckpointTile({ session }: { session: Session }) {
       <p className="flex items-start gap-2 text-small">
         <Check
           aria-hidden="true"
-          className={cn("mt-1 size-4 shrink-0", last ? "text-running" : "text-text-2")}
+          className={cn("mt-1 size-4 shrink-0", last ? "text-live" : "text-ink-subtle")}
           strokeWidth={2.5}
         />
         {last ? (
@@ -31,7 +31,7 @@ export function CheckpointTile({ session }: { session: Session }) {
             Last checkpoint saved <RelativeTime value={last.completedAt} />
           </span>
         ) : (
-          <span className="min-w-0 flex-1 text-text-2">No checkpoint saved yet</span>
+          <span className="min-w-0 flex-1 text-ink-subtle">No checkpoint saved yet</span>
         )}
       </p>
     </Tile>
@@ -89,25 +89,24 @@ export function DownloadOutputs({ id }: { id: string }) {
       href={only.url}
       download
       onClick={(event) => void open(event, only.path)}
-      className={buttonClasses("ink", true, true)}
+      className={buttonClasses("secondary", true, true)}
     >
       <Download aria-hidden="true" className="size-5" strokeWidth={1.75} />
       Download outputs
     </a>
   ) : (
-    <button type="button" onClick={() => void all()} className={buttonClasses("ink", true, true)}>
+    <button type="button" onClick={() => void all()} className={buttonClasses("secondary", true, true)}>
       <Download aria-hidden="true" className="size-5" strokeWidth={1.75} />
       Download all
     </button>
   );
 }
 
-/** The outputs, as the lime tile: a row each with its size and a download, dividers between them. */
+/** The outputs, as the card: a row each with its size and a download, dividers between them. */
 export function Outputs({ id }: { id: string }) {
   const { outputs, open } = useFreshOutputs(id);
   return (
     <Tile
-      tone="volt"
       as="section"
       aria-labelledby="outputs-title"
       id="outputs"

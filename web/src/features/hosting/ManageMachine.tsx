@@ -42,11 +42,11 @@ export function ManageMachine({ host }: { host: Host }) {
         type="button"
         aria-expanded={open}
         onClick={() => setOpen(!open)}
-        className="tile-motion flex min-h-18 w-full items-center gap-4 rounded-panel bg-panel px-4 py-4 text-left"
+        className="tile-motion flex min-h-18 w-full items-center gap-4 rounded-card bg-surface-1 px-4 py-4 text-left"
       >
         <span className="flex min-w-0 flex-1 flex-col gap-1">
           <span className="text-body font-semibold">Rename or remove</span>
-          <span className="text-small text-text-2">Removing it stops all new sessions</span>
+          <span className="text-small text-ink-subtle">Removing it stops all new sessions</span>
         </span>
         <ChevronRight
           aria-hidden="true"
@@ -89,7 +89,7 @@ export function ManageMachine({ host }: { host: Host }) {
               Save name
             </Button>
           </form>
-          <div className="flex flex-col gap-2 border-t border-line pt-4">
+          <div className="flex flex-col gap-2 border-t border-hairline pt-4">
             <Button variant="ghost" block onClick={() => setAsking(true)}>
               Remove this machine
             </Button>

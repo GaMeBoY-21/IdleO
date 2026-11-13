@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { brand } from "@/brand/brand";
 import { Wordmark } from "@/brand/Wordmark";
 import { CONTACT, DOCS, EARN, GPUS, LANDING, PRICING, PRIVACY, TERMS, type EntryLinks } from "./paths";
-import { column, ghostButton, primaryButton } from "./ui";
+import { column, secondaryButton, primaryButton } from "./ui";
 
 const NAV = [
   { href: PRICING, label: "Pricing" },
@@ -63,7 +63,7 @@ export function Shell({
     <>
       <a
         href="#content"
-        className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:rounded-control focus:bg-primary focus:px-4 focus:py-4 focus:text-primary-fg"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:rounded-control focus:bg-volt focus:px-4 focus:py-4 focus:text-on-volt"
       >
         Skip to the content
       </a>
@@ -78,14 +78,14 @@ export function Shell({
                 key={item.href}
                 href={item.href}
                 aria-current={current(item.href)}
-                className="flex min-h-touch items-center rounded-control px-4 text-small font-medium text-text hover:underline hover:underline-offset-4 aria-[current=page]:font-bold aria-[current=page]:underline aria-[current=page]:underline-offset-8 md:px-4"
+                className="flex min-h-touch items-center rounded-control px-4 text-small font-medium text-ink hover:underline hover:underline-offset-4 aria-[current=page]:font-semibold aria-[current=page]:underline aria-[current=page]:underline-offset-8 md:px-4"
               >
                 {item.label}
               </a>
             ))}
           </nav>
           <div className="flex items-center gap-2">
-            <a href={links.logIn} className={ghostButton}>
+            <a href={links.logIn} className={secondaryButton}>
               Log in
             </a>
             <a href={links.getStarted} className={primaryButton}>
@@ -101,12 +101,12 @@ export function Shell({
         <div className="grid grid-cols-1 gap-8 text-small sm:grid-cols-2 md:grid-cols-4">
           {FOOTER.map((group) => (
             <nav key={group.title} aria-label={group.title} className="flex flex-col gap-1">
-              <p className="mb-1 font-semibold text-text-3">{group.title}</p>
+              <p className="mb-1 font-semibold text-ink-tertiary">{group.title}</p>
               {group.links.map((item) => (
                 <a
                   key={item.href}
                   href={item.href}
-                  className="flex min-h-touch items-center text-text hover:underline hover:underline-offset-4"
+                  className="flex min-h-touch items-center text-ink hover:underline hover:underline-offset-4"
                 >
                   {item.label}
                 </a>
@@ -114,7 +114,7 @@ export function Shell({
             </nav>
           ))}
           <div className="flex flex-col gap-1">
-            <p id="appearance" className="mb-1 font-semibold text-text-3">
+            <p id="appearance" className="mb-1 font-semibold text-ink-tertiary">
               Appearance
             </p>
             <div
@@ -129,7 +129,7 @@ export function Shell({
                   type="button"
                   aria-pressed="false"
                   data-choice={choice.value}
-                  className="min-h-touch rounded-control border border-edge bg-ghost px-4 text-small font-semibold text-text hover:bg-ghost-hover aria-pressed:border-transparent aria-pressed:bg-primary aria-pressed:text-primary-fg"
+                  className="min-h-touch rounded-control border border-hairline bg-surface-1 px-4 text-small font-semibold text-ink hover:bg-surface-2 aria-pressed:border-transparent aria-pressed:bg-volt aria-pressed:text-on-volt"
                 >
                   {choice.label}
                 </button>
@@ -140,16 +140,16 @@ export function Shell({
         <p
           data-status=""
           data-api={apiUrl ?? ""}
-          className="min-h-6 text-small text-text-2"
+          className="min-h-6 text-small text-ink-subtle"
           aria-live="polite"
         />
-        <p className="text-small text-text-3">
+        <p className="text-small text-ink-tertiary">
           © {brand.name}. We provide the GPU; you bring your own model, data and code.
         </p>
         <span
           aria-hidden="true"
           data-text={brand.name.toLowerCase()}
-          className="ghost-wordmark font-display text-display-wordmark text-bone select-none"
+          className="ghost-wordmark text-display-wordmark text-bone select-none"
         />
       </footer>
     </>

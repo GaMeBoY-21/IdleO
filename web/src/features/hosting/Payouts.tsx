@@ -73,7 +73,7 @@ export function Summary({ summary }: { summary: PayoutSummary }) {
       {/* Four lines kept for what's said here, whichever it is and however it wraps on a phone, so nothing below moves. */}
       <div className="flex min-h-20 flex-col gap-1 text-small">
         {blocked ? (
-          <p className="font-semibold text-warn-fg">
+          <p className="font-semibold text-ink">
             {blocked}{" "}
             <Link href={HOST_PATHS.payoutDetails} className="underline">
               Payout details
@@ -84,20 +84,20 @@ export function Summary({ summary }: { summary: PayoutSummary }) {
             <Money paise={summary.inFlightPaise} /> is on its way to your UPI ID.
           </p>
         ) : (
-          <p className="text-text-2">
+          <p className="text-ink-subtle">
             Paid every Monday from <Money paise={summary.minimumPaise} /> available. Earnings wait 7 days
             after a session, for any report about it.
           </p>
         )}
         {summary.owedPaise > 0 && (
-          <p className="text-text-2">
+          <p className="text-ink-subtle">
             <Money paise={summary.owedPaise} /> refunded to renters after it was paid out comes out of your
             next earnings.
           </p>
         )}
       </div>
       {summary.pending.length === 0 ? (
-        <p className="min-h-touch content-center text-small text-text-2">Nothing pending.</p>
+        <p className="min-h-touch content-center text-small text-ink-subtle">Nothing pending.</p>
       ) : (
         <details className="text-small">
           <summary className="min-h-touch cursor-pointer content-center font-semibold">
@@ -106,12 +106,12 @@ export function Summary({ summary }: { summary: PayoutSummary }) {
               : `${count(summary.pending.length, "session")} pending`}
             {nextAvailable && <> · the next on {formatDay(nextAvailable)}</>}
           </summary>
-          <ul className="flex flex-col divide-y divide-line">
+          <ul className="flex flex-col divide-y divide-hairline">
             {summary.pending.map((session) => (
               <li key={`${session.hostId}${session.sessionId}`} className="flex items-center gap-2 py-2">
                 <span className="min-w-0 flex-1 break-words">
                   {session.machineName}
-                  <span className="block text-caption text-text-2">
+                  <span className="block text-caption text-ink-subtle">
                     {session.availableAt
                       ? `Available ${formatDay(session.availableAt)}`
                       : "Held while a report about it is open"}
@@ -140,7 +140,7 @@ export function SummarySkeleton() {
         {/* The loaded labels, the year's too, so one that wraps on a phone wraps here as well. */}
         {["Available", "Pending", "Next payout", `Tax deducted ${year}`].map((label) => (
           <StatTile key={label} label={label}>
-            <SkeletonLine size="option" width="w-2/3" />
+            <SkeletonLine size="card" width="w-2/3" />
           </StatTile>
         ))}
       </StatGrid>
@@ -170,7 +170,7 @@ export function PayoutHistory({ enabled }: { enabled: boolean }) {
         ) : (
           <div className="flex flex-col gap-4">
             <Tile as="div" className="px-4 py-0">
-              <ul className="flex flex-col divide-y divide-line">
+              <ul className="flex flex-col divide-y divide-hairline">
                 {payouts.map((payout) => (
                   <PayoutRow key={payout.id} payout={payout} />
                 ))}
@@ -196,14 +196,14 @@ export function PayoutHistory({ enabled }: { enabled: boolean }) {
           retrying={history.isFetching}
         />
       ) : (
-        <Tile as="div" aria-hidden="true" className="flex flex-col divide-y divide-line px-4 py-0">
+        <Tile as="div" aria-hidden="true" className="flex flex-col divide-y divide-hairline px-4 py-0">
           {[0, 1].map((key) => (
             <div key={key} className="flex min-h-18 items-center gap-2 py-4">
               <div className="flex flex-1 flex-col gap-1">
-                <SkeletonLine size="option" width="w-1/2" />
+                <SkeletonLine size="card" width="w-1/2" />
                 <SkeletonLine size="small" width="w-1/3" />
               </div>
-              <SkeletonLine size="option" width="w-1/4" />
+              <SkeletonLine size="card" width="w-1/4" />
             </div>
           ))}
         </Tile>
@@ -217,7 +217,7 @@ export function PayoutRow({ payout }: { payout: PayoutView }) {
   return (
     <li className="flex min-h-18 items-center gap-2 py-4">
       <div className="flex min-w-0 flex-1 flex-col gap-1">
-        <p className="text-option font-semibold">
+        <p className="text-card font-semibold">
           {formatDay(payout.createdAt)}
           {payout.kind === "final" && " · final"}
         </p>
@@ -227,22 +227,22 @@ export function PayoutRow({ payout }: { payout: PayoutView }) {
             status.tone === "danger"
               ? "text-danger"
               : status.tone === "running"
-                ? "text-running"
-                : "text-text-2",
+                ? "text-live"
+                : "text-ink-subtle",
           )}
         >
           {status.label}
           {payout.processedAt && payout.status === "processed" && ` ${formatDateTime(payout.processedAt)}`}
         </p>
-        {payout.why && <p className="text-small text-text-2">{payout.why}</p>}
+        {payout.why && <p className="text-small text-ink-subtle">{payout.why}</p>}
         {payout.tdsPaise > 0 && (
-          <p className="text-caption text-text-2">
+          <p className="text-caption text-ink-subtle">
             <Money paise={payout.grossPaise} /> less <Money paise={payout.tdsPaise} /> tax (section{" "}
             {payout.tdsSection})
           </p>
         )}
       </div>
-      <p className="text-option font-semibold tabular">
+      <p className="text-card font-semibold tabular">
         <Money paise={payout.netPaise} />
       </p>
     </li>
@@ -271,7 +271,7 @@ export function Statement({ years }: { years: string[] | null }) {
       className="flex flex-col gap-2"
     >
       <SectionHeader id="statement-title">Yearly statement</SectionHeader>
-      <p className="text-small text-text-2">
+      <p className="text-small text-ink-subtle">
         What you were paid in a financial year (April to March), the tax deducted and the net: for your tax
         return.
       </p>
@@ -279,7 +279,7 @@ export function Statement({ years }: { years: string[] | null }) {
         <label className="flex flex-col gap-2 text-small font-medium">
           Year
           <select
-            className="min-h-touch rounded-control bg-panel-2 px-4 text-body"
+            className="min-h-touch rounded-control bg-surface-2 px-4 text-body"
             value={year}
             disabled={years === null}
             onChange={(event) => setChosen(event.target.value)}

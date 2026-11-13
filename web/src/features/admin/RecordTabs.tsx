@@ -30,14 +30,14 @@ export function RecordTabs({ label, tabs }: { label: string; tabs: RecordTab[] }
       }}
       className="flex flex-col gap-4"
     >
-      <Tabs.List aria-label={label} className="flex gap-1 overflow-x-auto border-b border-line">
+      <Tabs.List aria-label={label} className="flex gap-1 overflow-x-auto border-b border-hairline">
         {allowed.map((tab) => (
           <Tabs.Trigger
             key={tab.id}
             value={tab.id}
             className={cn(
-              "min-h-touch px-4 text-small font-medium whitespace-nowrap text-text-2 md:min-h-9",
-              "data-[state=active]:border-b-2 data-[state=active]:border-progress data-[state=active]:font-semibold data-[state=active]:text-text",
+              "min-h-touch px-4 text-small font-medium whitespace-nowrap text-ink-subtle md:min-h-9",
+              "data-[state=active]:border-b-2 data-[state=active]:border-live data-[state=active]:font-semibold data-[state=active]:text-ink",
             )}
           >
             {tab.label}

@@ -34,7 +34,7 @@ export function sessionLabel(session: Session, catalog: Catalog): string {
 
 /**
  * "Recent sessions", a panel under the credit (approved reference `AppHome`): a table of the last
- * few, with what each was, its GPU, how long it ran and what it cost, and "Run again". A live one shows a lime dot, its
+ * few, with what each was, its GPU, how long it ran and what it cost, and "Run again". A live one shows a volt dot, its
  * time ticking and its cost so far, and "Open": on a laptop it replaces the phone's "Running now" tile. Run again
  * is offered only for services Home shows. With none, it says so and shows no table.
  */
@@ -50,14 +50,14 @@ export function RecentSessions({ sessions, catalog }: { sessions: Session[]; cat
         {shown.length > 0 && (
           <Link
             href="/sessions/"
-            className="text-small font-semibold text-link hover:text-link-hover hover:underline"
+            className="text-small font-semibold text-ink hover:text-ink hover:underline"
           >
             All sessions ›
           </Link>
         )}
       </div>
       {shown.length === 0 ? (
-        <p className="py-6 text-body text-text-2">No sessions yet. Pick a service above to start.</p>
+        <p className="py-6 text-body text-ink-subtle">No sessions yet. Pick a service above to start.</p>
       ) : (
         <DataTable
           caption="Recent sessions"
@@ -80,18 +80,18 @@ export function RecentSessions({ sessions, catalog }: { sessions: Session[]; cat
                   <Link
                     href={`/session/?id=${session.id}`}
                     title={label}
-                    className="flex min-w-0 items-center gap-2 font-bold hover:underline"
+                    className="flex min-w-0 items-center gap-2 font-semibold hover:underline"
                   >
                     {live && (
                       <span
                         aria-hidden="true"
-                        className="size-2.5 shrink-0 rounded-full bg-running-dot ring-1 ring-ink/30 motion-safe:animate-pulse"
+                        className="size-2.5 shrink-0 rounded-full bg-live ring-1 ring-live/30 motion-safe:animate-pulse"
                       />
                     )}
                     <span className="truncate">{label}</span>
                   </Link>
                 </DataCell>
-                <DataCell className="max-w-0 truncate text-text-2">
+                <DataCell className="max-w-0 truncate text-ink-subtle">
                   {session.gpu ? gpuName(session.gpu.model) : "—"}
                 </DataCell>
                 <DataCell numeric>
@@ -113,14 +113,14 @@ export function RecentSessions({ sessions, catalog }: { sessions: Session[]; cat
                   {live ? (
                     <Link
                       href={`/session/?id=${session.id}`}
-                      className="inline-flex min-h-touch items-center rounded-control bg-panel-2 px-4 text-small font-bold hover:bg-line"
+                      className="inline-flex min-h-touch items-center rounded-control bg-surface-2 px-4 text-small font-semibold hover:bg-hairline"
                     >
                       Open
                     </Link>
                   ) : again ? (
                     <Link
                       href={bookFrom(session)}
-                      className="inline-flex min-h-touch items-center rounded-control bg-panel-2 px-4 text-small font-bold hover:bg-line"
+                      className="inline-flex min-h-touch items-center rounded-control bg-surface-2 px-4 text-small font-semibold hover:bg-hairline"
                     >
                       Run again
                     </Link>

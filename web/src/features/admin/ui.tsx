@@ -52,9 +52,7 @@ export function AdminPage({
         title={
           record ? (
             <>
-              <span className="block font-sans text-caption font-semibold tracking-wider text-text-2">
-                {title}
-              </span>{" "}
+              <span className="block font-sans text-caption font-semibold text-ink-subtle">{title}</span>{" "}
               <span className="block normal-case">{name ?? "…"}</span>
             </>
           ) : (
@@ -274,7 +272,7 @@ function CopyId({ value }: { value: string }) {
           setTimeout(() => setCopied(false), 1_500);
         });
       }}
-      className="ml-1 inline-flex min-h-6 min-w-6 items-center justify-center rounded-control align-middle text-text-3 hover:text-text"
+      className="ml-1 inline-flex min-h-6 min-w-6 items-center justify-center rounded-control align-middle text-ink-tertiary hover:text-ink"
     >
       {copied ? <Check aria-hidden="true" size={14} /> : <Copy aria-hidden="true" size={14} />}
     </button>
@@ -329,7 +327,7 @@ export function SmallField({
         placeholder={placeholder}
         onChange={(event) => onChange(event.target.value)}
         className={cn(
-          "min-h-touch max-w-full rounded-control border border-edge bg-panel px-4 text-small text-text placeholder:text-text-2",
+          "min-h-touch max-w-full rounded-control border border-hairline bg-surface-1 px-4 text-small text-ink placeholder:text-ink-subtle",
           width,
         )}
       />
@@ -359,7 +357,7 @@ export function SmallSelect({
         id={id}
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="min-h-touch rounded-control border border-edge bg-panel px-4 text-small text-text"
+        className="min-h-touch rounded-control border border-hairline bg-surface-1 px-4 text-small text-ink"
       >
         {options.map(([option, text]) => (
           <option key={option} value={option}>
@@ -381,14 +379,14 @@ export function Timeline({
     <ol className="flex flex-col gap-2 text-small">
       {events.map((event, index) => (
         <li key={`${event.at}-${index}`} className="flex flex-wrap gap-x-2">
-          <time dateTime={event.at} className="tabular text-text-2">
+          <time dateTime={event.at} className="tabular text-ink-subtle">
             {formatDateTime(event.at)}
           </time>
           <span className="font-medium">
             {event.from ? `${word(event.from)} → ` : ""}
             {word(event.to)}
           </span>
-          <span className="text-text-2">{word(event.reason)}</span>
+          <span className="text-ink-subtle">{word(event.reason)}</span>
         </li>
       ))}
     </ol>

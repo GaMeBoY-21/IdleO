@@ -44,7 +44,7 @@ export function AddCredit({ details }: { details: UseQueryResult<BillingDetails>
 
   return (
     <Tile as="section" aria-labelledby="add-credit" className="flex flex-col gap-4">
-      <h2 id="add-credit" className="font-title text-display-card">
+      <h2 id="add-credit" className="text-section">
         Add credit
       </h2>
       <div role="group" aria-label="Amount" className="flex flex-wrap gap-2 tabular">
@@ -105,7 +105,7 @@ export function AddCredit({ details }: { details: UseQueryResult<BillingDetails>
 function chip(selected: boolean) {
   return cn(
     "flex min-h-touch items-center rounded-full px-4 text-small font-semibold transition-colors disabled:opacity-60",
-    selected ? "bg-primary text-primary-fg" : "bg-panel-2 hover:bg-line",
+    selected ? "bg-volt text-on-volt" : "bg-surface-2 hover:bg-hairline",
   );
 }
 
@@ -113,7 +113,7 @@ function chip(selected: boolean) {
 function InvoiceLine({ details }: { details: UseQueryResult<BillingDetails> }) {
   if (!details.data) {
     return details.isError ? (
-      <p className="min-h-4.5 text-caption text-text-2">We couldn&apos;t load your billing details.</p>
+      <p className="min-h-4.5 text-caption text-ink-subtle">We couldn&apos;t load your billing details.</p>
     ) : (
       <div className="flex min-h-4.5 items-center">
         <SkeletonLine size="caption" width="w-2/3" />
@@ -123,7 +123,7 @@ function InvoiceLine({ details }: { details: UseQueryResult<BillingDetails> }) {
   const saved = details.data.details;
   const state = details.data.states.find((choice) => choice.code === saved?.stateCode);
   return (
-    <p className="min-h-4.5 text-caption text-text-2">
+    <p className="min-h-4.5 text-caption text-ink-subtle">
       {saved && state ? (
         <>
           Your {details.data.gstPercent > 0 ? "invoice" : "receipt"} goes to {saved.businessName ?? "you"} in{" "}
@@ -133,7 +133,7 @@ function InvoiceLine({ details }: { details: UseQueryResult<BillingDetails> }) {
       ) : (
         <>
           Choose your state under{" "}
-          <a href="#billing-details" className="font-semibold text-text underline">
+          <a href="#billing-details" className="font-semibold text-ink underline">
             Billing details
           </a>{" "}
           first.
@@ -173,7 +173,7 @@ function PaymentLine({ payment, available }: { payment: Payment; available: bool
       role={problem ? "alert" : "status"}
       className={cn(
         "min-h-9 text-small",
-        problem ? "text-danger" : payment.step === "added" ? "font-semibold text-running" : "text-text-2",
+        problem ? "text-danger" : payment.step === "added" ? "font-semibold text-live" : "text-ink-subtle",
       )}
     >
       {text}

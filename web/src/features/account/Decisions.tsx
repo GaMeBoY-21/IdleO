@@ -21,15 +21,15 @@ export function Decisions() {
   return (
     <Tile as="section" aria-labelledby="decisions-title" className="flex flex-col gap-1">
       <SectionHeader id="decisions-title">Decisions about your account</SectionHeader>
-      <ul className="flex flex-col divide-y divide-line">
+      <ul className="flex flex-col divide-y divide-hairline">
         {rows.map((decision) => (
           <li key={decision.id}>
             <Link
               href={`/account/appeal/?id=${decision.id}`}
               className="flex min-h-touch flex-col justify-center gap-1 py-4"
             >
-              <span className="text-option font-semibold">{decision.title}</span>
-              <span className="text-small text-text-2">
+              <span className="text-card font-semibold">{decision.title}</span>
+              <span className="text-small text-ink-subtle">
                 {formatDay(decision.createdAt)}
                 {decision.appeal ? ", appealed" : ", read it or appeal"}
               </span>

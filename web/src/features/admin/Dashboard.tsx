@@ -282,12 +282,12 @@ function Panels({ figures }: { figures: ControlRoom }) {
                   ) : (
                     <span className="font-medium">{check.name}</span>
                   )}
-                  <span className="block text-caption text-text-2">{check.detail}</span>
+                  <span className="block text-caption text-ink-subtle">{check.detail}</span>
                 </span>
               </li>
             ))}
           </ul>
-          <p className="text-caption text-text-2">
+          <p className="text-caption text-ink-subtle">
             {config.grafanaUrl ? (
               <a
                 href={`${config.grafanaUrl}/alerting/list`}
@@ -520,7 +520,7 @@ function Panel({
     <Section title={title}>
       <div className="flex flex-col gap-4">
         {children}
-        <p className={stale ? "text-caption text-danger" : "text-caption text-text-2"}>
+        <p className={stale ? "text-caption text-danger" : "text-caption text-ink-subtle"}>
           {at ? (
             <RelativeTime value={at} prefix={stale ? "Stale: worked out" : "Worked out"} />
           ) : (
@@ -544,12 +544,12 @@ function Figure({
   href: string;
 }) {
   return (
-    <li className="flex h-24 flex-col justify-between rounded-inner border border-edge bg-panel p-4">
+    <li className="flex h-24 flex-col justify-between rounded-card border border-hairline bg-surface-1 p-4">
       <Link href={href} className="min-h-6 text-small font-medium underline-offset-4 hover:underline">
         {label}
       </Link>
-      <span className="tabular font-title text-title">{value}</span>
-      <span className="text-caption text-text-2">{means ?? "\u00a0"}</span>
+      <span className="tabular text-title">{value}</span>
+      <span className="text-caption text-ink-subtle">{means ?? "\u00a0"}</span>
     </li>
   );
 }
@@ -587,7 +587,7 @@ function Installs() {
         {(data) => (
           <div className="flex flex-col gap-4">
             <p className="text-body">
-              <span className="tabular font-bold">{minutes(data.medianMinutes)}</span> median from opening
+              <span className="tabular font-semibold">{minutes(data.medianMinutes)}</span> median from opening
               setup to listed, over {data.listed} of {data.opened} installs in the last 30 days.
             </p>
             <Table
@@ -656,12 +656,12 @@ function InstallRow({ install }: { install: Install }) {
         </Cell>
       </Row>
       {open && (
-        <tr id={panel} className="border-b border-line bg-panel-2">
+        <tr id={panel} className="border-b border-hairline bg-surface-2">
           <td colSpan={7} className="px-2 py-4">
             <ul className="flex flex-col gap-2">
               {install.details.map((each) => (
                 <li key={`${each.step}-${each.reason ?? ""}-${each.at}`} className="flex flex-col gap-1">
-                  <p className="text-caption text-text-2">
+                  <p className="text-caption text-ink-subtle">
                     {each.step} · {each.reason ? word(each.reason) : "no reason code"} ·{" "}
                     <RelativeTime value={each.at} />
                   </p>

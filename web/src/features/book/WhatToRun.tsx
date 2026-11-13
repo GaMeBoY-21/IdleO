@@ -19,7 +19,7 @@ const facts = (template: Template) =>
     .join(" · ");
 
 /**
- * What to run: the services as tiles, the chosen one lime with a check. Each says what it does and, when it has one way to run it, how long that usually takes.
+ * What to run: the services as tiles, the chosen one volt with a check. Each says what it does and, when it has one way to run it, how long that usually takes.
  */
 export function ServiceChoice({
   services,
@@ -52,7 +52,7 @@ export function ServiceChoice({
   );
 }
 
-/** Inside a service with more than one template, which one: a short list, the chosen one lime. */
+/** Inside a service with more than one template, which one: a short list, the chosen one volt. */
 export function TemplateChoice({
   templates,
   selected,
@@ -64,7 +64,7 @@ export function TemplateChoice({
 }) {
   return (
     <div role="group" aria-labelledby="template-title" className="flex flex-col gap-2">
-      <p id="template-title" className="text-small font-medium text-text-2">
+      <p id="template-title" className="text-small font-medium text-ink-subtle">
         Which one
       </p>
       {templates.map((template) => {
@@ -76,12 +76,14 @@ export function TemplateChoice({
             aria-pressed={chosen}
             onClick={() => onPick(template.id)}
             className={cn(
-              "flex flex-col gap-1 rounded-panel px-4 py-4 text-left transition-colors",
-              chosen ? "bg-volt text-ink" : "bg-panel hover:bg-raised",
+              "flex flex-col gap-1 rounded-card px-4 py-4 text-left transition-colors",
+              chosen ? "bg-volt text-ink" : "bg-surface-1 hover:bg-surface-3",
             )}
           >
             <span className="text-body font-semibold break-words">{template.name}</span>
-            <span className={cn("text-small", chosen ? "text-ink" : "text-text-2")}>{facts(template)}</span>
+            <span className={cn("text-small", chosen ? "text-ink" : "text-ink-subtle")}>
+              {facts(template)}
+            </span>
           </button>
         );
       })}

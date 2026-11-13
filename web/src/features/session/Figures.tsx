@@ -12,8 +12,8 @@ import { gigabytes, gpuName } from "@/lib/gpu";
 import { costSoFar } from "@/lib/sessions";
 
 /**
- * A running session's dark tile (web/DESIGN.md "The session screen"): its state, what it's doing on which GPU, the big
- * timer ticking with "of about 45 min" when the template's typical runtime is known, the cost so far in lime against
+ * A running session's raised card (web/DESIGN.md "The session screen"): its state, what it's doing on which GPU, the big
+ * timer ticking with "of about 45 min" when the template's typical runtime is known, the cost so far in volt against
  * the spending cap with a bar, and the price an hour. Money changes in place and never counts up. Its status has a
  * line of its own, always there, so nothing below moves as it changes.
  */
@@ -36,13 +36,13 @@ export function RunningTile({
   const percent = Math.min(100, Math.floor((cost * 100) / Math.max(1, session.maxSpendPaise)));
   const price = session.pricePaisePerMin == null ? null : <Money paise={session.pricePaisePerMin * 60} />;
   return (
-    <Tile tone="night" className="flex flex-col gap-4">
+    <Tile tone="raised" className="flex flex-col gap-4">
       <div className="flex flex-col gap-2">
         <span className="self-start">
           <StatusChip domain="session" state={session.state} />
         </span>
         <PageTitle variant="panel">{title}</PageTitle>
-        <p className="text-small text-on-night-2">
+        <p className="text-small text-ink-subtle">
           {session.startedAt ? (
             <RelativeTime value={session.startedAt} prefix="Started" />
           ) : (
@@ -50,27 +50,27 @@ export function RunningTile({
           )}
           {laptop && ` · ${templateName}`}
         </p>
-        <p className="min-h-5 text-small text-on-night-2" aria-live="polite">
+        <p className="min-h-5 text-small text-ink-subtle" aria-live="polite">
           {status}
         </p>
       </div>
       <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-2">
         <div className="flex flex-col gap-1">
-          <p className={cn("font-title", laptop ? "text-timer-xl" : "text-timer")}>
+          <p className={cn("", laptop ? "text-timer-xl" : "text-timer")}>
             <span className="sr-only">Running for </span>
             {session.startedAt ? <Elapsed from={session.startedAt} /> : <span className="tabular">0:00</span>}
           </p>
           {/* Always there, so the figures under it never move. */}
-          <p className="min-h-5 text-small text-on-night-2">{about && `of ${about}`}</p>
+          <p className="min-h-5 text-small text-ink-subtle">{about && `of ${about}`}</p>
         </div>
         <div className="flex flex-col items-end gap-1">
           <Money paise={cost} className="text-figure text-volt" />
-          <span className="min-h-5 text-small text-on-night-2">so far</span>
+          <span className="min-h-5 text-small text-ink-subtle">so far</span>
         </div>
       </div>
       <div className="flex flex-col gap-2">
-        <ProgressBar percent={percent} label="Cost so far against your spending cap" onDark />
-        <p className="text-caption text-on-night-2 tabular">
+        <ProgressBar percent={percent} label="Cost so far against your spending cap" />
+        <p className="text-caption text-ink-subtle tabular">
           Stops at <Money paise={session.maxSpendPaise} />
           {price && <> · {price} an hour</>}
           {laptop && " · charged per started minute"}
@@ -93,10 +93,10 @@ export function GpuTile({ gpu }: { gpu: NonNullable<Session["gpu"]> }) {
         <Cpu aria-hidden="true" className="size-4" strokeWidth={1.75} />
         GPU
       </TileLabel>
-      <span className="text-option font-semibold break-words">
+      <span className="text-card font-semibold break-words">
         {gpuName(gpu.model)} · {gigabytes(gpu.vramMb)}
       </span>
-      <span className="text-small text-text-2 tabular">{reading}</span>
+      <span className="text-small text-ink-subtle tabular">{reading}</span>
     </Tile>
   );
 }

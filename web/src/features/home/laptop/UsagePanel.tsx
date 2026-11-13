@@ -19,12 +19,12 @@ export function UsagePanel({ enabled }: { enabled: boolean }) {
   const month = usage.data;
   return (
     <Tile size="lg" aria-labelledby="usage-title" className="flex flex-col gap-2">
-      <h2 id="usage-title" className="text-caption font-bold tracking-wider text-text-2 uppercase">
+      <h2 id="usage-title" className="text-caption font-semibold text-ink-subtle">
         This month
       </h2>
       <div className="flex min-h-14 flex-col justify-center">
         {usage.isError ? (
-          <p className="text-small text-text-2">
+          <p className="text-small text-ink-subtle">
             Couldn&apos;t load this month&apos;s use.{" "}
             <button type="button" className="font-semibold underline" onClick={() => void usage.refetch()}>
               Try again
@@ -32,10 +32,10 @@ export function UsagePanel({ enabled }: { enabled: boolean }) {
           </p>
         ) : month ? (
           <p className="flex flex-wrap items-baseline gap-x-2 tabular">
-            <span className="font-title text-display-figure">
+            <span className="text-hero">
               <Money paise={month.spentPaise} />
             </span>
-            <span className="text-small text-text-2">{formatMinutes(month.minutes)} of GPU time</span>
+            <span className="text-small text-ink-subtle">{formatMinutes(month.minutes)} of GPU time</span>
           </p>
         ) : (
           <Skeleton className="h-12 w-40" />
@@ -43,13 +43,12 @@ export function UsagePanel({ enabled }: { enabled: boolean }) {
       </div>
       {month && month.spentPaise === 0 ? (
         // As tall as the bars, so a month with nothing yet moves nothing.
-        <p className="flex h-18 items-center text-small text-text-2">
+        <p className="flex h-18 items-center text-small text-ink-subtle">
           Nothing yet this month. A first session shows here, a bar a day.
         </p>
       ) : month ? (
         <Bars
           label="Spent each day this month"
-          tone="panel"
           bars={month.days.map((day) => ({
             key: day.date,
             value: day.spentPaise,
@@ -60,7 +59,7 @@ export function UsagePanel({ enabled }: { enabled: boolean }) {
           }))}
         />
       ) : (
-        <div className="h-18">{!usage.isError && <BarsSkeleton count={30} tone="panel" />}</div>
+        <div className="h-18">{!usage.isError && <BarsSkeleton count={30} />}</div>
       )}
     </Tile>
   );

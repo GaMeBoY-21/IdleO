@@ -150,7 +150,7 @@ export function ActionSheet({
       open={open}
       onOpenChange={close}
       title={title}
-      description={<div className="text-small text-text-2">{change}</div>}
+      description={<div className="text-small text-ink-subtle">{change}</div>}
     >
       {asked !== null ? (
         <div className="flex flex-col gap-4">
@@ -186,7 +186,7 @@ export function ActionSheet({
               aria-invalid={touched && problem !== null ? true : undefined}
               aria-describedby={`${id}-message`}
               className={cn(
-                "rounded-control bg-panel px-4 py-4 text-body text-text",
+                "rounded-control bg-surface-1 px-4 py-4 text-body text-ink",
                 touched && problem !== null && "ring-2 ring-danger",
               )}
             />
@@ -194,7 +194,7 @@ export function ActionSheet({
               id={`${id}-message`}
               className={cn(
                 "min-h-4.5 text-caption",
-                touched && problem !== null ? "text-danger" : "text-text-2",
+                touched && problem !== null ? "text-danger" : "text-ink-subtle",
               )}
             >
               {touched && problem !== null ? problem : "Recorded in the audit log with your name."}
@@ -203,7 +203,7 @@ export function ActionSheet({
           {typed !== undefined && (
             <div className="flex flex-col gap-2">
               <label htmlFor={`${id}-typed`} className="text-small font-medium">
-                {typedBecause} Type <span className="tabular font-bold">{typed}</span> to confirm
+                {typedBecause} Type <span className="tabular font-semibold">{typed}</span> to confirm
               </label>
               <input
                 id={`${id}-typed`}
@@ -213,7 +213,7 @@ export function ActionSheet({
                 aria-invalid={touched && !typedRight ? true : undefined}
                 aria-describedby={`${id}-typed-message`}
                 className={cn(
-                  "rounded-control bg-panel px-4 py-4 text-body text-text",
+                  "rounded-control bg-surface-1 px-4 py-4 text-body text-ink",
                   touched && !typedRight && "ring-2 ring-danger",
                 )}
               />

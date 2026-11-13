@@ -32,36 +32,28 @@ export function RunningTile({
   return (
     <TileLink
       href={`/session/?id=${session.id}`}
-      tone="night"
+      tone="raised"
       size={wide ? "lg" : "md"}
       className={cn(wide ? "gap-4" : "col-span-2 row-span-2")}
     >
       <span className="flex items-center justify-between gap-2">
-        <TileLabel
-          tone="night"
-          className="flex items-center gap-2 font-bold tracking-wider text-volt uppercase"
-        >
+        <TileLabel className="flex items-center gap-2 font-semibold text-volt">
           <span
             aria-hidden="true"
-            className={cn("size-2 rounded-full bg-running-dot", running && "motion-safe:animate-pulse")}
+            className={cn("size-2 rounded-full bg-live", running && "motion-safe:animate-pulse")}
           />
           {running ? "Running now" : headline(session, catalog)}
         </TileLabel>
-        {wide && gpu && <TileLabel tone="night">{gpu}</TileLabel>}
+        {wide && gpu && <TileLabel>{gpu}</TileLabel>}
       </span>
       <span className="flex flex-col gap-1">
-        <span
-          className={cn(
-            "text-on-night",
-            wide ? "font-title text-display-card" : "text-small text-on-night-2",
-          )}
-        >
+        <span className={cn("text-ink", wide ? "text-section" : "text-small text-ink-subtle")}>
           {doing}
           {!wide && gpu ? ` on ${gpu}` : ""}
         </span>
         {session.startedAt ? (
           <span className="flex flex-wrap items-baseline gap-x-4">
-            <span className="font-title text-timer">
+            <span className="text-timer">
               <span className="sr-only">Running for </span>
               <Elapsed from={session.startedAt} />
             </span>
@@ -71,7 +63,7 @@ export function RunningTile({
             </span>
           </span>
         ) : (
-          <span className="text-option font-semibold">Nothing is charged until it runs</span>
+          <span className="text-card font-semibold">Nothing is charged until it runs</span>
         )}
       </span>
     </TileLink>

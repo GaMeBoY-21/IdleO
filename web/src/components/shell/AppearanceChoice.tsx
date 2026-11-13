@@ -12,14 +12,14 @@ const choices: { value: ThemeChoice; label: string; icon: typeof Sun }[] = [
 ];
 
 /**
- * The theme, on Account (web/DESIGN.md "Colour"): Match my device, Light (Day Shift) or Dark (Night Shift), remembered on
+ * The theme, on Account (web/DESIGN.md "Colour"): Match my device, Light (the light theme) or Dark (the dark theme), remembered on
  * this browser and shared with the website by a cookie on the parent domain. One group of radios.
  */
 export function AppearanceChoice() {
   const [theme, setTheme] = useState<ThemeChoice>(readThemeChoice);
   return (
     <Tile as="div" className="flex flex-col gap-2 p-2">
-      <p id="appearance-title" className="px-4 pt-2 text-caption font-medium text-text-2">
+      <p id="appearance-title" className="px-4 pt-2 text-caption font-medium text-ink-subtle">
         Appearance
       </p>
       <div role="radiogroup" aria-labelledby="appearance-title" className="flex flex-col gap-1">
@@ -35,7 +35,7 @@ export function AppearanceChoice() {
             }}
             className={cn(
               "flex min-h-touch items-center gap-2 rounded-control px-4 text-small",
-              theme === value ? "bg-raised font-bold" : "font-semibold text-text-2 hover:text-text",
+              theme === value ? "bg-surface-3 font-semibold" : "font-semibold text-ink-subtle hover:text-ink",
             )}
           >
             <Icon aria-hidden="true" className="size-5" strokeWidth={1.75} />

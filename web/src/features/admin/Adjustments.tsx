@@ -237,7 +237,7 @@ function Ask() {
           </div>
         </div>
       )}
-      <p className="tabular text-small text-text-2" aria-live="polite">
+      <p className="tabular text-small text-ink-subtle" aria-live="polite">
         Debits <Paise paise={totals.debits} />, credits <Paise paise={totals.credits} />
         {totals.problem ? ` — ${totals.problem}` : ", balanced."}
       </p>
@@ -332,14 +332,14 @@ function Posted() {
                 <Cell>
                   {word(adjustment.template)}
                   {adjustment.correctsMonth ? (
-                    <span className="block text-caption text-text-2">
+                    <span className="block text-caption text-ink-subtle">
                       corrects {adjustment.correctsMonth}
                     </span>
                   ) : null}
                 </Cell>
                 <Cell className="max-w-prose text-small">
                   {adjustment.reference}
-                  <span className="block text-caption text-text-2">{adjustment.reason}</span>
+                  <span className="block text-caption text-ink-subtle">{adjustment.reason}</span>
                 </Cell>
                 <Cell>
                   <ul className="flex flex-col gap-1 text-small">

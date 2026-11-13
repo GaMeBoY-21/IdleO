@@ -13,8 +13,8 @@ export function Avatar({ large = false }: { large?: boolean }) {
   return (
     <span
       className={cn(
-        "flex items-center justify-center rounded-full bg-ion font-extrabold text-ink",
-        large ? "size-touch text-body" : "size-10 text-small",
+        "flex items-center justify-center rounded-full border border-hairline bg-surface-3 font-medium text-ink",
+        large ? "size-touch text-body" : "size-8 text-small",
       )}
     >
       {(email ?? "?").charAt(0).toUpperCase()}
@@ -26,8 +26,8 @@ export function Avatar({ large = false }: { large?: boolean }) {
 export function MoreFace() {
   return (
     <>
-      <Ellipsis aria-hidden="true" className="size-5.5" strokeWidth={1.75} />
-      <span className="text-caption font-semibold">More</span>
+      <Ellipsis aria-hidden="true" className="size-5" strokeWidth={1.75} />
+      <span className="text-caption">More</span>
     </>
   );
 }
@@ -49,8 +49,8 @@ export function UserMenuButton({ tab = false }: { tab?: boolean }) {
       type="button"
       className={
         tab
-          ? "flex h-full w-full flex-col items-center justify-center gap-1 rounded-bar text-text-2"
-          : "flex size-touch items-center justify-center rounded-full"
+          ? "flex h-full w-full flex-col items-center justify-center gap-1 text-ink-subtle"
+          : "flex size-8 items-center justify-center rounded-full pointer-coarse:size-touch"
       }
       aria-label={tab ? "More" : "Your account and settings"}
       aria-haspopup="menu"

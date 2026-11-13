@@ -55,7 +55,7 @@ export function RequestButton({
   } else if (quote === null || (quote.kind === "error" && settingsRefused(quote.error))) {
     line = "Answer the questions to see what's held while it runs.";
   } else if (quote.kind === "loading") {
-    line = <SkeletonLine size={laptop ? "small" : "caption"} width="w-3/4" onDark />;
+    line = <SkeletonLine size={laptop ? "small" : "caption"} width="w-3/4" />;
   } else if (quote.kind === "none-free") {
     line = "No GPU is free right now. We look again every 15 seconds.";
   } else if (quote.kind === "error") {
@@ -79,14 +79,14 @@ export function RequestButton({
   return (
     <div className="flex flex-col gap-2">
       {error !== null && !settingsRefused(error) && <Banner tone="danger">{problemMessage(error)}</Banner>}
-      <p className="text-center text-caption text-on-night-2">
+      <p className="text-center text-caption text-ink-subtle">
         Hosts are people at home, so don&apos;t send secret data. What isn&apos;t allowed is in{" "}
         <a href={siteLink("/terms/")} target="_blank" rel="noreferrer" className="underline">
           the Terms
         </a>
         .
       </p>
-      <Button variant="live" block large disabled={waiting} busy={busy} onClick={onRequest}>
+      <Button variant="primary" block large disabled={waiting} busy={busy} onClick={onRequest}>
         {uploadingPercent !== null ? (
           <span className="tabular">Waiting for your upload… {uploadingPercent}%</span>
         ) : (
@@ -98,7 +98,7 @@ export function RequestButton({
         className={cn(
           "text-center tabular",
           laptop ? "min-h-5 text-small" : "min-h-4.5 text-caption",
-          short || tooBig ? "text-danger-on-night" : "text-on-night-2",
+          short || tooBig ? "text-danger" : "text-ink-subtle",
         )}
       >
         {line}

@@ -44,7 +44,7 @@ export function Earnings() {
   };
 
   if (wide) {
-    // From 768 px: the totals in the left rail's dark tile, the history beside it (web/DESIGN.md "Laptop layout").
+    // From 768 px: the totals in the left rail's raised card, the history beside it (web/DESIGN.md "Laptop layout").
     return (
       <HostFlow
         back={HOST_PATHS.home}
@@ -107,7 +107,7 @@ function WeeksTile({ owner }: { owner: OwnerEarnings }) {
       >
         The last 8 weeks
       </SectionHeader>
-      <WeeksBars weeks={owner.weeks} tone="panel" />
+      <WeeksBars weeks={owner.weeks} />
     </Tile>
   );
 }
@@ -116,15 +116,15 @@ function WeeksTile({ owner }: { owner: OwnerEarnings }) {
 function Totals({ owner, heading = false }: { owner: OwnerEarnings; heading?: boolean }) {
   return (
     <Tile
-      tone="night"
+      tone="raised"
       size={heading ? "lg" : undefined}
       as="section"
       aria-label="Totals"
       className="flex flex-col gap-4 xl:p-8"
     >
       <div className="flex flex-col gap-1">
-        <p className="text-small font-semibold text-on-night-2">All machines, in total</p>
-        <Money paise={owner.totalPaise} className="block font-title text-timer" />
+        <p className="text-small font-semibold text-ink-subtle">All machines, in total</p>
+        <Money paise={owner.totalPaise} className="block text-timer" />
       </div>
       <StatGrid>
         <Figure label="This week">
@@ -132,14 +132,14 @@ function Totals({ owner, heading = false }: { owner: OwnerEarnings; heading?: bo
         </Figure>
         <Figure label="Hours rented">{formatMinutes(owner.minutesRentedThisWeek)}</Figure>
       </StatGrid>
-      <p className="max-w-prose text-small text-on-night-2">{PAYOUT_NOTE}</p>
+      <p className="max-w-prose text-small text-ink-subtle">{PAYOUT_NOTE}</p>
       {owner.machines.length > 1 && (
-        <ul aria-label="Each machine" className="flex flex-col divide-y divide-on-night/15">
+        <ul aria-label="Each machine" className="flex flex-col divide-y divide-hairline-strong">
           {owner.machines.map((machine) => (
             <li key={machine.hostId} className="flex min-h-touch items-center justify-between gap-2 py-2">
               <span className="text-small font-semibold break-words">
                 {machine.name}
-                {machine.removed && <span className="font-normal text-on-night-2"> (removed)</span>}
+                {machine.removed && <span className="font-normal text-ink-subtle"> (removed)</span>}
               </span>
               <Money paise={machine.earnedPaise} className="text-small font-semibold" />
             </li>
@@ -168,7 +168,7 @@ function History({
           </EmptyState>
         ) : (
           <Tile as="div" className="px-4 py-0">
-            <ul className="flex flex-col divide-y divide-line">
+            <ul className="flex flex-col divide-y divide-hairline">
               {entries.map((entry) => (
                 <EntryRow key={entry.id} entry={entry} />
               ))}
@@ -190,39 +190,39 @@ function History({
   );
 }
 
-/** The rail's dark tile before the figures arrive: the same blocks and heights. */
+/** The rail's raised card before the figures arrive: the same blocks and heights. */
 function TotalsSkeleton() {
   return (
     <Tile
-      tone="night"
+      tone="raised"
       size="lg"
       className="flex flex-col gap-4 xl:p-8"
       role="status"
       aria-label="Loading your earnings"
     >
       <div className="flex flex-col gap-1">
-        <SkeletonLine size="small" width="w-1/3" onDark />
-        <SkeletonLine size="timer" width="w-1/2" onDark />
+        <SkeletonLine size="small" width="w-1/3" />
+        <SkeletonLine size="timer" width="w-1/2" />
       </div>
       <div className="grid grid-cols-2 gap-2">
-        <div className="skeleton-dark h-18 rounded-control" />
-        <div className="skeleton-dark h-18 rounded-control" />
+        <div className="skeleton h-18 rounded-control" />
+        <div className="skeleton h-18 rounded-control" />
       </div>
-      <p className="max-w-prose text-small text-on-night-2">{PAYOUT_NOTE}</p>
+      <p className="max-w-prose text-small text-ink-subtle">{PAYOUT_NOTE}</p>
     </Tile>
   );
 }
 
 function HistorySkeleton() {
   return (
-    <Tile as="div" aria-hidden="true" className="flex flex-col divide-y divide-line px-4 py-0">
+    <Tile as="div" aria-hidden="true" className="flex flex-col divide-y divide-hairline px-4 py-0">
       {[0, 1, 2, 3].map((key) => (
         <div key={key} className={ROW}>
           <div className="flex flex-1 flex-col gap-1">
-            <SkeletonLine size="option" width="w-1/2" />
+            <SkeletonLine size="card" width="w-1/2" />
             <SkeletonLine size="small" width="w-1/3" />
           </div>
-          <SkeletonLine size="option" width="w-1/4" />
+          <SkeletonLine size="card" width="w-1/4" />
         </div>
       ))}
     </Tile>
@@ -233,25 +233,25 @@ function HistorySkeleton() {
 function EarningsSkeleton() {
   return (
     <div role="status" aria-label="Loading your earnings" className="flex flex-col gap-6">
-      <Tile tone="night" className="flex flex-col gap-4">
+      <Tile tone="raised" className="flex flex-col gap-4">
         <div className="flex flex-col gap-1">
-          <SkeletonLine size="small" width="w-1/3" onDark />
-          <SkeletonLine size="timer" width="w-1/2" onDark />
+          <SkeletonLine size="small" width="w-1/3" />
+          <SkeletonLine size="timer" width="w-1/2" />
         </div>
         <div className="grid grid-cols-2 gap-2">
-          <div className="skeleton-dark h-18 rounded-control" />
-          <div className="skeleton-dark h-18 rounded-control" />
+          <div className="skeleton h-18 rounded-control" />
+          <div className="skeleton h-18 rounded-control" />
         </div>
-        <p className="max-w-prose text-small text-on-night-2">{PAYOUT_NOTE}</p>
+        <p className="max-w-prose text-small text-ink-subtle">{PAYOUT_NOTE}</p>
       </Tile>
-      <Tile as="div" className="flex flex-col divide-y divide-line px-4 py-0">
+      <Tile as="div" className="flex flex-col divide-y divide-hairline px-4 py-0">
         {[0, 1, 2, 3].map((key) => (
           <div key={key} className={ROW}>
             <div className="flex flex-1 flex-col gap-1">
-              <SkeletonLine size="option" width="w-1/2" />
+              <SkeletonLine size="card" width="w-1/2" />
               <SkeletonLine size="small" width="w-1/3" />
             </div>
-            <SkeletonLine size="option" width="w-1/4" />
+            <SkeletonLine size="card" width="w-1/4" />
           </div>
         ))}
       </Tile>
@@ -260,11 +260,7 @@ function EarningsSkeleton() {
 }
 
 function Figure({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <StatTile label={label} onNight>
-      {children}
-    </StatTile>
-  );
+  return <StatTile label={label}>{children}</StatTile>;
 }
 
 /** One credit or giveback: what it was for and for how long, the machine and when, and the amount. */
@@ -273,31 +269,26 @@ function EntryRow({ entry }: { entry: EarningsEntry }) {
   return (
     <li className={ROW}>
       <div className="flex min-w-0 flex-1 flex-col gap-1">
-        <p className="text-option font-semibold break-words">
+        <p className="text-card font-semibold break-words">
           {entry.label}
           {!givenBack && entry.minutes > 0 && ` · ${formatMinutes(entry.minutes)}`}
         </p>
-        <p className="text-small text-text-2 first-letter:uppercase xl:hidden">
+        <p className="text-small text-ink-subtle first-letter:xl:hidden">
           {entry.machineName} · <RelativeTime value={entry.createdAt} />
         </p>
         {entry.kind === "recovered_after_payout" && (
-          <p className="text-small text-text-2">
+          <p className="text-small text-ink-subtle">
             Taken from your unpaid earnings, never from your bank account
           </p>
         )}
         {entry.payoutHeld && (
-          <p className="text-small font-semibold text-warn-fg">Held from payout while a report is open</p>
+          <p className="text-small font-semibold text-ink">Held from payout while a report is open</p>
         )}
       </div>
-      <p className="hidden w-1/4 shrink-0 text-small text-text-2 first-letter:uppercase xl:block">
+      <p className="hidden w-1/4 shrink-0 text-small text-ink-subtle first-letter:xl:block">
         {entry.machineName} · <RelativeTime value={entry.createdAt} />
       </p>
-      <p
-        className={cn(
-          "text-option font-semibold tabular xl:w-24 xl:text-right",
-          !givenBack && "text-running",
-        )}
-      >
+      <p className={cn("text-card font-semibold tabular xl:w-24 xl:text-right", !givenBack && "text-live")}>
         <span className="sr-only">{givenBack ? "Taken back" : "Earned"} </span>
         <span aria-hidden="true">{givenBack ? "−" : "+"}</span>
         <Money paise={Math.abs(entry.amountPaise)} />

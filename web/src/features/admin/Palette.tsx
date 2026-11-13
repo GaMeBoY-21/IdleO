@@ -144,7 +144,7 @@ export function PaletteButton() {
   return (
     <Button variant="ghost" onClick={openPalette} className="justify-between">
       Find anything
-      <kbd className="hidden text-caption text-text-3 md:inline">Ctrl K</kbd>
+      <kbd className="hidden text-caption text-ink-tertiary md:inline">Ctrl K</kbd>
     </Button>
   );
 }
@@ -272,11 +272,11 @@ function PaletteBox({
             options[current]?.run();
           }
         }}
-        className="min-h-touch rounded-control bg-raised px-4 text-body text-text"
+        className="min-h-touch rounded-control bg-surface-3 px-4 text-body text-ink"
       />
       {found.isError && searching && <Banner tone="danger">{problemMessage(found.error)}</Banner>}
       {unanswered.length > 0 && (
-        <p className="text-caption text-text-2">
+        <p className="text-caption text-ink-subtle">
           These didn&apos;t answer in time, so there may be more:{" "}
           {unanswered.map((type) => GROUP_NAMES[type] ?? type).join(", ")}.
         </p>
@@ -294,14 +294,11 @@ function PaletteBox({
             <Skeleton className="h-11 w-full" />
           </div>
         ) : options.length === 0 ? (
-          <p className="px-4 py-4 text-small text-text-2">Nothing found for that.</p>
+          <p className="px-4 py-4 text-small text-ink-subtle">Nothing found for that.</p>
         ) : (
           groups.map(([name, members]) => (
             <div key={name} role="group" aria-label={name} className="flex flex-col pb-2">
-              <p
-                aria-hidden="true"
-                className="px-4 pb-1 text-caption font-semibold tracking-wider text-text-3 uppercase"
-              >
+              <p aria-hidden="true" className="px-4 pb-1 text-caption font-semibold text-ink-tertiary">
                 {name}
               </p>
               {members.map((option) => {
@@ -318,12 +315,12 @@ function PaletteBox({
                     onClick={option.run}
                     className={cn(
                       "flex min-h-touch w-full cursor-pointer flex-col justify-center rounded-control px-4 text-left text-small md:min-h-9",
-                      index === current ? "bg-raised font-semibold" : "font-medium",
+                      index === current ? "bg-surface-3 font-semibold" : "font-medium",
                     )}
                   >
                     {option.label}
                     {option.detail && (
-                      <span className="text-caption font-normal text-text-2">{option.detail}</span>
+                      <span className="text-caption font-normal text-ink-subtle">{option.detail}</span>
                     )}
                   </button>
                 );

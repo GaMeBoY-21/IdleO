@@ -104,7 +104,7 @@ export function Review() {
                   {minute.resolution ? (
                     <span className="flex flex-col gap-1">
                       <StatusChip size="sm" domain="minute" state={minute.resolution} />
-                      <span className="text-caption text-text-2">
+                      <span className="text-caption text-ink-subtle">
                         {minute.resolutionReason}, {minute.resolvedBy}
                       </span>
                     </span>

@@ -18,7 +18,7 @@ export function Money() {
       <ListScope.Provider value="runs">
         <Reconciliation />
       </ListScope.Provider>
-      <p className="text-small text-text-2">
+      <p className="text-small text-ink-subtle">
         The ledger itself, its accounts, entries and trial balance, is on{" "}
         <Link href="/admin/ledger/" className="underline">
           Ledger
@@ -81,13 +81,13 @@ function Reconciliation() {
                   ) : (
                     <StatusChip size="sm" domain="ledger" state="unbalanced" />
                   )}{" "}
-                  <span className="tabular text-caption text-text-2">
+                  <span className="tabular text-caption text-ink-subtle">
                     <Paise paise={run.ledgerDebitsPaise} /> debits
                   </span>
                 </Cell>
                 <Cell>
                   {run.checks.length === 0 ? (
-                    <span className="text-text-2">not kept then</span>
+                    <span className="text-ink-subtle">not kept then</span>
                   ) : run.checks.every((check) => check.found === 0) ? (
                     <span className="tabular">all {run.checks.length} pass</span>
                   ) : (

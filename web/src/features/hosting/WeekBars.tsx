@@ -11,14 +11,13 @@ const weekday = new Intl.DateTimeFormat("en-IN", { weekday: "long", timeZone: "U
 const dayName = (date: string) => weekday.format(new Date(`${date}T00:00:00Z`));
 
 /**
- * The last 7 days as bars on the dark tile: each as tall as its share of the busiest day, in lime, today in full, a
+ * The last 7 days as bars on the raised card: each as tall as its share of the busiest day, in volt, today in full, a
  * day with nothing a thin line. Each day is a list item with its name and amount for a screen reader.
  */
 export function WeekBars({ days, tall = false }: { days: Day[]; tall?: boolean }) {
   return (
     <Bars
       label="Earned each day, the last 7 days"
-      tone="night"
       tall={tall}
       bars={days.map((day) => ({
         key: day.date,
@@ -32,17 +31,16 @@ export function WeekBars({ days, tall = false }: { days: Day[]; tall?: boolean }
 
 /** The bars' shape before the figures arrive: the same box. */
 export function WeekBarsSkeleton() {
-  return <BarsSkeleton count={7} tone="night" />;
+  return <BarsSkeleton count={7} />;
 }
 
 const weekOf = new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", timeZone: "Asia/Kolkata" });
 
 /** The last 8 weeks from Monday as bars (ADR 0058), this week last: each named by its Monday. */
-export function WeeksBars({ weeks, tone = "night" }: { weeks: Week[]; tone?: "night" | "panel" }) {
+export function WeeksBars({ weeks }: { weeks: Week[] }) {
   return (
     <Bars
       label="Earned each week, the last 8 weeks"
-      tone={tone}
       bars={weeks.map((week) => ({
         key: week.startsAt,
         value: week.earnedPaise,

@@ -45,8 +45,8 @@ export function NameRow({ name }: { name: string }) {
     return (
       <div className={ROW}>
         <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <p className="text-caption text-text-2">Name</p>
-          <p className="truncate text-option font-semibold" title={name}>
+          <p className="text-caption text-ink-subtle">Name</p>
+          <p className="truncate text-card font-semibold" title={name}>
             {name}
           </p>
         </div>

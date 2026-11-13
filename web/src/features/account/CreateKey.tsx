@@ -63,10 +63,10 @@ export function CreateKey() {
   if (made) {
     return (
       <Tile as="section" aria-label="Your new key" className="flex flex-col gap-2">
-        <p className="text-option font-semibold">Made &ldquo;{made.name}&rdquo;</p>
+        <p className="text-card font-semibold">Made &ldquo;{made.name}&rdquo;</p>
         <Banner tone="warning">Copy it now. You won&apos;t see it again.</Banner>
         <p
-          className="rounded-control bg-panel-2 p-4 text-small break-all select-all tabular"
+          className="rounded-control bg-surface-2 p-4 text-small break-all select-all tabular"
           data-testid="new-key"
         >
           {made.key}
@@ -87,13 +87,13 @@ export function CreateKey() {
       noValidate
       aria-label="Create a key"
       data-tile=""
-      className="flex flex-col gap-2 rounded-panel bg-panel p-4"
+      className="flex flex-col gap-2 rounded-card bg-surface-1 p-4"
       onSubmit={(event) => {
         event.preventDefault();
         void submit();
       }}
     >
-      <p className="text-option font-semibold">Create a key</p>
+      <p className="text-card font-semibold">Create a key</p>
       <Field
         label="Name"
         value={name}
@@ -119,7 +119,7 @@ export function CreateKey() {
           onChange: () => setScope(value as "full" | "read"),
         })}
       />
-      <p className="text-caption text-text-2">
+      <p className="text-caption text-ink-subtle">
         Full access can book, stop and cancel sessions and revoke keys. Read only can only look.
       </p>
       {create.isError && <Banner tone="danger">{problemMessage(create.error)}</Banner>}

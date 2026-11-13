@@ -250,7 +250,7 @@ export function HelpButton() {
   return (
     <Button variant="ghost" onClick={() => keys?.openHelp()} className="justify-between">
       Keys and help
-      <kbd className="hidden text-caption text-text-3 md:inline">?</kbd>
+      <kbd className="hidden text-caption text-ink-tertiary md:inline">?</kbd>
     </Button>
   );
 }

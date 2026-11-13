@@ -16,7 +16,7 @@ export function serviceForDrop(services: Service[], model: boolean): Service | u
  * Dropping a folder anywhere on Home (web/DESIGN.md "Home"): while Home is on a laptop's screen, a file or folder
  * dropped on the page is read as the booking screen reads one, held, and the matching service opened, which takes it
  * as its first upload step. Anything with a `config.json` at its top goes to Fine-tune. Returns whether one is being
- * dragged over, for the dark tile to show.
+ * dragged over, for the raised card to show.
  */
 export function useDropAnywhere(services: Service[], active: boolean): boolean {
   const [, navigate] = useLocation();

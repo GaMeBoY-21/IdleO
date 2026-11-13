@@ -6,17 +6,15 @@ import { TileLabel, TileLink } from "@/components/ui/Tile";
 import { cn } from "@/lib/cn";
 
 /**
- * The renter's credit, as the ion-deep tile (approved reference `AppHome`): what they can spend now, from the server
+ * The renter's credit, as the card (approved reference `AppHome`): what they can spend now, from the server
  * and never counted on the client. It opens Credit. Without a book-again tile beside it, it is wide.
  */
 export function CreditTile({ wallet, wide }: { wallet: UseQueryResult<Wallet>; wide: boolean }) {
   return (
-    <TileLink href="/credit/" tone="ion-deep" className={cn(wide && "col-span-2")}>
-      <TileLabel tone="ion-deep" className="font-bold tracking-wider uppercase">
-        Credit
-      </TileLabel>
+    <TileLink href="/credit/" className={cn(wide && "col-span-2")}>
+      <TileLabel className="font-semibold">Credit</TileLabel>
       {wallet.data ? (
-        <span className="font-title text-figure tabular">
+        <span className="text-figure tabular">
           <span className="sr-only">Available: </span>
           <Money paise={wallet.data.availablePaise} />
         </span>

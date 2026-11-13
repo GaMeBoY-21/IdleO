@@ -78,11 +78,11 @@ function Arrivals() {
           >
             {item.title}
           </AppLink>
-          <span className="block text-text-2">{item.body}</span>
+          <span className="block text-ink-subtle">{item.body}</span>
         </Banner>
       ))}
       {showing.length > MOST_SHOWN && (
-        <p className="text-small text-text-2">
+        <p className="text-small text-ink-subtle">
           <Link href="/notifications/" className="underline">
             {showing.length - MOST_SHOWN} more in your notifications
           </Link>

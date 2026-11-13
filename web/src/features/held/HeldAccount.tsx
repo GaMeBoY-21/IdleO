@@ -22,7 +22,7 @@ export function HeldShell({ children }: { children: ReactNode }) {
         <div className={`${FRAME} flex h-16 items-center gap-6 md:h-header`}>
           <div className="flex flex-1 items-center">
             <Link href="/" className="flex min-h-touch items-center" aria-label={`${brand.name} home`}>
-              <Wordmark className="md:text-headline md:tracking-tighter" />
+              <Wordmark className="md:text-title md:tracking-tighter" />
             </Link>
           </div>
           <UserMenuButton />
@@ -47,7 +47,7 @@ export function HeldAccount() {
         <PageTitle>Your account is suspended</PageTitle>
         <Tile as="section" aria-labelledby="held-says" className="flex flex-col gap-4 md:p-6 xl:p-8">
           <SectionHeader id="held-says">What this means</SectionHeader>
-          <p className="max-w-prose text-small text-text-2">
+          <p className="max-w-prose text-small text-ink-subtle">
             You can&apos;t book, upload or host while it is. You can still see and download everything we hold
             about you, delete your account, and write to us. If you think this is a mistake, write to us and
             say so.

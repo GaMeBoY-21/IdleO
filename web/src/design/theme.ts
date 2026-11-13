@@ -1,5 +1,5 @@
 /**
- * Night Shift (dark), Day Shift (light), or the device's choice (web/DESIGN.md "Colour"). The choice is a cookie on the
+ * the dark theme (dark), the light theme (light), or the device's choice (web/DESIGN.md "Colour"). The choice is a cookie on the
  * parent domain, so the website and the app, on different addresses of one domain, share it on the same browser; it is a
  * per-browser convenience, never a server setting. With none, the page follows the device, and with no device setting
  * it is dark. Any failure to read or write it just means following the device.

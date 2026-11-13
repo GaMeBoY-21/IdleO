@@ -55,7 +55,7 @@ export function summaryRows(template: Template, values: BookValues, uploads: Upl
 }
 
 /**
- * "Your request", the dark tile: on a laptop, in the right column (summary, GPU, button, hold line); on a phone, held at
+ * "Your request", the raised card: on a laptop, in the right column (summary, GPU, button, hold line); on a phone, held at
  * the foot of the screen, 14 px from its edges, with the GPU, the button and the hold line, the answers being just
  * above.
  */
@@ -77,7 +77,7 @@ export function YourRequest({
   if (!laptop) {
     return (
       <Tile
-        tone="night"
+        tone="raised"
         aria-label="Your request"
         className="sticky bottom-3.5 z-raised mt-auto flex flex-col gap-2"
       >
@@ -87,9 +87,9 @@ export function YourRequest({
     );
   }
   return (
-    <Tile tone="night" as="div" className="flex flex-col gap-4 p-6">
+    <Tile tone="raised" as="div" className="flex flex-col gap-4 p-6">
       <SectionHeader>Your request</SectionHeader>
-      <KeyValueList layout="split" size="body" onNight items={summaryRows(template, values, uploads)} />
+      <KeyValueList layout="split" size="body" items={summaryRows(template, values, uploads)} />
       {gpu}
       {button}
     </Tile>

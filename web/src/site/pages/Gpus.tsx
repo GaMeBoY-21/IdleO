@@ -11,7 +11,7 @@ export function Gpus({ links }: { links: EntryLinks }) {
     <>
       <section className={`${column} ${band}`}>
         <h1 className={`${heading} max-w-prose`}>What each GPU can run</h1>
-        <p className={`${muted} mt-4 max-w-prose md:text-option`}>
+        <p className={`${muted} mt-4 max-w-prose md:text-card`}>
           A GPU's memory decides most of what fits. You ask for a size, and we give you the best free GPU that
           has at least that much. Everything below is typical: what a card of that size usually manages, not a
           guarantee for your model or your settings.
@@ -25,7 +25,7 @@ export function Gpus({ links }: { links: EntryLinks }) {
               <h2 id={`gpu-${gpu.gb}`} className={sectionTitle}>
                 {gpu.gb} GB GPU memory
               </h2>
-              <p className="mt-1 text-small text-text-2">Typical cards: {gpu.cards.join(", ")}</p>
+              <p className="mt-1 text-small text-ink-subtle">Typical cards: {gpu.cards.join(", ")}</p>
               <dl className="mt-4 grid grid-cols-1 gap-2 text-body">
                 {(
                   [
@@ -36,15 +36,15 @@ export function Gpus({ links }: { links: EntryLinks }) {
                   ] as const
                 ).map(([name, text]) => (
                   <div key={name}>
-                    <dt className="text-small font-semibold text-text">{name}, typical</dt>
-                    <dd className="text-text-2">{text}</dd>
+                    <dt className="text-small font-semibold text-ink">{name}, typical</dt>
+                    <dd className="text-ink-subtle">{text}</dd>
                   </div>
                 ))}
               </dl>
             </li>
           ))}
         </ul>
-        <p className="mt-6 max-w-prose text-small text-text-2">
+        <p className="mt-6 max-w-prose text-small text-ink-subtle">
           A laptop GPU runs at lower power than the desktop card with the same name, so it's slower for the
           same memory. Some cards have more or less memory than their name suggests; we count the memory the
           card reports.

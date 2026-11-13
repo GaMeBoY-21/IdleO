@@ -28,7 +28,7 @@ export function PauseControl({ host }: { host: Host }) {
       {error && <Banner tone="danger">{problemMessage(error)}</Banner>}
       {host.paused ? (
         <>
-          <p className="text-small text-text-2">
+          <p className="text-small text-ink-subtle">
             {host.pausedUntil
               ? `Paused until ${formatPauseEnd(host.pausedUntil, now)}. A session that's running finishes first.`
               : "Paused until you resume. A session that's running finishes first."}
@@ -81,7 +81,7 @@ export function PauseControl({ host }: { host: Host }) {
           <Button large block variant="ghost" onClick={() => setChoosing(true)}>
             Pause hosting
           </Button>
-          <p className="text-center text-small text-text-2">
+          <p className="text-center text-small text-ink-subtle">
             The running session finishes first. No new ones start until you resume.
           </p>
         </>

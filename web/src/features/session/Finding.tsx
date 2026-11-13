@@ -13,8 +13,8 @@ import { Banners } from "./Banners";
 
 /**
  * While we find its GPU (`REQUESTED`, `MATCHED`) and once one is found (`PROVISIONING`), like a ride app finding a
- * driver (web/DESIGN.md "The session screen"): one big dark tile with the ring, large and slowly breathing (still under
- * reduced motion), and a small white tile for what was asked for and what's done, that nothing is charged until it
+ * driver (web/DESIGN.md "The session screen"): one big raised card with the ring, large and slowly breathing (still under
+ * reduced motion), and a small card for what was asked for and what's done, that nothing is charged until it
  * runs, and "Cancel request". On a laptop the two sit side by side.
  */
 export function Finding({
@@ -36,7 +36,7 @@ export function Finding({
   const gpu = found ? `${gpuName(found.model)} · ${gigabytes(found.vramMb)}` : null;
   const state = (
     <Tile
-      tone="night"
+      tone="raised"
       className={cn(
         "flex flex-col items-center justify-center gap-6 px-6 py-10 text-center",
         laptop && "min-h-panel xl:flex-1",
@@ -47,7 +47,7 @@ export function Finding({
         <PageTitle variant={laptop ? "panel-lg" : "panel"}>
           {found ? "GPU found" : "Finding your GPU"}
         </PageTitle>
-        <p className="text-body text-on-night-2">
+        <p className="text-body text-ink-subtle">
           {gpu ?? "Asking the best free GPU for this job. Usually under a minute."}
         </p>
         {/* Always there, so nothing moves when a GPU is found. */}
@@ -107,9 +107,9 @@ export function Finding({
 
 function Row({ done, children }: { done: boolean; children: ReactNode }) {
   return (
-    <li className="flex items-center gap-2 rounded-control bg-panel-2 px-4 py-4">
+    <li className="flex items-center gap-2 rounded-control bg-surface-2 px-4 py-4">
       {done ? (
-        <Check aria-hidden="true" className="size-5 shrink-0 text-running" strokeWidth={2.5} />
+        <Check aria-hidden="true" className="size-5 shrink-0 text-live" strokeWidth={2.5} />
       ) : (
         <span aria-hidden="true" className="flex size-5 shrink-0 items-center justify-center">
           <span className="size-3 rounded-full bg-text" />
@@ -120,12 +120,12 @@ function Row({ done, children }: { done: boolean; children: ReactNode }) {
   );
 }
 
-/** The ring (src/brand/Wordmark.tsx's), large, in lime on the dark tile, on a disc with two soft halos. */
+/** The ring (src/brand/Wordmark.tsx's), large, in volt on the raised card, on a disc with two soft halos. */
 export function FindingRing() {
   return (
-    <div aria-hidden="true" className="rounded-full bg-on-night/5 p-6">
-      <div className="rounded-full bg-on-night/10 p-6">
-        <div className="flex size-finding items-center justify-center rounded-full bg-on-night/10">
+    <div aria-hidden="true" className="rounded-full bg-surface-2 p-6">
+      <div className="rounded-full bg-surface-3 p-6">
+        <div className="flex size-finding items-center justify-center rounded-full bg-surface-3">
           <svg viewBox="0 0 22 22" className="size-finding-ring motion-safe:animate-breathe">
             <circle
               cx="11"

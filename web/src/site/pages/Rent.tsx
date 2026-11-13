@@ -16,14 +16,16 @@ export function Rent({ context }: { context: SiteContext }) {
         <h1 id="rent-title" className={`${heading} max-w-prose`}>
           Rent a GPU
         </h1>
-        <p className={`${muted} max-w-prose md:text-option`}>
+        <p className={`${muted} max-w-prose md:text-card`}>
           Fine-tune a model, run your code or your own image on an RTX GPU someone nearby isn&apos;t using.
           You pay in rupees for the minutes it ran, never more than the cap you set.
         </p>
         <a href={context.links.getStarted} className={`${primaryButton} ${largeButton} self-start`}>
           Rent a GPU
         </a>
-        <p className="text-small text-text-3">{brand.name} is invite-only while it&apos;s in its pilot.</p>
+        <p className="text-small text-ink-tertiary">
+          {brand.name} is invite-only while it&apos;s in its pilot.
+        </p>
       </section>
       <HowItWorks />
       <section

@@ -1,6 +1,6 @@
 # 0043. Night Shift: a deep indigo look in two themes, Archivo and Inter, and a sidebar
 
-- **Status:** Accepted. Supersedes 0031 (the Bento look).
+- **Status:** Superseded by 0060 (the IdleO system, Nov 14, 2026). Supersedes 0031 (the Bento look).
 - **Date:** 2026-10-27
 
 Sources:

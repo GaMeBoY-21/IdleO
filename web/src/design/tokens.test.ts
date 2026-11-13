@@ -2,7 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { contrast } from "./contrast";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
-import { contrastPairs, displayScale, fonts, preloadedFonts, themes, typeScale } from "./tokens";
+import { contrastPairs, fonts, preloadedFonts, themes, typeScale } from "./tokens";
 
 /** DESIGN.md's contrast table, by "fg on bg": [dark, light, minimum]. */
 function documentedRatios(): Map<string, [number, number, number]> {
@@ -42,79 +42,74 @@ describe("the design tokens", () => {
     expect(Object.keys(themes.dark).sort()).toEqual(Object.keys(themes.light).sort());
   });
 
-  it("keep the type scale to the thirteen sizes DESIGN.md lists, and Archivo's to the eleven", () => {
+  it("keep the type scale to the fourteen sizes DESIGN.md lists", () => {
     const design = readFileSync(new URL("../../DESIGN.md", import.meta.url), "utf8");
     for (const [name, [size, lineHeight]] of Object.entries(typeScale)) {
       expect(design, name).toContain(`| \`text-${name}\` | ${size} / ${lineHeight} px |`);
     }
-    expect(Object.keys(typeScale)).toHaveLength(13);
-    for (const name of Object.keys(displayScale)) {
-      expect(design, name).toContain(`| \`text-${name}\` |`);
-    }
-    expect(Object.keys(displayScale)).toHaveLength(11);
+    expect(Object.keys(typeScale)).toHaveLength(14);
   });
 
-  it("check every colour role in both themes: nothing is listed that a theme lacks, and each text colour is paired", () => {
+  it("check every colour role in both themes: each text colour is paired", () => {
     const paired = new Set(contrastPairs.flatMap(({ fg, bg }) => [fg, bg]));
     for (const name of [
-      "text",
-      "text-2",
-      "text-3",
-      "primary",
-      "primary-fg",
-      "link",
-      "running",
-      "danger",
-      "ok-fg",
-      "warn-fg",
       "ink",
-      "on-night",
-      "on-night-2",
-      "on-night-3",
+      "ink-muted",
+      "ink-subtle",
+      "ink-tertiary",
+      "on-volt",
+      "live",
+      "danger",
+      "danger-fg",
     ] as const) {
       expect(paired.has(name), name).toBe(true);
     }
   });
 
-  it("keep volt off light backgrounds as text: in Day Shift the roles that carry it are not volt", () => {
-    for (const role of ["link", "running", "progress", "brand"] as const) {
+  it("keep volt off light backgrounds as text: in the light theme the roles that carry it are darker", () => {
+    for (const role of ["live", "focus"] as const) {
       expect(themes.light[role].toLowerCase(), role).not.toBe(themes.light.volt.toLowerCase());
     }
-    expect(themes.light["primary-fg"]).toBe(themes.light.volt);
-    expect(themes.light.primary).toBe(themes.light.ink);
+    expect(themes.light["on-volt"]).toBe(themes.dark.canvas);
+  });
+
+  it("have no Linear lavender and no colour but volt as an accent", () => {
+    const all = JSON.stringify(themes).toLowerCase();
+    expect(all).not.toContain("5e6ad2");
   });
 });
 
 describe("the fonts", () => {
   const publicFonts = new URL("../../public/fonts/", import.meta.url);
 
-  it("are the self-hosted files, each with its licence, and Plus Jakarta Sans is gone from the web app", () => {
+  it("are the self-hosted files, each with its licence, and Archivo and Plus Jakarta Sans are gone from the web app", () => {
     for (const font of Object.values(fonts)) {
       expect(existsSync(new URL(font.file, publicFonts)), font.file).toBe(true);
       if (font.more) {
         expect(existsSync(new URL(font.more.file, publicFonts)), font.more.file).toBe(true);
       }
     }
-    for (const licence of ["Archivo", "Inter", "JetBrainsMono"]) {
+    for (const licence of ["Inter", "JetBrainsMono"]) {
       expect(existsSync(new URL(`LICENSE-${licence}.txt`, publicFonts)), licence).toBe(true);
     }
     expect(existsSync(new URL("plus-jakarta-sans-subset.woff2", publicFonts))).toBe(false);
+    expect(readdirSync(publicFonts).filter((file) => /archivo/i.test(file))).toEqual([]);
   });
 
   it("are the same files the Windows setup window embeds, and nothing there is Plus Jakarta Sans", () => {
     const setup = new URL("../../../agent/setup/assets/fonts/", import.meta.url);
-    for (const file of [fonts.sans.file, fonts.display.file, fonts.display.more.file, fonts.title.file]) {
+    for (const file of [fonts.sans.file]) {
       expect(readFileSync(new URL(file, setup)).equals(readFileSync(new URL(file, publicFonts))), file).toBe(
         true,
       );
     }
-    for (const licence of ["Archivo", "Inter"]) {
+    for (const licence of ["Inter"]) {
       expect(existsSync(new URL(`LICENSE-${licence}.txt`, setup)), licence).toBe(true);
     }
     expect(readdirSync(setup).filter((file) => /jakarta/i.test(file))).toEqual([]);
   });
 
-  it("stay small: what the app preloads is under 26 KB, the website's under 32 KB, every file under 20 KB, the whole set under 80 KB", () => {
+  it("stay small: what the app preloads is under 26 KB, the website's under 26 KB, every file under 20 KB, the whole set under 60 KB", () => {
     const size = (file: string) => statSync(new URL(file, publicFonts)).size;
     const total = (files: readonly string[]) => files.reduce((sum, file) => sum + size(file), 0);
     const files = Object.values(fonts).flatMap((font) => [font.file, ...(font.more ? [font.more.file] : [])]);
@@ -122,8 +117,8 @@ describe("the fonts", () => {
       expect(size(file), file).toBeLessThan(20 * 1024);
     }
     expect(total(preloadedFonts.app)).toBeLessThan(26 * 1024);
-    expect(total(preloadedFonts.site)).toBeLessThan(32 * 1024);
-    expect(total(files)).toBeLessThan(80 * 1024);
+    expect(total(preloadedFonts.site)).toBeLessThan(26 * 1024);
+    expect(total(files)).toBeLessThan(60 * 1024);
   });
 
   it("are preloaded where the pages say: the app's index.html and the website's head name exactly these files", () => {
@@ -134,13 +129,6 @@ describe("the fonts", () => {
         .sort();
     const read = (path: string) => readFileSync(new URL(path, import.meta.url), "utf8");
     expect(links(read("../../index.html"))).toEqual([...preloadedFonts.app].sort());
-    // What a phone doesn't fetch: only from the width where the app's headings use it.
-    const wide = [
-      ...read("../../index.html").matchAll(
-        /rel="preload"\s+href="\/fonts\/([^"]+)"[^>]*media="\(min-width: 768px\)"/g,
-      ),
-    ];
-    expect(wide.map((match) => match[1])).toEqual([...preloadedFonts.appWide]);
     expect(links(read("../../scripts/build-site.ts"))).toEqual([...preloadedFonts.site].sort());
   });
 

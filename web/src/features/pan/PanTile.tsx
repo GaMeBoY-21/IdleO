@@ -42,10 +42,10 @@ export function PanTile({ pan, why }: { pan: PanView | null | undefined; why?: R
       </SectionHeader>
       {pan && (
         <div className="flex flex-col gap-1">
-          <p className="text-option font-semibold tabular">
+          <p className="text-card font-semibold tabular">
             {maskedPan(pan.last4)} · {pan.name}
           </p>
-          <p className={pan.state === "verified" ? "text-small text-running" : "text-small text-text-2"}>
+          <p className={pan.state === "verified" ? "text-small text-live" : "text-small text-ink-subtle"}>
             {PAN_STATE[pan.state] ?? pan.state}
             {pan.state === "rejected" && pan.reason && `: ${pan.reason}`}
           </p>
