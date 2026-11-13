@@ -42,8 +42,8 @@ export function YourSession({
   return (
     <>
       <div className="flex flex-col gap-1">
-        <p className="text-small font-semibold text-text-2">Your session</p>
-        <h2 className="font-title text-display-feature">
+        <p className="text-small font-semibold text-ink-subtle">Your session</p>
+        <h2 className="text-title">
           {from} to your outputs{runtime === null ? "" : `, in ${runtime}`}
         </h2>
       </div>

@@ -10,12 +10,12 @@ export function ServiceHeader({ name, description }: { name: string; description
     <div className="flex flex-col gap-2">
       <Link
         href="/book/"
-        className="flex min-h-touch items-center self-start rounded-full bg-panel px-4 text-small font-semibold hover:bg-raised"
+        className="flex min-h-touch items-center self-start rounded-full bg-surface-1 px-4 text-small font-semibold hover:bg-surface-3"
       >
         <span aria-hidden="true">←&nbsp;</span>All services
       </Link>
       <PageTitle>{name}</PageTitle>
-      <p className="text-body text-text-2">{description}</p>
+      <p className="text-body text-ink-subtle">{description}</p>
     </div>
   );
 }

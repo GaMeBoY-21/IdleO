@@ -1,5 +1,4 @@
 import { ChevronLeft } from "lucide-react";
-import { useEffect } from "react";
 import { Toasts } from "@/components/shell/Toasts";
 import { PageHeader, type Crumb } from "@/components/ui/Headers";
 import { Link, useLocation } from "wouter";
@@ -7,14 +6,14 @@ import type { ReactNode } from "react";
 import { brand } from "@/brand/brand";
 import { Wordmark } from "@/brand/Wordmark";
 import { AppLink } from "@/components/ui/AppLink";
-import { loadHeadlineFonts } from "@/design/fonts";
-import { afterPaint } from "@/lib/after-first-screen";
 import { cn } from "@/lib/cn";
 import { nav } from "@site/site";
 import { NotificationBanners } from "./NotificationBanners";
 import { NotificationBell } from "./NotificationBell";
 import { StatusBanners } from "./StatusBanners";
-import { Sidebar, SIDEBAR_PUSH } from "./Sidebar";
+import { Sidebar } from "./Sidebar";
+import { sidebarPush, useSidebarCollapsed } from "./sidebar-state";
+import { TopBar } from "./TopBar";
 import { UserMenuButton } from "./UserMenuButton";
 
 /**
@@ -26,20 +25,27 @@ import { UserMenuButton } from "./UserMenuButton";
 export function AppShell({ children }: { children: ReactNode }) {
   const [pathname] = useLocation();
   const flow = nav.isFlow(pathname);
-  useEffect(() => afterPaint(loadHeadlineFonts), []);
+  const collapsed = useSidebarCollapsed();
   return (
-    <div className={cn("flex min-h-dvh flex-col", SIDEBAR_PUSH)}>
+    <div className={cn("flex min-h-dvh flex-col", sidebarPush(collapsed))}>
       <a
         href="#main"
-        className="sr-only z-toast rounded-full bg-panel px-4 py-4 focus:not-sr-only focus:fixed focus:top-2 focus:left-2"
+        className="sr-only z-toast rounded-control border border-hairline-strong bg-surface-2 px-4 py-2 focus:not-sr-only focus:fixed focus:top-2 focus:left-2"
       >
         Skip to content
       </a>
       <Sidebar />
-      <header className={cn("sticky top-0 z-raised bg-canvas md:hidden", flow && "hidden")}>
-        <div className="flex h-16 items-center justify-between gap-6 px-4">
-          <Link href="/" className="flex min-h-touch items-center" aria-label={`${brand.name} home`}>
-            <Wordmark />
+      <TopBar />
+      <header
+        className={cn("sticky top-0 z-raised border-b border-hairline bg-canvas md:hidden", flow && "hidden")}
+      >
+        <div className="flex h-header items-center justify-between gap-6 px-4">
+          <Link
+            href="/"
+            className="flex min-h-touch items-center text-live"
+            aria-label={`${brand.name} home`}
+          >
+            <Wordmark className="text-section" />
           </Link>
           <NotificationBell />
         </div>
@@ -53,11 +59,11 @@ export function AppShell({ children }: { children: ReactNode }) {
       <nav
         aria-label="Main"
         className={cn(
-          "fixed inset-x-3.5 bottom-tab z-raised h-16 rounded-bar border border-line bg-panel md:hidden",
+          "fixed inset-x-0 bottom-0 z-raised border-t border-hairline bg-surface-1 pb-safe md:hidden",
           flow && "hidden",
         )}
       >
-        <ul className="grid h-full grid-cols-6">
+        <ul className="grid h-14 grid-cols-6">
           {nav.phoneDestinations.map(({ href, label, icon: Icon }) => {
             const current = nav.isCurrent(pathname, href);
             return (
@@ -66,14 +72,11 @@ export function AppShell({ children }: { children: ReactNode }) {
                   href={href}
                   aria-current={current ? "page" : undefined}
                   className={cn(
-                    "relative flex flex-1 flex-col items-center justify-center gap-1 rounded-bar",
-                    current ? "font-semibold text-text" : "font-medium text-text-2",
+                    "relative flex flex-1 flex-col items-center justify-center gap-1",
+                    current ? "text-ink" : "text-ink-subtle",
                   )}
                 >
-                  {current && (
-                    <span aria-hidden="true" className="absolute top-1 h-1 w-6 rounded-full bg-progress" />
-                  )}
-                  <Icon aria-hidden="true" className="size-5.5" strokeWidth={current ? 2 : 1.75} />
+                  <Icon aria-hidden="true" className="size-5" strokeWidth={current ? 2 : 1.75} />
                   <span className="text-caption">{label}</span>
                 </AppLink>
               </li>
@@ -90,10 +93,16 @@ export function AppShell({ children }: { children: ReactNode }) {
 
 /** The frame with nothing in it yet, while sign-in state loads: the same sidebar's width, the same header's height. */
 export function ShellSkeleton({ children }: { children?: ReactNode }) {
+  const collapsed = useSidebarCollapsed();
   return (
-    <div className={cn("flex min-h-dvh flex-col", SIDEBAR_PUSH)} aria-busy="true">
-      <div className="fixed inset-y-0 left-0 hidden w-sidebar border-r border-line bg-sidebar md:block" />
-      <div className="h-16 bg-canvas md:hidden" />
+    <div className={cn("flex min-h-dvh flex-col", sidebarPush(collapsed))} aria-busy="true">
+      <div
+        className={cn(
+          "fixed inset-y-0 left-0 hidden border-r border-hairline bg-surface-1 md:block",
+          collapsed ? "w-sidebar-icons" : "w-sidebar",
+        )}
+      />
+      <div className="h-header bg-canvas" />
       <div className="flex w-full flex-1 flex-col">{children}</div>
     </div>
   );
@@ -105,8 +114,8 @@ export function ShellSkeleton({ children }: { children?: ReactNode }) {
  */
 export function Page({ title, trail, children }: { title: string; trail?: Crumb[]; children: ReactNode }) {
   return (
-    <div className="w-full px-4 pt-2 pb-8 md:px-8 md:pt-8 xl:px-10 md:pb-12">
-      <div className="mx-auto flex w-full max-w-card flex-col gap-6 xl:w-7/12 xl:max-w-none">
+    <div className="w-full px-4 pt-4 pb-8 md:px-8 md:pt-8 xl:px-10 md:pb-12">
+      <div className="mx-auto flex w-full max-w-form flex-col gap-6">
         <PageHeader title={title} trail={trail} />
         {children}
       </div>
@@ -117,15 +126,15 @@ export function Page({ title, trail, children }: { title: string; trail?: Crumb[
 /** A flow's back button on a phone (Book, the session screen), where the bars give way to the flow. */
 export function FlowHeader({ back, title }: { back: string; title?: string }) {
   return (
-    <div className="flex h-16 items-center gap-2 px-4 md:hidden">
+    <div className="flex h-header items-center gap-2 px-4 md:hidden">
       <Link
         href={back}
         aria-label="Back"
-        className="flex size-touch items-center justify-center rounded-full bg-panel"
+        className="flex size-touch items-center justify-center rounded-control border border-hairline bg-surface-1"
       >
-        <ChevronLeft aria-hidden="true" className="size-5.5" strokeWidth={2} />
+        <ChevronLeft aria-hidden="true" className="size-5" strokeWidth={2} />
       </Link>
-      {title && <span className="text-body font-semibold">{title}</span>}
+      {title && <span className="text-card">{title}</span>}
     </div>
   );
 }

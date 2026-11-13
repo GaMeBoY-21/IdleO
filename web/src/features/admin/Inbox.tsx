@@ -185,14 +185,17 @@ export function Inbox() {
                     {item.title}
                   </Link>
                   {item.runningSession && (
-                    <span className="block text-caption text-text-2">A session is running</span>
+                    <span className="block text-caption text-ink-subtle">A session is running</span>
                   )}
                 </Cell>
                 <Cell>{KIND_WORDS[item.type] ?? item.type}</Cell>
                 <Cell>
                   <StatusChip size="sm" domain="priority" state={item.priority} />
                   {item.overridden && (
-                    <span className="block text-caption text-text-2" title={item.overrideReason ?? undefined}>
+                    <span
+                      className="block text-caption text-ink-subtle"
+                      title={item.overrideReason ?? undefined}
+                    >
                       Set by an admin
                     </span>
                   )}

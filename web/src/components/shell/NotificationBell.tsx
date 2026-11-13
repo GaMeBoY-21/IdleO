@@ -28,13 +28,13 @@ function BellLink({ unread }: { unread: number }) {
     <Link
       href="/notifications/"
       aria-label={unread > 0 ? `Notifications, ${unread} unread` : "Notifications"}
-      className="relative flex size-touch items-center justify-center rounded-full text-text-2 hover:bg-raised hover:text-text"
+      className="relative flex size-8 items-center justify-center rounded-control text-ink-subtle hover:bg-surface-2 hover:text-ink pointer-coarse:size-touch"
     >
-      <Bell aria-hidden="true" className="size-5.5" strokeWidth={1.75} />
+      <Bell aria-hidden="true" className="size-5" strokeWidth={1.75} />
       {unread > 0 && (
         <span
           aria-hidden="true"
-          className="absolute top-1 right-1 flex h-4.5 min-w-4.5 items-center justify-center rounded-full bg-primary px-1 text-caption font-semibold text-primary-fg tabular"
+          className="absolute top-0 right-0 flex h-4 min-w-4 items-center justify-center rounded-full bg-ink px-1 text-caption font-medium text-canvas tabular"
         >
           {unread > MOST_SHOWN ? `${MOST_SHOWN}+` : unread}
         </span>

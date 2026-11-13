@@ -11,7 +11,7 @@ import type { LogSignals } from "@/lib/log-signals";
 import { CheckpointTile } from "./Outputs";
 
 /**
- * A session that has started and not ended (web/DESIGN.md "The session screen"): the dark tile with its state, the
+ * A session that has started and not ended (web/DESIGN.md "The session screen"): the raised card with its state, the
  * time and the cost, then tiles for the GPU (use and temperature), the checkpoints, the log and Stop. Moving to
  * another host and saving its outputs keep the same screen, without Stop. On a phone they stack, the logs a row that
  * opens; on a laptop the night band is across the top, the GPU's panel beside the log, and the session's progress under
@@ -44,7 +44,7 @@ export function Running({
       <StopAction session={session} laptop={laptop} />
     ) : (
       <ActionFoot laptop={laptop} note={null}>
-        <p className="flex min-h-14 items-center justify-center text-body text-text-2">
+        <p className="flex min-h-14 items-center justify-center text-body text-ink-subtle">
           {session.state === "FINISHING"
             ? "Saving a last checkpoint and its outputs…"
             : "Moving to another host…"}

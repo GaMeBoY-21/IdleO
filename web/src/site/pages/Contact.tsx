@@ -1,7 +1,7 @@
 import { MAX_MESSAGE } from "@/lib/support";
 import { band, column, heading, muted, primaryButton, sectionTitle, tile } from "../ui";
 
-const field = "min-h-14 rounded-control border border-line bg-panel-2 px-4 text-body text-text";
+const field = "min-h-14 rounded-control border border-hairline bg-surface-2 px-4 text-body text-ink";
 const label = "text-small font-medium";
 
 /**
@@ -85,7 +85,7 @@ export function Grievance({ apiUrl, className = "" }: { apiUrl: string | null; c
     <aside className={`${tile} flex flex-col gap-2 ${className}`} data-grievance="" data-api={apiUrl ?? ""}>
       <h2 className={sectionTitle}>Grievance officer</h2>
       <p className={muted}>For a complaint about how we handle your data, write to:</p>
-      <p className="min-h-6 text-option font-semibold" data-role="name">
+      <p className="min-h-6 text-card font-semibold" data-role="name">
         &nbsp;
       </p>
       <p className="min-h-6 text-body" data-role="email">

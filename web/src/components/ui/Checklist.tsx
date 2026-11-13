@@ -33,28 +33,28 @@ export function Checklist({ id, title, steps }: { id: string; title: string; ste
     <Tile as="section" aria-labelledby={id} className="flex flex-col gap-2 md:p-6 xl:p-8">
       <div className="flex items-baseline justify-between gap-2">
         <SectionHeader id={id}>{title}</SectionHeader>
-        <span className="text-small text-text-2 tabular">
+        <span className="text-small text-ink-subtle tabular">
           {done} of {steps.length} done
         </span>
       </div>
-      <ol className="flex flex-col divide-y divide-line">
+      <ol className="flex flex-col divide-y divide-hairline">
         {steps.map((step, index) => (
           <li key={step.title} className="flex min-h-18 items-start gap-2 py-4">
             <span
               aria-hidden="true"
               className={cn(
-                "flex size-8 shrink-0 items-center justify-center rounded-full text-small font-bold",
-                step.done === true ? "bg-primary text-primary-fg" : "bg-raised text-text-2",
+                "flex size-8 shrink-0 items-center justify-center rounded-full text-small font-semibold",
+                step.done === true ? "bg-volt text-on-volt" : "bg-surface-3 text-ink-subtle",
               )}
             >
               {step.done === true ? <Check className="size-4" strokeWidth={2.5} /> : index + 1}
             </span>
             <div className="flex min-w-0 flex-1 flex-col gap-1">
-              <p className="text-option font-semibold">
+              <p className="text-card font-semibold">
                 {step.title}
                 <span className="sr-only">{step.done === true ? ": done" : ": to do"}</span>
               </p>
-              <p className="text-small text-text-2">{step.detail}</p>
+              <p className="text-small text-ink-subtle">{step.detail}</p>
             </div>
             {step.control && step.done === false ? (
               <span className="shrink-0">{step.control}</span>

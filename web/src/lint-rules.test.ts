@@ -15,7 +15,7 @@ describe("the design-token rule", () => {
     expect(await rules('export const a = "text-[#ff0000]";\n', "src/lib/cn.ts")).toContain(
       "idleo/design-tokens",
     );
-    expect(await rules('export const a = "p-[13px] text-text";\n', "src/lib/cn.ts")).toContain(
+    expect(await rules('export const a = "p-[13px] text-ink";\n', "src/lib/cn.ts")).toContain(
       "idleo/design-tokens",
     );
     expect(await rules('export const a = "rgb(1 2 3)";\n', "src/lib/cn.ts")).toContain("idleo/design-tokens");
@@ -24,7 +24,7 @@ describe("the design-token rule", () => {
   it("allows token classes and bracketed variants", async () => {
     expect(
       await rules(
-        'export const a = "bg-surface text-text p-4 data-[state=open]:bg-sunken";\n',
+        'export const a = "bg-surface text-ink p-4 data-[state=open]:bg-sunken";\n',
         "src/lib/cn.ts",
       ),
     ).not.toContain("idleo/design-tokens");

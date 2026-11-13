@@ -7,7 +7,7 @@ import { cn } from "@/lib/cn";
  * `KeyValueList`: a record's fields, label beside value from 768 px (`columns`, the console's), or label at the start and
  * value at the end of one line (`split`, a request's or a price's breakdown), optionally with a line between rows.
  * `StatGrid` and `StatTile`: a few figures side by side, each a label, its figure in tabular numbers and a line on it, the
- * same height loading and loaded. On a night panel, `onNight` takes its colours.
+ * same height loading and loaded.
  */
 export type KeyValue = readonly [label: ReactNode, value: ReactNode];
 
@@ -16,21 +16,19 @@ export function KeyValueList({
   layout = "columns",
   divided = false,
   size = "small",
-  onNight = false,
   className,
 }: {
   items: readonly KeyValue[];
   layout?: "columns" | "split";
   divided?: boolean;
   size?: "small" | "body";
-  onNight?: boolean;
   className?: string;
 }) {
   return (
     <dl
       className={cn(
         "flex flex-col",
-        divided ? cn("divide-y", onNight ? "divide-on-night/15" : "divide-line") : "gap-2",
+        divided ? "divide-y divide-hairline" : "gap-2",
         size === "small" ? "text-small" : "text-body",
         className,
       )}
@@ -41,16 +39,11 @@ export function KeyValueList({
           className={cn(
             layout === "columns"
               ? "flex flex-col md:flex-row md:gap-6"
-              : "flex min-h-touch items-center justify-between gap-4",
+              : "flex min-h-control items-center justify-between gap-4",
             divided && "py-2",
           )}
         >
-          <dt
-            className={cn(
-              onNight ? "text-on-night-2" : "text-text-2",
-              layout === "columns" ? "md:w-40 md:shrink-0" : "shrink-0",
-            )}
-          >
+          <dt className={cn("text-ink-subtle", layout === "columns" ? "md:w-40 md:shrink-0" : "shrink-0")}>
             {label}
           </dt>
           <dd
@@ -77,7 +70,6 @@ export function StatTile({
   children,
   note,
   size = "md",
-  onNight = false,
   className,
 }: {
   label: ReactNode;
@@ -87,28 +79,23 @@ export function StatTile({
   note?: ReactNode;
   /** `sm` in a narrow panel: the figure in small type, with room kept for it on two lines. */
   size?: "md" | "sm";
-  onNight?: boolean;
   className?: string;
 }) {
   return (
     <div
       className={cn(
-        "flex flex-col gap-1 rounded-control px-4",
+        "flex flex-col gap-1 rounded-card px-4",
         size === "md" ? "min-h-18 justify-center py-4" : "min-h-20 justify-start py-2",
-        onNight ? "bg-on-night/10" : "bg-panel-2",
+        "border border-hairline bg-surface-2",
         className,
       )}
     >
-      <dt className={cn("text-small", onNight ? "text-on-night-2" : "text-text-2")}>{label}</dt>
+      <dt className={"text-small text-ink-subtle"}>{label}</dt>
       <dd className="flex flex-col gap-1">
-        <div className={cn("font-semibold tabular", size === "md" ? "text-option" : "text-small")}>
+        <div className={cn("font-semibold tabular", size === "md" ? "text-figure" : "text-small")}>
           {children}
         </div>
-        {note !== undefined && (
-          <span className={cn("min-h-9 text-caption", onNight ? "text-on-night-2" : "text-text-2")}>
-            {note}
-          </span>
-        )}
+        {note !== undefined && <span className={"min-h-9 text-caption text-ink-subtle"}>{note}</span>}
       </dd>
     </div>
   );

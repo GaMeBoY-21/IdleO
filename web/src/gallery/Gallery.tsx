@@ -18,6 +18,7 @@ import { Skeleton, SkeletonLine } from "@/components/ui/Skeleton";
 import { StatusChip, Tag } from "@/components/ui/StatusChip";
 import { EmptyState, ErrorState, StaleNotice } from "@/components/ui/States";
 import { Tile, TileLabel, type TileTone } from "@/components/ui/Tile";
+import { DataCell, DataRow, DataTable } from "@/components/ui/DataTable";
 import { Elapsed, RelativeTime } from "@/components/ui/Time";
 import { motion, radii, spacing, themes, typeScale } from "@/design/tokens";
 import "@/features/admin/states";
@@ -45,8 +46,8 @@ const SESSION_STATES = [
   "ENDED_REFUNDED",
   "SOMETHING_NEW",
 ];
-const VARIANTS: ButtonVariant[] = ["primary", "secondary", "ghost", "live", "ink", "quiet", "danger"];
-const TONES: TileTone[] = ["panel", "night", "volt", "ion", "ember", "ion-deep"];
+const VARIANTS: ButtonVariant[] = ["primary", "secondary", "ghost", "quiet", "danger"];
+const TONES: TileTone[] = ["panel", "raised"];
 const NOW = new Date();
 const minutesAgo = (minutes: number) => new Date(NOW.getTime() - minutes * 60_000).toISOString();
 
@@ -55,7 +56,7 @@ function Group({ id, title, children }: { id: string; title: string; children: R
     <section
       id={id}
       aria-labelledby={`${id}-title`}
-      className="flex flex-col gap-4 border-t border-line pt-6"
+      className="flex flex-col gap-4 border-t border-hairline pt-6"
     >
       <h2 id={`${id}-title`} className="text-section">
         {title}
@@ -68,7 +69,7 @@ function Group({ id, title, children }: { id: string; title: string; children: R
 function Specimen({ name, children }: { name: string; children: ReactNode }) {
   return (
     <div className="flex flex-col gap-2">
-      <p className="text-caption text-text-3">{name}</p>
+      <p className="text-caption text-ink-tertiary">{name}</p>
       <div className="flex flex-wrap items-start gap-4">{children}</div>
     </div>
   );
@@ -92,7 +93,7 @@ function ThemeSwitch() {
             setTheme(choice);
           }}
         >
-          {choice === "dark" ? "Night Shift" : "Day Shift"}
+          {choice === "dark" ? "Dark" : "Light"}
         </Button>
       ))}
       <a
@@ -112,7 +113,7 @@ function Tokens() {
         {Object.keys(themes.dark).map((token) => (
           <div key={token} className="flex w-32 flex-col gap-1">
             <span
-              className="h-10 rounded-icon border border-line"
+              className="h-10 rounded-control border border-hairline"
               style={{ background: `var(--${token})` }}
             />
             <span className="text-caption">{token}</span>
@@ -142,7 +143,7 @@ function Tokens() {
           .filter(([, px]) => typeof px === "number" && px > 0 && px <= 112)
           .map(([name, px]) => (
             <div key={name} className="flex flex-col items-center gap-1">
-              <span className="block bg-ion" style={{ width: px, height: px }} />
+              <span className="block bg-ink-tertiary" style={{ width: px, height: px }} />
               <span className="text-caption tabular">
                 {name} · {px}
               </span>
@@ -154,7 +155,7 @@ function Tokens() {
           .filter(([, px]) => px < 100)
           .map(([name, px]) => (
             <div key={name} className="flex flex-col items-center gap-1">
-              <span className="block size-16 bg-panel-2" style={{ borderRadius: px }} />
+              <span className="block size-16 bg-surface-2" style={{ borderRadius: px }} />
               <span className="text-caption">
                 {name} · {px}
               </span>
@@ -190,6 +191,14 @@ function Buttons() {
           </Button>
         </Specimen>
       ))}
+      <Specimen name="Button, danger, solid: only in the confirm dialog">
+        <Button variant="danger" solid>
+          Delete my account
+        </Button>
+        <Button variant="danger" solid disabled>
+          Delete my account
+        </Button>
+      </Specimen>
       <Specimen name="Copy button">
         <CopyButton text="idleo login" label="Copy the command" />
       </Specimen>
@@ -235,10 +244,10 @@ function Tiles() {
     <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
       {TONES.map((tone) => (
         <Tile key={tone} tone={tone}>
-          <TileLabel tone={tone}>{tone}</TileLabel>
+          <TileLabel>{tone}</TileLabel>
           <SectionHeader>A panel's title</SectionHeader>
           <p className="text-small">A line of what it holds, and a figure: ₹1,234.50.</p>
-          <Button variant={tone === "night" ? "live" : tone === "volt" ? "ink" : "ghost"}>Open</Button>
+          <Button variant="secondary">Open</Button>
         </Tile>
       ))}
     </div>
@@ -316,10 +325,9 @@ function Pieces() {
         <IconTile icon={Layers} size="lg" />
       </div>
       <ProgressBar percent={62} label="Uploaded 62%" />
-      <Tile tone="night">
+      <Tile tone="raised">
         <Bars
           label="Earned this week"
-          tone="night"
           bars={["M", "T", "W", "T", "F", "S", "S"].map((day, index) => ({
             key: `${day}${index}`,
             value: [3, 0, 5, 8, 2, 0, 6][index]!,
@@ -329,7 +337,7 @@ function Pieces() {
         />
       </Tile>
       <Tile>
-        <BarsSkeleton count={7} tone="panel" />
+        <BarsSkeleton count={7} />
       </Tile>
       <Checklist
         id="gallery-checklist"
@@ -367,6 +375,41 @@ function Pieces() {
         <Elapsed from={minutesAgo(62)} />
       </Specimen>
     </div>
+  );
+}
+
+function Tables() {
+  return (
+    <Tile>
+      <DataTable
+        caption="Recent sessions"
+        columns={[
+          { label: "Session" },
+          { label: "State" },
+          { label: "GPU" },
+          { label: "Minutes", numeric: true },
+          { label: "Cost", numeric: true },
+        ]}
+      >
+        {[
+          ["Fine-tune", "RUNNING", "RTX 4060 Laptop", 42, 1260],
+          ["Run code", "COMPLETED", "RTX 3070", 18, 540],
+          ["Fine-tune", "FAILED", "RTX 4060 Laptop", 3, 0],
+        ].map(([name, state, gpu, minutes, paise], index) => (
+          <DataRow key={index}>
+            <DataCell>{name}</DataCell>
+            <DataCell>
+              <StatusChip domain="session" state={String(state)} size="sm" />
+            </DataCell>
+            <DataCell>{gpu}</DataCell>
+            <DataCell numeric>{minutes}</DataCell>
+            <DataCell numeric>
+              <Money paise={Number(paise)} />
+            </DataCell>
+          </DataRow>
+        ))}
+      </DataTable>
+    </Tile>
   );
 }
 
@@ -444,6 +487,7 @@ const GROUPS: [string, string, () => ReactNode][] = [
   ["tiles", "Tiles and panels", Tiles],
   ["states", "Loading, empty, error, stale and banners", States],
   ["chips", "State chips and pills", Chips],
+  ["tables", "Tables", Tables],
   ["pieces", "Options, progress, bars, checklist, money and time", Pieces],
   ["console", "The console's own set", ConsoleSet],
 ];

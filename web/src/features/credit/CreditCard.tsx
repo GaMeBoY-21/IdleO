@@ -11,7 +11,7 @@ import { formatDay, formatTime } from "@/lib/time";
 const PAGE_OPENED_AT = Date.now();
 
 /**
- * The renter's credit, as the big dark tile (web/DESIGN.md "Credit"): what they can spend now at 54 px, and under it
+ * The renter's credit, as the big raised card (web/DESIGN.md "Credit"): what they can spend now at 54 px, and under it
  * what's on hold and both together, then how much of it was bought and how much is free (ADR 0039). A stale refresh is said once, at the top of the screen (staleSince), not here.
  */
 export function CreditCard({ wallet, wide = false }: { wallet: UseQueryResult<Wallet>; wide?: boolean }) {
@@ -20,7 +20,7 @@ export function CreditCard({ wallet, wide = false }: { wallet: UseQueryResult<Wa
     wallet.data && wallet.isFetching && !wallet.isRefetchError && wallet.dataUpdatedAt < PAGE_OPENED_AT;
   return (
     <Tile
-      tone="night"
+      tone="raised"
       size={wide ? "lg" : "md"}
       aria-labelledby="credit-title"
       className="flex flex-col gap-4"
@@ -31,12 +31,9 @@ export function CreditCard({ wallet, wide = false }: { wallet: UseQueryResult<Wa
       {wallet.data ? (
         <>
           <div className="flex flex-col gap-1">
-            <p className="text-small font-semibold text-on-night-2">Available</p>
-            <Money
-              paise={wallet.data.availablePaise}
-              className="block font-title text-timer xl:text-timer-lg"
-            />
-            <p className="min-h-4.5 text-caption text-on-night-2" role="status">
+            <p className="text-small font-semibold text-ink-subtle">Available</p>
+            <Money paise={wallet.data.availablePaise} className="block text-timer xl:text-timer-lg" />
+            <p className="min-h-4.5 text-caption text-ink-subtle" role="status">
               {restored ? (
                 <>
                   Updated <span className="tabular">{formatTime(wallet.dataUpdatedAt)}</span> · refreshing
@@ -83,7 +80,7 @@ function freeNote(wallet: Wallet): string {
 
 function Figure({ label, paise, note }: { label: string; paise: number; note: string }) {
   return (
-    <StatTile label={label} note={note} onNight>
+    <StatTile label={label} note={note}>
       <Money paise={paise} />
     </StatTile>
   );
@@ -94,20 +91,20 @@ function CreditSkeleton() {
   return (
     <div className="flex flex-col gap-4" role="status" aria-label="Loading your credit">
       <div className="flex flex-col gap-1">
-        <SkeletonLine size="small" width="w-1/4" onDark />
+        <SkeletonLine size="small" width="w-1/4" />
         {/* The big figure's line: text-timer, and text-timer-lg from 1200 px, as the figure itself. */}
         <div aria-hidden="true" className="flex h-14 items-center xl:h-15">
-          <div className="skeleton-dark h-12 w-1/2 rounded-control" />
+          <div className="skeleton h-12 w-1/2 rounded-control" />
         </div>
-        <SkeletonLine size="caption" width="w-1/3" onDark />
+        <SkeletonLine size="caption" width="w-1/3" />
       </div>
       <div className="grid grid-cols-2 gap-2">
         {[0, 1, 2, 3].map((key) => (
-          <div key={key} className="flex flex-col gap-1 rounded-control bg-on-night/10 px-4 py-4">
-            <SkeletonLine size="small" width="w-1/2" onDark />
-            <SkeletonLine size="option" width="w-2/3" onDark />
+          <div key={key} className="flex flex-col gap-1 rounded-control bg-surface-3 px-4 py-4">
+            <SkeletonLine size="small" width="w-1/2" />
+            <SkeletonLine size="card" width="w-2/3" />
             <div className="min-h-9">
-              <SkeletonLine size="caption" width="w-full" onDark />
+              <SkeletonLine size="caption" width="w-full" />
             </div>
           </div>
         ))}

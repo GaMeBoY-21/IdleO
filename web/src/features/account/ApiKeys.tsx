@@ -40,7 +40,7 @@ export function ApiKeys() {
   return (
     <AccountFrame trail={[{ label: "Account", href: "/account/" }]} title="API keys">
       {since !== null && <StaleNotice updatedAt={since} />}
-      <p className="max-w-prose text-small text-text-2">
+      <p className="max-w-prose text-small text-ink-subtle">
         Keys let the <span className="font-semibold">idleo</span> command line, scripts and the SDK act as
         you. Treat a key like a password: it works until you revoke it.
       </p>
@@ -55,7 +55,7 @@ export function ApiKeys() {
               makes one for that computer.
             </EmptyState>
           ) : (
-            <ul className="flex flex-col divide-y divide-line">
+            <ul className="flex flex-col divide-y divide-hairline">
               {keys.data.keys.map((key) => (
                 <KeyRow key={key.id} apiKey={key} onRevoke={() => setRevoking(key)} />
               ))}
@@ -70,14 +70,14 @@ export function ApiKeys() {
           />
         ) : (
           <div
-            className="flex flex-col divide-y divide-line"
+            className="flex flex-col divide-y divide-hairline"
             role="status"
             aria-label="Loading your API keys"
           >
             {[0, 1].map((row) => (
               <div key={row} className={ROW}>
                 <div className="flex flex-1 flex-col gap-1">
-                  <SkeletonLine size="option" width="w-1/2" />
+                  <SkeletonLine size="card" width="w-1/2" />
                   <SkeletonLine size="small" width="w-2/3" />
                 </div>
                 <div className="h-touch w-20 rounded-control skeleton" aria-hidden="true" />
@@ -113,10 +113,10 @@ function KeyRow({ apiKey, onRevoke }: { apiKey: ApiKey; onRevoke: () => void }) 
   return (
     <li className={ROW}>
       <div className="flex min-w-0 flex-1 flex-col gap-1">
-        <p className="truncate text-option font-semibold" title={apiKey.name}>
+        <p className="truncate text-card font-semibold" title={apiKey.name}>
           {apiKey.name}
         </p>
-        <p className="text-small text-text-2">
+        <p className="text-small text-ink-subtle">
           <span className="tabular">{apiKey.prefix}…</span> · {SCOPES[apiKey.scope]} · made{" "}
           <RelativeTime value={apiKey.createdAt} /> ·{" "}
           {apiKey.lastUsedAt ? <RelativeTime value={apiKey.lastUsedAt} prefix="used" /> : "never used"}

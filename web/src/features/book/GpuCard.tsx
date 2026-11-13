@@ -53,12 +53,12 @@ export function GpuCard({
         ? "Check your answers to see the price"
         : "We couldn't get a price. Trying again…";
   } else if (quote.kind === "loading") {
-    detail = <SkeletonLine size={laptop ? "small" : "caption"} width="w-3/4" onDark />;
+    detail = <SkeletonLine size={laptop ? "small" : "caption"} width="w-3/4" />;
     // The estimate's line and the price's under it, as they'll load.
     price = (
       <>
-        <SkeletonLine size={laptop ? "option" : "body"} width="w-16" onDark />
-        <SkeletonLine size={laptop ? "small" : "caption"} width="w-24" onDark />
+        <SkeletonLine size={laptop ? "card" : "body"} width="w-16" />
+        <SkeletonLine size={laptop ? "small" : "caption"} width="w-24" />
       </>
     );
   } else {
@@ -74,10 +74,10 @@ export function GpuCard({
           : formatEstimate(range.min * typicalMinutes, range.max * typicalMinutes);
       price = (
         <>
-          <span className={laptop ? "text-option font-semibold" : "text-body font-semibold"}>
+          <span className={laptop ? "text-card font-semibold" : "text-body font-semibold"}>
             {estimate ?? perHour}
           </span>
-          <span className="text-on-night-2">{estimate === null ? "an hour" : `${perHour}/h`}</span>
+          <span className="text-ink-subtle">{estimate === null ? "an hour" : `${perHour}/h`}</span>
         </>
       );
     }
@@ -87,20 +87,20 @@ export function GpuCard({
   return (
     <div
       data-testid="gpu-card"
-      className={cn("flex items-center gap-4 rounded-control bg-on-night/10", laptop ? "p-4" : "p-4")}
+      className={cn("flex items-center gap-4 rounded-control bg-surface-3", laptop ? "p-4" : "p-4")}
     >
       <span
         aria-hidden="true"
         className={cn(
-          "flex size-12 shrink-0 items-center justify-center rounded-icon",
-          free ? "bg-volt text-ink" : "bg-on-night/10 text-on-night",
+          "flex size-12 shrink-0 items-center justify-center rounded-control",
+          free ? "bg-volt text-ink" : "bg-surface-3 text-ink",
         )}
       >
         <Cpu className="size-7" strokeWidth={1.75} />
       </span>
       <div className="flex min-w-0 flex-1 flex-col gap-1">
-        <p className={cn("font-semibold", laptop ? "text-option" : "text-body")}>{title}</p>
-        <div className={cn("text-on-night-2 tabular", laptop ? "text-small" : "text-caption")}>{detail}</div>
+        <p className={cn("font-semibold", laptop ? "text-card" : "text-body")}>{title}</p>
+        <div className={cn("text-ink-subtle tabular", laptop ? "text-small" : "text-caption")}>{detail}</div>
       </div>
       {price && (
         <div

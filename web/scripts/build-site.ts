@@ -106,12 +106,10 @@ function document(page: PageDef, body: string): string {
     <meta property="og:image" content="${siteUrl}/og-image.png" />
     <meta property="og:image:alt" content="${escape(`${brand.name}: ${brand.share}`)}" />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#F4F3FA" />
-    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0C0A1F" />
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#FFFFFF" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#08090A" />
     <link rel="icon" href="/icon.svg" type="image/svg+xml" />
     <link rel="preload" href="/fonts/inter-400-700.woff2" as="font" type="font/woff2" crossorigin />
-    <link rel="preload" href="/fonts/archivo-125-900-lower.woff2" as="font" type="font/woff2" crossorigin />
-    <link rel="preload" href="/fonts/archivo-125-900.woff2" as="font" type="font/woff2" crossorigin />
     <script>${themeBoot}</script>
     <link rel="stylesheet" href="/${stylesheet}" />
 ${preloads.map((file) => `    <link rel="modulepreload" href="/${file}" />`).join("\n")}

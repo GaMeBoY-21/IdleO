@@ -58,7 +58,7 @@ export function YourData() {
         className="flex flex-col gap-1 md:p-6 xl:col-span-3 xl:p-8"
       >
         <SectionHeader id="held-title">What we hold</SectionHeader>
-        <p className="mb-2 max-w-prose text-small text-text-2">
+        <p className="mb-2 max-w-prose text-small text-ink-subtle">
           Everything we keep about you, by kind. To correct your name, edit it in Account; to change your
           email, contact us.
         </p>
@@ -72,10 +72,14 @@ export function YourData() {
             retrying={held.isFetching}
           />
         ) : (
-          <div className="flex flex-col divide-y divide-line" role="status" aria-label="Loading what we hold">
+          <div
+            className="flex flex-col divide-y divide-hairline"
+            role="status"
+            aria-label="Loading what we hold"
+          >
             {Object.keys(GROUP_TITLES).map((group) => (
               <div key={group} className={ROW}>
-                <SkeletonLine size="option" width="w-1/3" />
+                <SkeletonLine size="card" width="w-1/3" />
                 <SkeletonLine size="small" width="w-2/3" />
               </div>
             ))}
@@ -85,7 +89,7 @@ export function YourData() {
       <div className="flex flex-col gap-4 xl:col-span-2">
         <Tile as="section" aria-labelledby="download-title" className="flex flex-col gap-2 md:p-6 xl:p-8">
           <SectionHeader id="download-title">Download my data</SectionHeader>
-          <p className="max-w-prose text-small text-text-2">
+          <p className="max-w-prose text-small text-ink-subtle">
             One file with all of it, and links to your files that work for 7 days. We make it in the
             background and email you when it&apos;s ready. You can ask once a day.
           </p>
@@ -93,11 +97,11 @@ export function YourData() {
         </Tile>
         <Tile as="section" aria-labelledby="delete-title" className="flex flex-col gap-1 md:p-6 xl:p-8">
           <SectionHeader id="delete-title">Delete my account</SectionHeader>
-          <Link href="/account/delete/" className="flex min-h-touch items-center gap-2 hover:bg-panel-2">
-            <p className="flex-1 text-small text-text-2">
+          <Link href="/account/delete/" className="flex min-h-touch items-center gap-2 hover:bg-surface-2">
+            <p className="flex-1 text-small text-ink-subtle">
               What&apos;s erased, what we must keep, and the 7 days you have to change your mind.
             </p>
-            <ChevronRight aria-hidden="true" className="size-5 shrink-0 text-text-2" strokeWidth={1.75} />
+            <ChevronRight aria-hidden="true" className="size-5 shrink-0 text-ink-subtle" strokeWidth={1.75} />
           </Link>
         </Tile>
       </div>
@@ -107,13 +111,13 @@ export function YourData() {
 
 function Groups({ data }: { data: Data }) {
   return (
-    <ul className="flex flex-col divide-y divide-line">
+    <ul className="flex flex-col divide-y divide-hairline">
       {data.groups.map((group) => {
         const items = group.items.filter((item) => item.count > 0);
         return (
           <li key={group.group} className={ROW}>
-            <p className="text-option font-semibold">{GROUP_TITLES[group.group] ?? group.group}</p>
-            <p className="truncate text-small text-text-2">
+            <p className="text-card font-semibold">{GROUP_TITLES[group.group] ?? group.group}</p>
+            <p className="truncate text-small text-ink-subtle">
               {items.length === 0 ? "Nothing" : items.map((item) => describe(item)).join(" · ")}
             </p>
           </li>

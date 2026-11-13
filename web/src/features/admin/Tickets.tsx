@@ -130,7 +130,7 @@ function TicketQueue() {
             columns={["Ticket", "Topic", "Status", "Due", "Arrived"]}
           >
             {rows.map((ticket) => (
-              <Row key={ticket.id} className={ticket.overdue ? "bg-danger-soft" : undefined}>
+              <Row key={ticket.id} className={ticket.overdue ? "bg-surface-2" : undefined}>
                 <Cell>
                   <RowLink href={`/admin/tickets/?id=${ticket.id}`}>{ticketNumber(ticket.number)}</RowLink>
                 </Cell>
@@ -269,9 +269,9 @@ function TicketRecord({ id }: { id: string }) {
                 {messages.map((message) => (
                   <li
                     key={`${message.createdAt}${message.author}`}
-                    className={`flex flex-col gap-1 rounded-control p-4 ${message.author === "admin" ? "bg-canvas" : "bg-panel"}`}
+                    className={`flex flex-col gap-1 rounded-control p-4 ${message.author === "admin" ? "bg-canvas" : "bg-surface-1"}`}
                   >
-                    <p className="text-caption text-text-2">
+                    <p className="text-caption text-ink-subtle">
                       {message.author === "admin" ? "We wrote" : "They wrote"},{" "}
                       {formatDateTime(message.createdAt)}
                     </p>
@@ -417,7 +417,7 @@ function PrivacyRequest({ userId, onExport }: { userId: string; onExport: () => 
           ],
         ]}
       />
-      <p className="text-small text-text-2">
+      <p className="text-small text-ink-subtle">
         The person deletes their account themselves, in Account, Your data. Its wait can&apos;t be skipped
         from here.
       </p>

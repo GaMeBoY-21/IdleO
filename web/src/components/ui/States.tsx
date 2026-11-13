@@ -18,7 +18,7 @@ export function EmptyState({
   return (
     <div className="flex flex-col items-start gap-2 py-2">
       <p className="text-body font-medium">{title}</p>
-      <p className="max-w-prose text-small text-text-2">{children}</p>
+      <p className="max-w-prose text-small text-ink-subtle">{children}</p>
       {action}
     </div>
   );

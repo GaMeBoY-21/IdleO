@@ -23,7 +23,7 @@ import { HOST_PATHS } from "@/sites/host/paths";
 const PAGE_OPENED_AT = Date.now();
 
 /**
- * The Hosting tab (designed for the phone first): what you earned this week and each of the last 7 days, on the dark tile, your machines with their states, and Add a machine; with none, what hosting is and the one
+ * The Hosting tab (designed for the phone first): what you earned this week and each of the last 7 days, on the raised card, your machines with their states, and Add a machine; with none, what hosting is and the one
  * step to start. Payouts aren't built: the line says they start with the paid pilot (ADR 0023).
  */
 export function Hosting() {
@@ -75,14 +75,14 @@ export function Hosting() {
         <Pitch />
       ) : (
         <>
-          <Tile tone="night" aria-labelledby="week-title" className="flex flex-col gap-4">
+          <Tile tone="raised" aria-labelledby="week-title" className="flex flex-col gap-4">
             <h2 id="week-title" className="sr-only">
               Your earnings
             </h2>
             {owner ? (
               <>
                 <div className="flex flex-col gap-1">
-                  <p className="text-small font-semibold text-on-night-2">
+                  <p className="text-small font-semibold text-ink-subtle">
                     Earned this week
                     {restored && (
                       <span className="font-normal">
@@ -92,8 +92,8 @@ export function Hosting() {
                       </span>
                     )}
                   </p>
-                  <Money paise={owner.weekPaise} className="block font-title text-timer" />
-                  <p className="text-small text-on-night-2 tabular">
+                  <Money paise={owner.weekPaise} className="block text-timer" />
+                  <p className="text-small text-ink-subtle tabular">
                     <Money paise={owner.totalPaise} /> in total · payouts start with the paid pilot
                   </p>
                 </div>
@@ -163,10 +163,10 @@ export function AddLink() {
 export function Pitch() {
   return (
     <Tile aria-labelledby="pitch-title" className="flex flex-col gap-4 p-6">
-      <h2 id="pitch-title" className="font-title text-display-feature">
+      <h2 id="pitch-title" className="text-title">
         Earn from the GPU you aren&apos;t using
       </h2>
-      <p className="max-w-prose text-body text-text-2">
+      <p className="max-w-prose text-body text-ink-subtle">
         Add a gaming laptop or desktop with an NVIDIA RTX GPU. Renters&apos; jobs run in a locked box, never
         in your files, and you set the price. Pause or take it back whenever you like.
       </p>
@@ -182,13 +182,13 @@ function EarnedSkeleton() {
   return (
     <div role="status" aria-label="Loading your earnings" className="flex flex-col gap-4">
       <div className="flex flex-col gap-1">
-        <SkeletonLine size="small" width="w-1/3" onDark />
-        <SkeletonLine size="timer" width="w-1/2" onDark />
-        <SkeletonLine size="small" width="w-2/3" onDark />
+        <SkeletonLine size="small" width="w-1/3" />
+        <SkeletonLine size="timer" width="w-1/2" />
+        <SkeletonLine size="small" width="w-2/3" />
       </div>
       <WeekBarsSkeleton />
       <div className="flex min-h-touch items-center">
-        <SkeletonLine size="small" width="w-1/2" onDark />
+        <SkeletonLine size="small" width="w-1/2" />
       </div>
     </div>
   );

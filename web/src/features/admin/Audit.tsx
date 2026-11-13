@@ -120,7 +120,7 @@ export function Audit() {
                   </Cell>
                   <Cell>
                     {entry.actorName}
-                    <span className="block text-caption text-text-2">{entry.actorKind}</span>
+                    <span className="block text-caption text-ink-subtle">{entry.actorKind}</span>
                   </Cell>
                   <Cell className="font-medium">
                     <span title={entry.action}>{actionWords(entry.action)}</span>
@@ -128,7 +128,7 @@ export function Audit() {
                   <Cell>
                     {entry.targetType}
                     <span
-                      className="tabular block max-w-48 truncate text-caption text-text-2"
+                      className="tabular block max-w-48 truncate text-caption text-ink-subtle"
                       title={entry.targetId}
                     >
                       {entry.targetId}
@@ -139,9 +139,11 @@ export function Audit() {
                   <Cell className="max-w-64 text-caption break-words">{changeWords(entry.after)}</Cell>
                   <Cell className="tabular max-w-48 text-caption break-all">
                     {entry.ip ? <Reveal field="audit_ip" id={entry.id} masked={entry.ip} /> : "—"}
-                    {entry.requestId && <span className="block text-text-2">Request {entry.requestId}</span>}
+                    {entry.requestId && (
+                      <span className="block text-ink-subtle">Request {entry.requestId}</span>
+                    )}
                     {entry.approvalId && (
-                      <span className="block text-text-2">Approval {entry.approvalId}</span>
+                      <span className="block text-ink-subtle">Approval {entry.approvalId}</span>
                     )}
                   </Cell>
                 </Row>
@@ -206,9 +208,9 @@ function Standing() {
                 </Banner>
               )
             ) : (
-              <p className="text-text-2">It hasn&apos;t been checked yet.</p>
+              <p className="text-ink-subtle">It hasn&apos;t been checked yet.</p>
             )}
-            <p className="text-text-2">
+            <p className="text-ink-subtle">
               {found.copies[0]
                 ? `Newest off-site copy: ${found.copies[0].day}, ${count(found.copies[0].rows, "row")}.`
                 : "No day has been copied off site yet."}

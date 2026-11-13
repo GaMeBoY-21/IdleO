@@ -38,7 +38,7 @@ export function Tax() {
           </ActionButton>
         }
       >
-        <p className="max-w-prose text-small text-text-2">
+        <p className="max-w-prose text-small text-ink-subtle">
           A quarterly file covers the quarter that holds the month. Send them to the CA through the
           company&apos;s secure channel, never email. The formats wait on the CA&apos;s confirmation
           (CA(confirm)).

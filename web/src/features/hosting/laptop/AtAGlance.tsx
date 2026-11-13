@@ -76,9 +76,9 @@ export function WhatEachNeeds({ machines }: { machines: Host[] | undefined }) {
     <Tile as="section" aria-labelledby="needs-title" className="flex flex-col gap-1 xl:col-span-3 xl:p-8">
       <SectionHeader id="needs-title">Your laptops</SectionHeader>
       {machines && machines.length === 0 ? (
-        <p className="text-small text-text-2">No laptop linked yet. Download the app above to add one.</p>
+        <p className="text-small text-ink-subtle">No laptop linked yet. Download the app above to add one.</p>
       ) : (
-        <ul className="flex flex-col divide-y divide-line">
+        <ul className="flex flex-col divide-y divide-hairline">
           {(machines ?? []).map((host) => {
             const state = machineState(host, now);
             const need = host.updateRequired
@@ -93,7 +93,7 @@ export function WhatEachNeeds({ machines }: { machines: Host[] | undefined }) {
                 <a href={laptopPath(host.id)} className="font-semibold underline">
                   {host.name}
                 </a>
-                <span className="text-small text-text-2">
+                <span className="text-small text-ink-subtle">
                   {state.kind === "paused" ? state.detail : state.label}
                 </span>
                 <span className="text-small">{need}</span>

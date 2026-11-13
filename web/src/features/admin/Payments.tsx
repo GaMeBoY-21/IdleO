@@ -142,7 +142,7 @@ function Search() {
                   <Cell>
                     <StatusChip size="sm" domain="payment" state={payment.status} />
                     {payment.failureReason && (
-                      <span className="block text-caption text-text-2">{payment.failureReason}</span>
+                      <span className="block text-caption text-ink-subtle">{payment.failureReason}</span>
                     )}
                   </Cell>
                   <Cell>
@@ -259,7 +259,7 @@ function Reconciliation() {
                     <Cell>
                       {item.detail}
                       {item.closeReason && (
-                        <span className="block text-caption text-text-2">
+                        <span className="block text-caption text-ink-subtle">
                           {item.closedBy}: {item.closeReason}
                         </span>
                       )}

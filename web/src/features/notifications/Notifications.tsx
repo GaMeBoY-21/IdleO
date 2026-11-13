@@ -35,7 +35,7 @@ export function Notifications() {
     <Page title="Notifications">
       {since !== null && <StaleNotice updatedAt={since} />}
       {/* Drawn with the screen, not with the list: it is the largest thing there is at first paint (ADR 0018). */}
-      <p className="-mt-4 max-w-prose text-small text-text-2">
+      <p className="-mt-4 max-w-prose text-small text-ink-subtle">
         What your sessions and machines have told you, newest first. The same words go by email, for the kinds
         you&apos;ve left on:{" "}
         <Link href="/account/" className="underline">
@@ -71,7 +71,7 @@ export function Notifications() {
                 one, it will be here, and by email if you&apos;ve left that on in Account.
               </EmptyState>
             ) : (
-              <ul className="flex flex-col divide-y divide-line">
+              <ul className="flex flex-col divide-y divide-hairline">
                 {items.map((item) => (
                   <Row
                     key={item.id}
@@ -106,7 +106,7 @@ export function Notifications() {
           />
         ) : (
           <div
-            className="flex flex-col divide-y divide-line"
+            className="flex flex-col divide-y divide-hairline"
             role="status"
             aria-label="Loading your notifications"
           >
@@ -114,7 +114,7 @@ export function Notifications() {
               <div key={key} className={ROW}>
                 <span aria-hidden="true" className="mt-2 size-2 shrink-0" />
                 <div className="flex flex-1 flex-col gap-1">
-                  <SkeletonLine size="option" width="w-1/2" />
+                  <SkeletonLine size="card" width="w-1/2" />
                   <div className="min-h-10">
                     <SkeletonLine size="small" width="w-full" />
                     <SkeletonLine size="small" width="w-2/3" />
@@ -135,22 +135,26 @@ export function Notifications() {
 function Row({ item, onOpen }: { item: InboxItem; onOpen: () => void }) {
   return (
     <li>
-      <AppLink href={item.link} site={item.site} onClick={onOpen} className={cn(ROW, "hover:bg-panel-2")}>
+      <AppLink href={item.link} site={item.site} onClick={onOpen} className={cn(ROW, "hover:bg-surface-2")}>
         <span
           aria-hidden="true"
-          className={cn("mt-2 size-2 shrink-0 rounded-full", item.read ? "bg-transparent" : "bg-primary")}
+          className={cn("mt-2 size-2 shrink-0 rounded-full", item.read ? "bg-transparent" : "bg-volt")}
         />
         <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <p className={cn("truncate text-option", item.read ? "font-medium" : "font-bold")}>
+          <p className={cn("truncate text-card", item.read ? "font-medium" : "font-semibold")}>
             {item.read ? null : <span className="sr-only">Unread: </span>}
             {item.title}
           </p>
-          <p className="line-clamp-2 min-h-10 text-small text-text-2">{item.body}</p>
-          <p className="text-caption text-text-2 first-letter:uppercase">
+          <p className="line-clamp-2 min-h-10 text-small text-ink-subtle">{item.body}</p>
+          <p className="text-caption text-ink-subtle first-letter:">
             <RelativeTime value={item.createdAt} />
           </p>
         </div>
-        <ChevronRight aria-hidden="true" className="mt-1 size-5 shrink-0 text-text-2" strokeWidth={1.75} />
+        <ChevronRight
+          aria-hidden="true"
+          className="mt-1 size-5 shrink-0 text-ink-subtle"
+          strokeWidth={1.75}
+        />
       </AppLink>
     </li>
   );

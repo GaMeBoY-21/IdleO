@@ -74,7 +74,7 @@ export function StepUp({ passkeys }: { passkeys: number }) {
       }}
       title="Confirm it's you"
       description={
-        <p className="text-small text-text-2">
+        <p className="text-small text-ink-subtle">
           This action needs a passkey or a code from the last five minutes. It goes ahead by itself once you
           have.
         </p>

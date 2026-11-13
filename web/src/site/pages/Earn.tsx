@@ -6,7 +6,7 @@ import { DOCS, type EntryLinks } from "../paths";
 import {
   band,
   column,
-  ghostButton,
+  secondaryButton,
   grid,
   largeButton,
   link,
@@ -14,8 +14,7 @@ import {
   primaryButton,
   sectionTitle,
   tile,
-  tileEmber,
-  tileNight,
+  tileRaised,
 } from "../ui";
 
 /** What hosting will have when it opens (ADR 0029): the sandbox is still being finished and tested on real laptops. */
@@ -65,7 +64,7 @@ const REQUIREMENTS = [
   "Some free disk: you choose how much to keep for yourself",
 ] as const;
 
-const field = "mt-1 h-14 w-full rounded-control border border-line bg-panel-2 px-4 text-body text-text";
+const field = "mt-1 h-14 w-full rounded-control border border-hairline bg-surface-2 px-4 text-body text-ink";
 
 /**
  * The Windows app's download (ADR 0034): "Windows app: coming soon" in the page as built, swapped in place for the
@@ -79,7 +78,7 @@ function WindowsDownload({ apiUrl }: { apiUrl: string | null }) {
         data-role="download"
         hidden
         href={apiUrl ? `${apiUrl}/v1/agent-releases/latest/setup` : undefined}
-        className={`${ghostButton} ${largeButton}`}
+        className={`${secondaryButton} ${largeButton}`}
       >
         Download for Windows
       </a>
@@ -100,9 +99,9 @@ export function Earn({ apiUrl, links }: { apiUrl: string | null; links: EntryLin
   return (
     <>
       <section className={`${column} pt-4 pb-6 md:pt-6 md:pb-8`}>
-        <div className={tileEmber}>
-          <h1 className="font-display text-display-section max-w-form uppercase">Earn with your GPU</h1>
-          <p className="mt-4 max-w-prose text-body text-ink md:text-option">
+        <div className={tileRaised}>
+          <h1 className="text-hero max-w-form">Earn with your GPU</h1>
+          <p className="mt-4 max-w-prose text-body text-ink md:text-card">
             If you have a gaming laptop or desktop with an NVIDIA RTX card, you can rent it out by the minute
             while you aren&apos;t using it. You set the price and keep {100 - COMMISSION_PERCENT}% of what
             renters pay. Payouts start with the paid pilot; until then earnings are counted but not paid out.
@@ -123,11 +122,11 @@ export function Earn({ apiUrl, links }: { apiUrl: string | null; links: EntryLin
         <ol className="mt-4 grid grid-cols-1 gap-2 md:grid-cols-4 md:gap-4">
           {HOW.map((step, index) => (
             <li key={step.title} className={`${tile} flex flex-col gap-2`}>
-              <span className="font-display text-display-number">
+              <span className="text-display">
                 <span className="sr-only">Step </span>
                 {index + 1}
               </span>
-              <h3 className="text-option font-semibold">{step.title}</h3>
+              <h3 className="text-card font-semibold">{step.title}</h3>
               <p className={muted}>{step.text}</p>
             </li>
           ))}
@@ -144,12 +143,12 @@ export function Earn({ apiUrl, links }: { apiUrl: string | null; links: EntryLin
         <ul className="mt-4 grid grid-cols-1 gap-2 md:grid-cols-2 md:gap-4">
           {SAFETY.map((item) => (
             <li key={item.title} className={tile}>
-              <h3 className="text-option font-semibold">{item.title}</h3>
-              <p className="mt-2 text-body text-text-2">{item.text}</p>
+              <h3 className="text-card font-semibold">{item.title}</h3>
+              <p className="mt-2 text-body text-ink-subtle">{item.text}</p>
             </li>
           ))}
         </ul>
-        <p className="mt-4 text-small text-text-2">
+        <p className="mt-4 text-small text-ink-subtle">
           Renters never see who you are, and you never see who rented your machine.{" "}
           <a href={`${DOCS}hosting/`} className={link}>
             The host guide
@@ -163,7 +162,7 @@ export function Earn({ apiUrl, links }: { apiUrl: string | null; links: EntryLin
         </h2>
         <ul className={`${grid} mt-4 md:grid-cols-2 xl:grid-cols-4`}>
           {REQUIREMENTS.map((item) => (
-            <li key={item} className={`${tile} text-body text-text-2`}>
+            <li key={item} className={`${tile} text-body text-ink-subtle`}>
               {item}
             </li>
           ))}
@@ -176,7 +175,7 @@ export function Earn({ apiUrl, links }: { apiUrl: string | null; links: EntryLin
         </h2>
         {FAQ.map((item) => (
           <details key={item.question} className={tile}>
-            <summary className="cursor-pointer text-option font-semibold">{item.question}</summary>
+            <summary className="cursor-pointer text-card font-semibold">{item.question}</summary>
             <p className={`${muted} mt-4`}>{item.answer}</p>
           </details>
         ))}
@@ -191,7 +190,7 @@ export function Earn({ apiUrl, links }: { apiUrl: string | null; links: EntryLin
         <h2 id="calculator" className={sectionTitle}>
           What could it earn?
         </h2>
-        <p className="mt-2 max-w-prose text-body text-text-2">
+        <p className="mt-2 max-w-prose text-body text-ink-subtle">
           Hours free a day × your price × the share of those hours that get rented ×{" "}
           {100 - COMMISSION_PERCENT}%. Change any of them.
         </p>
@@ -218,7 +217,11 @@ export function Earn({ apiUrl, links }: { apiUrl: string | null; links: EntryLin
                 aria-describedby="calc-price-hint"
                 className={`${field} tabular`}
               />
-              <p id="calc-price-hint" className="mt-1 min-h-4.5 text-caption text-text-2" data-role="hint">
+              <p
+                id="calc-price-hint"
+                className="mt-1 min-h-4.5 text-caption text-ink-subtle"
+                data-role="hint"
+              >
                 &nbsp;
               </p>
             </div>
@@ -245,25 +248,25 @@ export function Earn({ apiUrl, links }: { apiUrl: string | null; links: EntryLin
               </select>
             </label>
           </div>
-          <div className={tileNight} role="group" aria-label="Estimated earnings">
+          <div className={tileRaised} role="group" aria-label="Estimated earnings">
             <div aria-live="polite" className="grid grid-cols-1 gap-4" data-role="result">
               <div>
-                <p className="text-small text-on-night-2">You keep, a day</p>
+                <p className="text-small text-ink-subtle">You keep, a day</p>
                 <p className="tabular text-title text-volt" data-role="per-day">
                   –
                 </p>
               </div>
               <div>
-                <p className="text-small text-on-night-2">You keep, in 30 days</p>
+                <p className="text-small text-ink-subtle">You keep, in 30 days</p>
                 <p className="tabular text-title text-volt" data-role="per-month">
                   –
                 </p>
               </div>
-              <p className="min-h-15 text-small text-on-night-2" data-role="detail">
+              <p className="min-h-15 text-small text-ink-subtle" data-role="detail">
                 Enter a price to see an estimate.
               </p>
             </div>
-            <p className="mt-4 text-small font-semibold text-on-night">
+            <p className="mt-4 text-small font-semibold text-ink">
               Occupancy depends on demand; early on it may be low.
             </p>
           </div>

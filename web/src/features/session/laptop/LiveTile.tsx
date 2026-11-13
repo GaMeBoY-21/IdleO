@@ -34,16 +34,20 @@ export function LiveTile({
   const label = stateOf("session", session.state).label;
   const price = session.pricePaisePerMin == null ? null : <Money paise={session.pricePaisePerMin * 60} />;
   return (
-    <Tile tone="night" size="feature" className="flex flex-wrap items-center justify-between gap-x-8 gap-y-6">
+    <Tile
+      tone="raised"
+      size="feature"
+      className="flex flex-wrap items-center justify-between gap-x-8 gap-y-6"
+    >
       <div className="flex min-w-0 flex-col gap-2">
         <span
-          className="flex items-center gap-2 text-caption font-bold tracking-wider text-volt uppercase"
+          className="flex items-center gap-2 text-caption font-semibold text-volt"
           data-testid="state-chip"
         >
           <span
             aria-hidden="true"
             data-pulse={running ? "" : undefined}
-            className={cn("size-2.5 rounded-full bg-running-dot", running && "motion-safe:animate-pulse")}
+            className={cn("size-2.5 rounded-full bg-live", running && "motion-safe:animate-pulse")}
           />
           {label}
           {running && signals.epoch && (
@@ -54,7 +58,7 @@ export function LiveTile({
           )}
         </span>
         <PageTitle variant="display">{serviceName}</PageTitle>
-        <p className="min-h-5 text-small text-on-night-2" aria-live="polite">
+        <p className="min-h-5 text-small text-ink-subtle" aria-live="polite">
           {session.startedAt ? (
             <RelativeTime value={session.startedAt} prefix="Started" />
           ) : (
@@ -62,7 +66,7 @@ export function LiveTile({
           )}
           {status && <> · {status}</>}
         </p>
-        <p className="min-h-4.5 text-caption text-on-night-3 tabular">
+        <p className="min-h-4.5 text-caption text-ink-tertiary tabular">
           {price && <>{price} an hour · </>}charged per started minute
           {session.reservedPaise > 0 && (
             <>
@@ -74,24 +78,24 @@ export function LiveTile({
       </div>
       <div className="flex flex-wrap items-center gap-x-6 gap-y-4">
         <div className="flex flex-col gap-1">
-          <span className="text-caption text-on-night-3">Time</span>
-          <p className="font-title text-display-figure">
+          <span className="text-caption text-ink-tertiary">Time</span>
+          <p className="text-hero">
             <span className="sr-only">Running for </span>
             {session.startedAt ? <Elapsed from={session.startedAt} /> : <span className="tabular">0:00</span>}
           </p>
-          <p className="min-h-4.5 text-caption text-on-night-3">{about && `of ${about}`}</p>
+          <p className="min-h-4.5 text-caption text-ink-tertiary">{about && `of ${about}`}</p>
         </div>
         <div className="flex flex-col gap-1">
-          <span className="text-caption text-on-night-3">
+          <span className="text-caption text-ink-tertiary">
             Spent<span className="sr-only"> so far</span> · stops at <Money paise={session.maxSpendPaise} />
           </span>
-          <Money paise={costSoFar(session)} className="font-title text-display-figure text-volt" />
+          <Money paise={costSoFar(session)} className="text-hero text-volt" />
           <span className="min-h-4.5" />
         </div>
         {running ? (
           <StopAction session={session} laptop inside />
         ) : (
-          <p className="flex min-h-14 items-center text-body text-on-night-2">
+          <p className="flex min-h-14 items-center text-body text-ink-subtle">
             {session.state === "FINISHING"
               ? "Saving a last checkpoint and its outputs…"
               : "Moving to another host…"}

@@ -43,7 +43,7 @@ export function HelpTicket() {
         <SectionHeader id="thread-title">{topic ?? " "}</SectionHeader>
         {thread.data && ticket ? (
           <>
-            <p className="text-small text-text-2">
+            <p className="text-small text-ink-subtle">
               {STATUS_WORDS[ticket.status] ?? ticket.status} · sent {formatDay(ticket.createdAt)}
               {ticket.dueAt ? ` · we answer by ${formatDay(ticket.dueAt)}` : ""}
             </p>
@@ -51,9 +51,9 @@ export function HelpTicket() {
               {thread.data.messages.map((entry) => (
                 <li
                   key={`${entry.createdAt}${entry.author}`}
-                  className={`flex flex-col gap-1 rounded-control p-4 ${entry.author === "admin" ? "bg-canvas" : "bg-panel tiled:bg-panel-2"}`}
+                  className={`flex flex-col gap-1 rounded-control p-4 ${entry.author === "admin" ? "bg-canvas" : "bg-surface-1 "}`}
                 >
-                  <p className="text-caption text-text-2">
+                  <p className="text-caption text-ink-subtle">
                     {entry.author === "admin" ? "We wrote" : "You wrote"}, {formatDateTime(entry.createdAt)}
                   </p>
                   <p className="whitespace-pre-wrap break-words text-body">{entry.body}</p>

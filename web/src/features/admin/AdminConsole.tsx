@@ -16,7 +16,7 @@ import { NeedsPermission, useCan } from "./permissions";
 
 /**
  * The admin console (ADR 0027), on the admin site alone (admin.idleo.in, ADR 0058): a left navigation and dense tables,
- * in the app's Night Shift tokens (and Day Shift, with the device). Its frame is one chunk and each screen another
+ * in the app's the dark theme tokens (and the light theme, with the device). Its frame is one chunk and each screen another
  * (console-screens.ts).
  */
 export const ADMIN_SCREENS = [
@@ -171,15 +171,15 @@ function Layout({ children }: { children: React.ReactNode }) {
           className={cn(
             "flex min-h-touch items-center gap-2 rounded-control px-4 text-small whitespace-nowrap md:min-h-9",
             current
-              ? "bg-raised font-semibold text-text"
-              : "font-medium text-text-2 hover:bg-raised hover:text-text",
+              ? "bg-surface-3 font-semibold text-ink"
+              : "font-medium text-ink-subtle hover:bg-surface-3 hover:text-ink",
           )}
         >
-          {current && <span aria-hidden="true" className="h-4 w-1 rounded-full bg-progress" />}
+          {current && <span aria-hidden="true" className="h-4 w-1 rounded-full bg-live" />}
           {screen.label}
           {screen.href === "/admin/inbox/" && counts.data && (
             <span
-              className="tabular ml-auto text-caption font-bold"
+              className="tabular ml-auto text-caption font-semibold"
               aria-label={`${counts.data.mine} mine, ${counts.data.unassigned} unassigned, ${counts.data.breaching} breaching`}
             >
               {/* In words: what's an admin's own, and what's past its target, when anything is. */}
@@ -191,7 +191,7 @@ function Layout({ children }: { children: React.ReactNode }) {
           )}
           {screen.href === "/admin/approvals/" && (waiting.data?.pending ?? 0) > 0 && (
             <span
-              className="tabular ml-auto text-caption font-bold"
+              className="tabular ml-auto text-caption font-semibold"
               aria-label={`${waiting.data?.pending ?? 0} waiting`}
             >
               {waiting.data?.pending}
@@ -203,7 +203,7 @@ function Layout({ children }: { children: React.ReactNode }) {
   };
   return (
     <div className="flex min-h-dvh flex-col md:flex-row">
-      <header className="flex flex-wrap items-center gap-2 border-b border-line bg-sidebar px-4 py-2 md:sticky md:top-0 md:h-dvh md:w-sidebar-admin md:shrink-0 md:flex-col md:flex-nowrap md:items-stretch md:overflow-y-auto md:border-r md:border-b-0 md:py-6">
+      <header className="flex flex-wrap items-center gap-2 border-b border-hairline bg-surface-1 px-4 py-2 md:sticky md:top-0 md:h-dvh md:w-sidebar-admin md:shrink-0 md:flex-col md:flex-nowrap md:items-stretch md:overflow-y-auto md:border-r md:border-b-0 md:py-6">
         <div className="flex basis-full items-center gap-2 md:basis-auto md:flex-col md:items-start">
           <Link
             href="/admin/"
@@ -212,7 +212,7 @@ function Layout({ children }: { children: React.ReactNode }) {
           >
             <Wordmark />
           </Link>
-          <span className="text-caption font-bold tracking-wider text-text-3 uppercase md:px-4">Admin</span>
+          <span className="text-caption font-semibold text-ink-tertiary md:px-4">Admin</span>
         </div>
         <div className="flex gap-2 md:flex-col">
           <PaletteButton />
@@ -237,9 +237,7 @@ function Layout({ children }: { children: React.ReactNode }) {
             {GROUPS.filter((group) => screens.some((screen) => group.hrefs.includes(screen.href))).map(
               (group) => (
                 <div key={group.label} role="group" aria-label={group.label} className="flex flex-col gap-1">
-                  <h2 className="px-4 pb-1 text-caption font-semibold tracking-wider text-text-3 uppercase">
-                    {group.label}
-                  </h2>
+                  <h2 className="px-4 pb-1 text-caption font-semibold text-ink-tertiary">{group.label}</h2>
                   <ul className="flex flex-col gap-1">
                     {screens.filter((screen) => group.hrefs.includes(screen.href)).map(item)}
                   </ul>

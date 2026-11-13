@@ -36,11 +36,14 @@ export function CodeField({
         aria-invalid={error ? true : undefined}
         aria-describedby={`${id}-message`}
         className={cn(
-          "tabular min-h-14 rounded-control bg-panel px-4 text-title text-text placeholder:text-text-2",
+          "tabular min-h-14 rounded-control bg-surface-1 px-4 text-title text-ink placeholder:text-ink-subtle",
           error && "ring-2 ring-danger",
         )}
       />
-      <p id={`${id}-message`} className={cn("min-h-4.5 text-caption", error ? "text-danger" : "text-text-2")}>
+      <p
+        id={`${id}-message`}
+        className={cn("min-h-4.5 text-caption", error ? "text-danger" : "text-ink-subtle")}
+      >
         {error ?? (totp ? "It changes every 30 seconds." : "Each one works once.")}
       </p>
     </div>

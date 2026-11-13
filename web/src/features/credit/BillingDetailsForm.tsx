@@ -86,7 +86,7 @@ export function DetailsForm({ details }: { details: BillingDetails }) {
         onChange={(event) => setBusinessName(event.target.value)}
       />
       {/* Two lines, whichever it says, as its skeleton is. */}
-      <p className="min-h-9 text-caption text-text-2">
+      <p className="min-h-9 text-caption text-ink-subtle">
         {details.gstPercent > 0
           ? `What you pay includes GST at ${details.gstPercent}%; your invoice shows it.`
           : "We aren't registered for GST yet, so you get a receipt, not a tax invoice."}
@@ -97,7 +97,7 @@ export function DetailsForm({ details }: { details: BillingDetails }) {
         </Button>
         <p
           role={other ? "alert" : "status"}
-          className={other ? "text-small text-danger" : "text-small text-text-2"}
+          className={other ? "text-small text-danger" : "text-small text-ink-subtle"}
         >
           {other ?? (saved ? "Saved." : "")}
         </p>

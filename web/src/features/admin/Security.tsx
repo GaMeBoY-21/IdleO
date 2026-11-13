@@ -105,7 +105,7 @@ function Passkeys() {
   };
   return (
     <Section title="Passkeys">
-      <p className="max-w-prose text-small text-text-2">
+      <p className="max-w-prose text-small text-ink-subtle">
         A passkey signs you in with your fingerprint, face or device PIN, and can&apos;t be phished. Your
         authenticator app and recovery codes stay as the fallback.
       </p>
@@ -208,7 +208,7 @@ function Sessions({
               <Row key={session.id}>
                 <Cell>
                   <RelativeTime value={session.startedAt} />
-                  {session.current && <span className="block text-caption text-text-2">This one</span>}
+                  {session.current && <span className="block text-caption text-ink-subtle">This one</span>}
                 </Cell>
                 <Cell>{session.lastUsedAt ? <RelativeTime value={session.lastUsedAt} /> : "—"}</Cell>
                 <Cell className="tabular">{session.ip ?? "—"}</Cell>
@@ -251,7 +251,7 @@ function Admins() {
                 <Row key={admin.id}>
                   <Cell>
                     {admin.email ?? "—"}
-                    <span className="tabular block text-caption text-text-2 break-all">{admin.id}</span>
+                    <span className="tabular block text-caption text-ink-subtle break-all">{admin.id}</span>
                   </Cell>
                   <Cell>{admin.locked ? "Locked" : admin.enrolled ? "Yes" : "Not set up yet"}</Cell>
                   <Cell>
@@ -343,7 +343,7 @@ function TagVocabulary() {
   };
   return (
     <Section title="Tags">
-      <p className="text-small text-text-2">
+      <p className="text-small text-ink-subtle">
         {tags.data?.tags.map((tag) => tag.label).join(", ") || "No tags yet."}
       </p>
       <form

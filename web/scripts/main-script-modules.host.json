@@ -115,7 +115,6 @@
   "src/components/ui/Tile.tsx": 1735,
   "src/components/ui/Time.tsx": 868,
   "src/config.ts": 609,
-  "src/design/fonts.ts": 318,
   "src/design/tokens.ts": 3940,
   "src/features/after-sign-in.ts": 944,
   "src/features/hosting/PriceForm.tsx": 11436,

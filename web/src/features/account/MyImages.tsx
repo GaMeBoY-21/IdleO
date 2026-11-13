@@ -30,7 +30,7 @@ export function MyImages() {
   return (
     <AccountFrame trail={[{ label: "Account", href: "/account/" }]} title="My images">
       {since !== null && <StaleNotice updatedAt={since} />}
-      <p className="max-w-prose text-small text-text-2">
+      <p className="max-w-prose text-small text-ink-subtle">
         Your own container images, checked before they can reach anyone&apos;s machine. Book one from Book,
         Run your code, Use my own image.
       </p>
@@ -55,7 +55,7 @@ export function MyImages() {
               Check one from Book, Run your code, Use my own image. It will be listed here.
             </EmptyState>
           ) : (
-            <ul className="flex flex-col divide-y divide-line">
+            <ul className="flex flex-col divide-y divide-hairline">
               {images.data.images.map((image) => (
                 <ImageItem key={image.id} image={image} />
               ))}
@@ -69,10 +69,14 @@ export function MyImages() {
             retrying={images.isFetching}
           />
         ) : (
-          <div className="flex flex-col divide-y divide-line" role="status" aria-label="Loading your images">
+          <div
+            className="flex flex-col divide-y divide-hairline"
+            role="status"
+            aria-label="Loading your images"
+          >
             {[0, 1].map((key) => (
               <div key={key} className={ROW}>
-                <SkeletonLine size="option" width="w-1/2" />
+                <SkeletonLine size="card" width="w-1/2" />
                 <SkeletonLine size="small" width="w-2/3" />
                 <SkeletonLine size="small" width="w-1/3" />
               </div>
@@ -93,8 +97,8 @@ function ImageItem({ image }: { image: Image }) {
     <li className={ROW}>
       <div className="flex items-start justify-between gap-2">
         <div className="flex min-w-0 flex-col gap-1">
-          <p className="text-option font-semibold break-all">{image.reference}</p>
-          <p className="text-small text-text-2 first-letter:uppercase">
+          <p className="text-card font-semibold break-all">{image.reference}</p>
+          <p className="text-small text-ink-subtle first-letter:">
             <RelativeTime
               value={image.checkedAt ?? image.createdAt}
               prefix={image.checkedAt ? "checked" : "sent"}
@@ -131,17 +135,17 @@ function Vulnerabilities({ id }: { id: string }) {
           <EmptyState title="None known">Trivy found no known vulnerabilities in its packages.</EmptyState>
         ) : (
           <>
-            <p className="text-small text-text-2">
+            <p className="text-small text-ink-subtle">
               {list.data.counts.critical} critical, {list.data.counts.high} high, {list.data.counts.medium}{" "}
               medium, {list.data.counts.low} low. Updating its packages fixes most.
             </p>
-            <ul className="flex flex-col divide-y divide-line text-small">
+            <ul className="flex flex-col divide-y divide-hairline text-small">
               {list.data.vulnerabilities.map((v) => (
                 <li key={v.id + v.packageName} className="flex flex-col gap-1 py-2">
                   <span className="font-semibold">
                     {v.severity.toLowerCase()} · {v.id} · {v.packageName} {v.installed}
                   </span>
-                  <span className="text-text-2">
+                  <span className="text-ink-subtle">
                     {v.title}
                     {v.fixed ? ` Fixed in ${v.fixed}.` : ""}
                   </span>

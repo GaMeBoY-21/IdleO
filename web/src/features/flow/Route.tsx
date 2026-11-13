@@ -43,12 +43,12 @@ export function Route({
             <div className={cn("flex min-w-0 flex-col gap-1", !last && (compact ? "pb-4" : "pb-8"))}>
               {/* Compact, it's a one-glance recap (Book's summary on a phone): one line, so it never changes height. */}
               <span
-                className={cn("font-semibold", compact ? "truncate text-small" : "text-option break-words")}
+                className={cn("font-semibold", compact ? "truncate text-small" : "text-card break-words")}
               >
                 {stop.title}
               </span>
               {stop.detail && (
-                <span className={cn("text-text-2", compact ? "text-caption" : "text-small")}>
+                <span className={cn("text-ink-subtle", compact ? "text-caption" : "text-small")}>
                   {stop.detail}
                 </span>
               )}
@@ -80,7 +80,7 @@ function Marker({ state, compact }: { state: Stop["state"]; compact: boolean }) 
     <span
       className={cn(
         "rounded-full border-4",
-        state === "current" ? "border-running bg-ok" : "border-text bg-canvas",
+        state === "current" ? "border-live bg-surface-3" : "border-ink bg-canvas",
         compact ? "size-4" : "size-3.5",
       )}
     />
@@ -96,19 +96,21 @@ function RouteAcross({ stops }: { stops: Stop[] }) {
           <li key={index} className="flex min-w-0 flex-1 basis-0 flex-col gap-2">
             <div aria-hidden="true" className="flex h-5.5 items-center">
               {stop.state === "end" ? (
-                <span className="size-4.5 border-4 border-line" />
+                <span className="size-4.5 border-4 border-hairline" />
               ) : stop.state === "current" ? (
-                <span className="size-5.5 shrink-0 rounded-full bg-running ring-6 ring-ok" />
+                <span className="size-5.5 shrink-0 rounded-full bg-live ring-6 ring-surface-3" />
               ) : (
                 <Marker state={stop.state} compact={false} />
               )}
-              {!last && <span className={cn("h-1 flex-1", stop.state === "done" ? "bg-text" : "bg-line")} />}
+              {!last && (
+                <span className={cn("h-1 flex-1", stop.state === "done" ? "bg-text" : "bg-hairline")} />
+              )}
             </div>
             <div className="flex flex-col gap-1 pr-4">
-              <span className={cn("text-body font-semibold", stop.state === "end" && "text-text-2")}>
+              <span className={cn("text-body font-semibold", stop.state === "end" && "text-ink-subtle")}>
                 {stop.title}
               </span>
-              {stop.detail && <span className="text-small text-text-2">{stop.detail}</span>}
+              {stop.detail && <span className="text-small text-ink-subtle">{stop.detail}</span>}
             </div>
           </li>
         );

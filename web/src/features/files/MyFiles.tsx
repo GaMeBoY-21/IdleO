@@ -33,7 +33,7 @@ export function MyFiles() {
   const body = (
     <>
       {since !== null && <StaleNotice updatedAt={since} />}
-      <p className="text-body text-text-2">
+      <p className="text-body text-ink-subtle">
         What you upload when you book is kept here, to use again. Each is deleted 30 days after a session last
         used it; you can delete it sooner.
       </p>
@@ -52,7 +52,7 @@ export function MyFiles() {
         ) : (
           <div className="flex flex-col gap-4">
             <Tile as="div" className="px-4 py-0">
-              <ul aria-label="Your files" className="flex flex-col divide-y divide-line">
+              <ul aria-label="Your files" className="flex flex-col divide-y divide-hairline">
                 {uploads.map((upload) => (
                   <FileRow key={upload.id} upload={upload} now={now} />
                 ))}
@@ -85,7 +85,7 @@ export function MyFiles() {
       ) : (
         <Tile
           as="div"
-          className="flex flex-col divide-y divide-line px-4 py-0"
+          className="flex flex-col divide-y divide-hairline px-4 py-0"
           role="status"
           aria-label="Loading your files"
         >
@@ -93,7 +93,7 @@ export function MyFiles() {
             <div key={key} className="flex items-center gap-4 py-4">
               <span aria-hidden="true" className="size-5.5 shrink-0" />
               <div className="flex flex-1 flex-col gap-1">
-                <SkeletonLine size="option" width="w-1/2" />
+                <SkeletonLine size="card" width="w-1/2" />
                 <SkeletonLine size="small" width="w-2/3" />
               </div>
               <SkeletonLine size="body" width="w-14" />
@@ -135,7 +135,7 @@ function FilesSummary({ uploads }: { uploads: Upload[] | undefined }) {
           {uploads ? formatBytes(uploads.reduce((sum, upload) => sum + upload.sizeBytes, 0)) : "…"}
         </StatTile>
       </StatGrid>
-      <p className="min-h-10 text-small text-text-2">
+      <p className="min-h-10 text-small text-ink-subtle">
         {next
           ? `${next.name} goes next, on ${formatDay(next.expiresAt)}, unless a session uses it before then.`
           : "Nothing is due to go."}
@@ -149,12 +149,12 @@ function UseAgain() {
   return (
     <Tile as="section" aria-labelledby="use-again-title" className="flex flex-col gap-4 xl:p-8">
       <SectionHeader id="use-again-title">Use them again</SectionHeader>
-      <ol className="flex list-decimal flex-col gap-2 pl-4 text-small text-text-2">
+      <ol className="flex list-decimal flex-col gap-2 pl-4 text-small text-ink-subtle">
         <li>On Book, choose From My files for an input: nothing is uploaded again.</li>
         <li>On a finished session, Run again starts from the same setup and the same files.</li>
         <li>On Home, Book again does the same for your last setup.</li>
       </ol>
-      <p className="text-small text-text-2">
+      <p className="text-small text-ink-subtle">
         A session using a file keeps it: its 30 days start again from that session.
       </p>
       <Link href="/book/" className={buttonClasses("ghost")}>

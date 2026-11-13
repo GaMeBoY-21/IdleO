@@ -39,7 +39,7 @@ export function Flags() {
                 <Row key={item.id}>
                   <Cell>
                     <span className="font-semibold">{item.id}</span>
-                    <span className="block text-caption text-text-2">
+                    <span className="block text-caption text-ink-subtle">
                       {item.owner} · {item.description}
                     </span>
                   </Cell>
@@ -59,7 +59,7 @@ export function Flags() {
                       />
                     )}
                     {item.paused && item.until && (
-                      <span className="block text-caption text-text-2">
+                      <span className="block text-caption text-ink-subtle">
                         {item.resumeAutomatically ? "runs again" : "expected back"}{" "}
                         {formatDateTime(item.until)}
                       </span>
@@ -68,7 +68,7 @@ export function Flags() {
                   <Cell className="text-small">
                     {item.pausedIfUnknown ? "paused" : "running"}
                     {item.emailsOwners && (
-                      <span className="block text-caption text-text-2">emails the Owners</span>
+                      <span className="block text-caption text-ink-subtle">emails the Owners</span>
                     )}
                   </Cell>
                   <Cell className="text-small">
@@ -80,12 +80,12 @@ export function Flags() {
                             by <Id value={item.changedBy} page="users" />
                           </span>
                         ) : (
-                          <span className="block text-text-2">by the system</span>
+                          <span className="block text-ink-subtle">by the system</span>
                         )}
-                        <span className="block text-caption text-text-2">{item.reason}</span>
+                        <span className="block text-caption text-ink-subtle">{item.reason}</span>
                       </>
                     ) : (
-                      <span className="text-text-2">never</span>
+                      <span className="text-ink-subtle">never</span>
                     )}
                   </Cell>
                   <Cell>

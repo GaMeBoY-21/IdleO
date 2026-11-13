@@ -65,7 +65,7 @@ export function PayoutDetails() {
   }
   return (
     <Page title="Payout details">
-      <p className="text-small text-text-2">{LEDE}</p>
+      <p className="text-small text-ink-subtle">{LEDE}</p>
       {since !== null && <StaleNotice updatedAt={since} />}
       {body}
     </Page>
@@ -88,7 +88,7 @@ function FormsSkeleton() {
     <div role="status" aria-label="Loading your payout details" className="flex flex-col gap-6">
       {[0, 1].map((key) => (
         <Tile key={key} className="flex min-h-64 flex-col gap-4">
-          <SkeletonLine size="option" width="w-1/3" />
+          <SkeletonLine size="card" width="w-1/3" />
           <div className="skeleton h-14 rounded-control" />
           <div className="skeleton h-14 rounded-control" />
         </Tile>
@@ -129,7 +129,7 @@ function UpiTile({ details }: { details: Details }) {
         </p>
       )}
       {!details.payoutsAvailable && (
-        <p className="text-small text-warn-fg">UPI IDs can&apos;t be checked on this server yet.</p>
+        <p className="text-small text-ink">UPI IDs can&apos;t be checked on this server yet.</p>
       )}
       <form
         noValidate
@@ -201,9 +201,9 @@ export function InUse({ upi }: { upi: UpiView }) {
   const held = upi.holdUntil != null && Date.parse(upi.holdUntil) > now;
   return (
     <div className="flex flex-col gap-1">
-      <p className="text-option font-semibold break-all">{upi.vpa}</p>
-      {upi.registeredName && <p className="text-small text-text-2">Registered to {upi.registeredName}</p>}
-      <p className={upi.state === "active" && !held ? "text-small text-running" : "text-small text-warn-fg"}>
+      <p className="text-card font-semibold break-all">{upi.vpa}</p>
+      {upi.registeredName && <p className="text-small text-ink-subtle">Registered to {upi.registeredName}</p>}
+      <p className={upi.state === "active" && !held ? "text-small text-live" : "text-small text-ink"}>
         {held
           ? `Your payout UPI ID was changed. No payout goes to it before ${formatDateTime(upi.holdUntil!)}. Not you? Contact us from Help.`
           : (UPI_STATE[upi.state] ?? upi.state)}
@@ -229,7 +229,7 @@ export function LatestCheck({
 }) {
   if (upi.state === "checking") {
     return (
-      <p role="status" className="text-small text-text-2">
+      <p role="status" className="text-small text-ink-subtle">
         Checking {upi.vpa} with your bank…
       </p>
     );
@@ -243,12 +243,12 @@ export function LatestCheck({
   }
   const low = upi.nameMatchScore == null || upi.nameMatchScore < threshold;
   return (
-    <div role="status" className="flex flex-col gap-2 rounded-control bg-panel-2 p-4">
+    <div role="status" className="flex flex-col gap-2 rounded-control bg-surface-2 p-4">
       <p className="text-small">
         <span className="font-semibold break-all">{upi.vpa}</span> is registered to{" "}
         <span className="font-semibold">{upi.registeredName ?? "a name the bank didn't give"}</span>.
       </p>
-      <p className="text-small text-text-2">
+      <p className="text-small text-ink-subtle">
         {low
           ? "That doesn't closely match the name on your PAN, so we'll look at it before paying you."
           : "That matches the name on your PAN."}
@@ -280,7 +280,7 @@ function GiveUp({ enabled, details }: { enabled: boolean; details: Details }) {
   return (
     <Tile as="section" aria-labelledby="give-up-title" className="flex flex-col gap-2">
       <SectionHeader id="give-up-title">Deleting your account without a UPI ID?</SectionHeader>
-      <p className="text-small text-text-2">
+      <p className="text-small text-ink-subtle">
         Your machines have earned <Money paise={unpaid} /> that hasn&apos;t been paid. Add a UPI ID above and
         it&apos;s paid before the account goes, or give it up in your own words here. Giving it up can&apos;t
         be undone.
@@ -295,6 +295,7 @@ function GiveUp({ enabled, details }: { enabled: boolean; details: Details }) {
       <div className="flex items-center gap-2">
         <Button
           variant="danger"
+          solid
           disabled={statement.trim().length < 10}
           why="Write a sentence saying you give them up, at least 10 characters."
           busy={forfeit.isPending}

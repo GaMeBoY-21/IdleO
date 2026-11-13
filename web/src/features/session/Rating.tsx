@@ -124,11 +124,11 @@ function StarRow({
             aria-label={`${star} ${star === 1 ? "star" : "stars"}`}
             aria-pressed={value === star}
             onClick={() => onPick(star)}
-            className="flex size-touch items-center justify-center rounded-control hover:bg-panel-2 disabled:cursor-default disabled:hover:bg-transparent"
+            className="flex size-touch items-center justify-center rounded-control hover:bg-surface-2 disabled:cursor-default disabled:hover:bg-transparent"
           >
             <Star
               aria-hidden="true"
-              className={cn("size-7", filled ? "text-text" : "text-control")}
+              className={cn("size-7", filled ? "text-ink" : "text-control")}
               fill={filled ? "currentColor" : "none"}
               strokeWidth={1.75}
             />
@@ -171,7 +171,7 @@ function Caption({
   }
   if (failed) {
     return (
-      <p className="flex min-h-4.5 items-center gap-2 text-caption text-text-2">
+      <p className="flex min-h-4.5 items-center gap-2 text-caption text-ink-subtle">
         We couldn&apos;t load your rating.
         <Button variant="quiet" busy={retrying} onClick={retry}>
           Try again
@@ -192,7 +192,7 @@ function Caption({
   } else {
     text = `You can change it until ${current.rateableUntil ? formatDateTime(current.rateableUntil) : "7 days from now"}.`;
   }
-  return <p className="min-h-4.5 text-caption text-text-2">{text}</p>;
+  return <p className="min-h-4.5 text-caption text-ink-subtle">{text}</p>;
 }
 
 function CommentBox({
@@ -225,10 +225,10 @@ function CommentBox({
         rows={3}
         maxLength={COMMENT_MAX}
         onChange={(event) => onChange(event.target.value)}
-        className="rounded-control bg-panel-2 px-4 py-4 text-body text-text"
+        className="rounded-control bg-surface-2 px-4 py-4 text-body text-ink"
         aria-describedby="rating-comment-help"
       />
-      <p id="rating-comment-help" className="text-caption text-text-2">
+      <p id="rating-comment-help" className="text-caption text-ink-subtle">
         Only we read it. The host never sees it, or who you are.{" "}
         <span className="tabular">{value.length}</span>/{COMMENT_MAX}
       </p>

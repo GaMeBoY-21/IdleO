@@ -295,7 +295,7 @@ function Summary({ found }: { found: AdminDispute }) {
             ]),
           ]}
         />
-        <p className="text-caption text-text-2">
+        <p className="text-caption text-ink-subtle">
           Read now from the ledger, after anything already given back.
         </p>
       </Section>

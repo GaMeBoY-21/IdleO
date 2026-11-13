@@ -90,7 +90,7 @@ export function ListingFields({
   return (
     <>
       <Tile as="section" aria-labelledby="price-title" className="flex flex-col gap-4">
-        <h2 id="price-title" className="text-small font-semibold text-text-2">
+        <h2 id="price-title" className="text-small font-semibold text-ink-subtle">
           Your price per hour
         </h2>
         <div className="flex items-center justify-between gap-4">
@@ -105,11 +105,11 @@ export function ListingFields({
           </Button>
           <output
             aria-live="polite"
-            className="block min-w-0 flex-1 text-center text-question tabular md:text-timer"
+            className="block min-w-0 flex-1 text-center text-hero tabular md:text-timer"
           >
             {price === null ? (
               <span role="status" aria-label="Looking up the price" className="mx-auto block w-full">
-                <SkeletonLine size="question" md="timer" width="w-full" />
+                <SkeletonLine size="hero" md="timer" width="w-full" />
               </span>
             ) : (
               <>
@@ -131,10 +131,10 @@ export function ListingFields({
         </div>
         <KeyValueList
           layout="split"
-          className="rounded-control bg-panel-2 px-4 py-4"
+          className="rounded-control bg-surface-2 px-4 py-4"
           items={[
             [
-              <span key="keep" className="font-semibold text-text">
+              <span key="keep" className="font-semibold text-ink">
                 You keep
               </span>,
               <Fixed key="keep" width="w-24" loading={price === null}>
@@ -156,7 +156,7 @@ export function ListingFields({
             ],
           ]}
         />
-        <p className="min-h-15 text-small text-text-2" role="status">
+        <p className="min-h-15 text-small text-ink-subtle" role="status">
           {band.data ? (
             band.data.sampleSize >= 3 ? (
               <>
@@ -188,7 +188,7 @@ export function ListingFields({
           <label htmlFor={`${tempId}-range`} className="text-small font-semibold">
             Pause above this temperature
           </label>
-          <output htmlFor={`${tempId}-range`} className="text-option font-semibold tabular">
+          <output htmlFor={`${tempId}-range`} className="text-card font-semibold tabular">
             {temp}°C
           </output>
         </div>
@@ -200,14 +200,14 @@ export function ListingFields({
           step={1}
           value={temp}
           onChange={(event) => change({ temp: Number(event.target.value) })}
-          className="h-touch w-full accent-primary"
+          className="h-touch w-full accent-volt"
           aria-describedby={`${tempId}-help`}
         />
-        <div className="flex justify-between text-caption text-text-2 tabular" aria-hidden="true">
+        <div className="flex justify-between text-caption text-ink-subtle tabular" aria-hidden="true">
           <span>{TEMP_MIN}°C</span>
           <span>{TEMP_MAX}°C</span>
         </div>
-        <p id={`${tempId}-help`} className="text-small text-text-2">
+        <p id={`${tempId}-help`} className="text-small text-ink-subtle">
           The session saves a checkpoint and pauses if your GPU gets hotter. Paused minutes aren&apos;t
           charged.
         </p>
@@ -223,7 +223,7 @@ export function ListingFields({
           hint="A session is only offered if its files fit beside this."
           autoComplete="off"
         />
-        <p className="text-small text-text-2">One session at a time, so your laptop stays usable.</p>
+        <p className="text-small text-ink-subtle">One session at a time, so your laptop stays usable.</p>
       </Tile>
     </>
   );

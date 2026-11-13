@@ -20,13 +20,13 @@ export function Toaster({ className }: { className?: string }) {
       {toasts.map((item) => (
         <div
           key={item.id}
-          className="appear pointer-events-auto flex min-h-touch w-full max-w-narrow items-center gap-4 rounded-control bg-ink px-4 py-2 text-small text-on-night scope-night"
+          className="appear pointer-events-auto flex min-h-touch w-full max-w-narrow items-center gap-4 rounded-card border border-hairline-strong bg-surface-3 px-4 py-2 text-small text-ink shadow-menu"
         >
           <span className="min-w-0 flex-1">{item.message}</span>
           {item.undo && (
             <button
               type="button"
-              className="inline-flex min-h-touch items-center px-2 font-semibold text-volt underline-offset-4 hover:underline"
+              className="inline-flex min-h-touch items-center px-2 font-medium text-ink underline underline-offset-4 hover:underline"
               onClick={() => {
                 item.undo?.();
                 dismiss(item.id);
@@ -38,7 +38,7 @@ export function Toaster({ className }: { className?: string }) {
           <button
             type="button"
             aria-label="Dismiss"
-            className="inline-flex size-touch shrink-0 items-center justify-center text-on-night-2 hover:text-on-night"
+            className="inline-flex size-touch shrink-0 items-center justify-center text-ink-subtle hover:text-ink"
             onClick={() => dismiss(item.id)}
           >
             <svg

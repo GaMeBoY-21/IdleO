@@ -109,23 +109,25 @@ function Rollouts() {
                   {item.signedPercent !== null &&
                     item.signedPercent !== undefined &&
                     item.signedPercent < item.percent && (
-                      <span className="block text-caption text-text-2">signed for {item.signedPercent}%</span>
+                      <span className="block text-caption text-ink-subtle">
+                        signed for {item.signedPercent}%
+                      </span>
                     )}
                 </Cell>
                 <Cell className="tabular">
-                  {item.hosts} <span className="text-text-2">of {item.hosts + item.restHosts}</span>
+                  {item.hosts} <span className="text-ink-subtle">of {item.hosts + item.restHosts}</span>
                 </Cell>
                 <Cell className="tabular">
                   {Math.round(item.failureRate * 100)}%{" "}
-                  <span className="text-text-2">vs {Math.round(item.restFailureRate * 100)}%</span>
+                  <span className="text-ink-subtle">vs {Math.round(item.restFailureRate * 100)}%</span>
                 </Cell>
                 <Cell className="tabular">
                   {item.reconnectsPerHostDay}{" "}
-                  <span className="text-text-2">vs {item.restReconnectsPerHostDay}</span>
+                  <span className="text-ink-subtle">vs {item.restReconnectsPerHostDay}</span>
                 </Cell>
                 <Cell className="text-small">
                   {item.reason}
-                  <span className="block text-caption text-text-2">
+                  <span className="block text-caption text-ink-subtle">
                     <RelativeTime value={item.changedAt} />
                   </span>
                 </Cell>
@@ -215,16 +217,16 @@ function Summary() {
         {(fleet) => (
           <div className="flex flex-col gap-4">
             <p className="text-body">
-              <span className="tabular font-bold">{fleet.hosts}</span> hosts;{" "}
+              <span className="tabular font-semibold">{fleet.hosts}</span> hosts;{" "}
               {fleet.latestRelease ? (
                 <>
-                  <span className="tabular font-bold">{fleet.stragglers}</span> behind {fleet.latestRelease}
-                  ;{" "}
+                  <span className="tabular font-semibold">{fleet.stragglers}</span> behind{" "}
+                  {fleet.latestRelease};{" "}
                 </>
               ) : null}
-              <span className="tabular font-bold">{fleet.offlineDay}</span> not seen for more than a day;
+              <span className="tabular font-semibold">{fleet.offlineDay}</span> not seen for more than a day;
               self-tests passed{" "}
-              <span className="tabular font-bold">
+              <span className="tabular font-semibold">
                 {fleet.selfTestPassRate == null ? "—" : `${Math.round(fleet.selfTestPassRate * 100)}%`}
               </span>{" "}
               over 30 days.

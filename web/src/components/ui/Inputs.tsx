@@ -13,11 +13,11 @@ import { cn } from "@/lib/cn";
  * own keyboard and screen-reader behaviour, and add no code to the bundle.
  */
 const control =
-  "min-h-14 rounded-control border border-line bg-panel px-4 text-body text-text tiled:bg-panel-2";
+  "min-h-control rounded-control border border-control bg-surface-1 px-button text-body text-ink pointer-coarse:min-h-touch pointer-coarse:text-card";
 
 function Message({ id, error, hint }: { id: string; error?: string | undefined; hint?: ReactNode }) {
   return (
-    <p id={id} className={cn("min-h-4 text-caption", error ? "text-danger" : "text-text-2")}>
+    <p id={id} className={cn("min-h-4 text-caption", error ? "text-danger" : "text-ink-subtle")}>
       {error ?? hint ?? ""}
     </p>
   );
@@ -44,7 +44,7 @@ export const TextArea = forwardRef<
         rows={4}
         aria-invalid={error ? true : undefined}
         aria-describedby={`${id}-message`}
-        className={cn(control, "py-4", error && "ring-2 ring-danger")}
+        className={cn(control, "py-2", error && "border-danger ring-1 ring-danger")}
         {...props}
       />
       <Message id={`${id}-message`} error={error} hint={hint} />
@@ -72,7 +72,7 @@ export const Select = forwardRef<
         id={id}
         aria-invalid={error ? true : undefined}
         aria-describedby={`${id}-message`}
-        className={cn(control, error && "ring-2 ring-danger")}
+        className={cn(control, error && "border-danger ring-1 ring-danger")}
         {...props}
       >
         {children}
@@ -103,12 +103,12 @@ export const Switch = forwardRef<
             type="checkbox"
             role="switch"
             aria-describedby={`${id}-message`}
-            className="peer h-7 w-12 cursor-pointer appearance-none rounded-full border-2 border-control bg-panel tiled:bg-panel-2 transition-colors duration-press checked:border-primary checked:bg-primary"
+            className="peer h-5 w-9 cursor-pointer appearance-none rounded-full border border-control bg-surface-3 transition-colors duration-press checked:border-live checked:bg-live"
             {...props}
           />
           <span
             aria-hidden="true"
-            className="pointer-events-none absolute left-1.5 size-4 rounded-full bg-control transition-transform duration-press peer-checked:translate-x-5 peer-checked:bg-primary-fg"
+            className="pointer-events-none absolute left-1 size-3 rounded-full bg-control transition-transform duration-press peer-checked:translate-x-4 peer-checked:bg-canvas"
           />
         </span>
       </label>
@@ -152,12 +152,12 @@ export function RadioGroup({
         {options.map((option) => (
           <label
             key={option.value}
-            className="flex min-h-touch cursor-pointer items-center gap-2 rounded-full bg-panel px-4 text-small font-semibold tiled:bg-panel-2 has-checked:bg-primary has-checked:text-primary-fg"
+            className="flex min-h-control cursor-pointer items-center gap-2 rounded-full border border-hairline px-4 text-small font-medium pointer-coarse:min-h-touch has-checked:border-hairline-tertiary has-checked:bg-surface-3"
           >
             <input
               type="radio"
               value={option.value}
-              className="size-4 accent-primary"
+              className="size-4 accent-ink"
               {...inputProps(option.value)}
             />
             {option.label}

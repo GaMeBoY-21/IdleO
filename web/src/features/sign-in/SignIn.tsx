@@ -52,11 +52,11 @@ export function SignIn() {
     return (
       <SignInFrame title="Check your email" collage back>
         <div className="flex flex-col gap-4">
-          <MailCheck aria-hidden="true" className="size-8 text-running" strokeWidth={1.75} />
+          <MailCheck aria-hidden="true" className="size-8 text-live" strokeWidth={1.75} />
           <p className="text-body">
             We sent a sign-in link to <strong className="font-semibold break-all">{sentTo}</strong>.
           </p>
-          <p className="text-small text-text-2">
+          <p className="text-small text-ink-subtle">
             Open it on this device or another one. It works once, within an hour. If it hasn&apos;t arrived in
             a minute, check your spam folder.
           </p>
@@ -70,7 +70,7 @@ export function SignIn() {
 
   return (
     <SignInFrame title={start ? "Create your account" : "Sign in"} collage back>
-      <p className="mb-8 text-body text-text-2">Rent a GPU by the minute, paid in rupees.</p>
+      <p className="mb-8 text-body text-ink-subtle">Rent a GPU by the minute, paid in rupees.</p>
       <div className="flex flex-col gap-6">
         {search.get("expired") && (
           <Banner tone="warning">Your sign-in has expired. Sign in again to carry on.</Banner>
@@ -85,10 +85,10 @@ export function SignIn() {
           {!google && <GoogleMark />}
           Continue with Google
         </Button>
-        <div className="flex items-center gap-2 text-caption text-text-2" aria-hidden="true">
-          <span className="h-px flex-1 bg-line" />
+        <div className="flex items-center gap-2 text-caption text-ink-subtle" aria-hidden="true">
+          <span className="h-px flex-1 bg-hairline" />
           or
-          <span className="h-px flex-1 bg-line" />
+          <span className="h-px flex-1 bg-hairline" />
         </div>
         <LazyEmailForm
           label="Email"
@@ -105,7 +105,7 @@ export function SignIn() {
             }
           }}
         />
-        <p className="text-caption text-text-2">
+        <p className="text-caption text-ink-subtle">
           By continuing you agree to the{" "}
           <a href={siteLink("/terms/")} className="underline">
             terms

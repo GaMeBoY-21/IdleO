@@ -18,7 +18,7 @@ export function StatsPanel({ session, signals }: { session: Session; signals: Lo
     <Tile as="section" aria-label="The GPU" size="lg" className="flex flex-col gap-4">
       {gpu && (
         <>
-          <span className="flex items-baseline justify-between gap-2 text-caption text-text-2">
+          <span className="flex items-baseline justify-between gap-2 text-caption text-ink-subtle">
             <span>The GPU</span>
             <span>someone&apos;s gaming laptop</span>
           </span>
@@ -38,7 +38,7 @@ export function StatsPanel({ session, signals }: { session: Session; signals: Lo
         {signals.step && <Stat label="Step" value={`${signals.step.at}/${signals.step.of}`} />}
       </div>
       {last && (
-        <p className="text-caption text-text-2">
+        <p className="text-caption text-ink-subtle">
           Last checkpoint saved <RelativeTime value={last.completedAt} />
         </p>
       )}
@@ -56,8 +56,8 @@ export function StatsPanel({ session, signals }: { session: Session; signals: Lo
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     // Its label and figure are single words: in four narrow tiles they never break mid-word, whatever the page's rule.
-    <div className="rounded-inner bg-panel-2 p-4 wrap-normal">
-      <span className="block text-caption text-text-3">{label}</span>
+    <div className="rounded-card bg-surface-2 p-4 wrap-normal">
+      <span className="block text-caption text-ink-tertiary">{label}</span>
       <span className="text-figure tabular">{value}</span>
     </div>
   );

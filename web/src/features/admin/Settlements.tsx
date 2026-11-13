@@ -101,7 +101,7 @@ function SettlementList() {
                   ) : (
                     settlement.id
                   )}
-                  <span className="block text-caption text-text-2">
+                  <span className="block text-caption text-ink-subtle">
                     {settlement.status}
                     {settlement.utr ? `, UTR ${settlement.utr}` : ""}
                   </span>
@@ -202,7 +202,7 @@ function Items() {
                 </Cell>
                 <Cell>
                   {item.type} {item.entityId}
-                  <span className="block text-caption text-text-2">
+                  <span className="block text-caption text-ink-subtle">
                     {item.settlementId ?? "in no settlement"}
                   </span>
                 </Cell>
@@ -218,7 +218,7 @@ function Items() {
                 <Cell>
                   {SETTLEMENT_MATCH_WORDS[item.match] ?? item.match}
                   {item.state === "resolved" && (
-                    <span className="block text-caption text-text-2">
+                    <span className="block text-caption text-ink-subtle">
                       {item.resolution === "settled_later"
                         ? "carried by a later settlement"
                         : `${item.resolution?.replace("_", " ")}: ${item.reason ?? ""}`}

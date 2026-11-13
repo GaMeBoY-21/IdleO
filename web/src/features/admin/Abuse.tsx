@@ -135,7 +135,7 @@ function AbuseQueue() {
                 <Cell>
                   {item.kinds.map((kind) => SIGNALS[kind] ?? kind).join("; ")}
                   {item.action !== "none" && (
-                    <span className="block text-text-2">{ACTIONS[item.action]}</span>
+                    <span className="block text-ink-subtle">{ACTIONS[item.action]}</span>
                   )}
                 </Cell>
                 <Cell>
@@ -205,7 +205,7 @@ function LearnableBuilds({ found, itemId }: { found: AbuseDetail; itemId: string
         {builds.map((signal) => (
           <li key={signal.sha256} className="flex flex-wrap items-center gap-x-4 gap-y-2">
             <span className="font-medium">{signal.detail}</span>
-            <span className="tabular break-all text-text-2">{signal.sha256}</span>
+            <span className="tabular break-all text-ink-subtle">{signal.sha256}</span>
             {waiting.has(signal.sha256) ? (
               <Tag>On the list to publish</Tag>
             ) : (
@@ -496,11 +496,11 @@ function Summary({ found }: { found: AbuseDetail }) {
         <ol className="flex flex-col gap-2 text-small">
           {found.signals.map((signal, index) => (
             <li key={`${signal.at}-${index}`} className="flex flex-wrap gap-x-2">
-              <time dateTime={signal.at} className="tabular text-text-2">
+              <time dateTime={signal.at} className="tabular text-ink-subtle">
                 {formatDateTime(signal.at)}
               </time>
               <span className="font-medium">{SIGNALS[signal.kind] ?? signal.kind}</span>
-              <span className="break-all text-text-2">
+              <span className="break-all text-ink-subtle">
                 {signal.detail}
                 {signal.sha256 ? ` (${signal.sha256})` : ""}
                 {signal.count > 0 ? ` (${signal.count})` : ""}
@@ -538,7 +538,7 @@ function Summary({ found }: { found: AbuseDetail }) {
               </Row>
             ))}
           </Table>
-          <p className="text-caption text-text-2">
+          <p className="text-caption text-ink-subtle">
             The last 60 minutes. A miner works the GPU hard with little of its memory, next to nothing over
             the bus and a small steady trickle over the network; training and rendering don&apos;t look like
             that. These numbers only ever tell you to look: they stop no one.
@@ -550,7 +550,7 @@ function Summary({ found }: { found: AbuseDetail }) {
           <ol className="flex flex-col gap-2">
             {found.notes.map((note, index) => (
               <li key={`${note.at}-${index}`} className="flex flex-col gap-1 rounded-control bg-canvas p-4">
-                <p className="text-caption text-text-2">{formatDateTime(note.at)}</p>
+                <p className="text-caption text-ink-subtle">{formatDateTime(note.at)}</p>
                 <p className="whitespace-pre-wrap break-words text-body">{note.note || "(erased)"}</p>
               </li>
             ))}

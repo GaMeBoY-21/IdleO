@@ -18,9 +18,10 @@ export function MachineRow({ host }: { host: Host }) {
     <Link
       href={laptopPath(host.id)}
       className={cn(
-        "flex min-h-18 items-center gap-4 rounded-panel px-4 py-4",
+        "flex min-h-18 items-center gap-4 rounded-card px-4 py-4",
         "tile-motion",
-        running ? "bg-night text-on-night" : state.kind === "idle" ? "bg-ember text-ink" : "bg-panel",
+        "border border-hairline",
+        running ? "bg-surface-2" : "bg-surface-1",
       )}
     >
       <span
@@ -28,22 +29,15 @@ export function MachineRow({ host }: { host: Host }) {
         className={cn(
           "size-3 shrink-0 rounded-full",
           running
-            ? "bg-running-dot ring-4 ring-volt/25 motion-safe:animate-pulse"
+            ? "bg-live ring-4 ring-live/25 motion-safe:animate-pulse"
             : state.active
-              ? "bg-running"
+              ? "bg-live"
               : "bg-control",
         )}
       />
       <span className="flex min-w-0 flex-1 flex-col gap-1">
         <span className="text-body font-semibold break-words">{host.name}</span>
-        <span
-          className={cn(
-            "text-caption tabular",
-            running ? "text-on-night-2" : state.kind === "idle" ? "text-ink" : "text-text-2",
-          )}
-        >
-          {state.detail}
-        </span>
+        <span className={cn("text-caption tabular", "text-ink-subtle")}>{state.detail}</span>
       </span>
       <ChevronRight aria-hidden="true" className="size-5 shrink-0" strokeWidth={2} />
     </Link>

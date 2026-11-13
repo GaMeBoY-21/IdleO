@@ -82,7 +82,7 @@ function BroadcastList() {
               <Row key={item.id}>
                 <Cell>
                   <span className="font-medium">{item.subject}</span>
-                  <span className="block text-caption text-text-2">
+                  <span className="block text-caption text-ink-subtle">
                     {item.email ? "app and email" : "app only"}
                   </span>
                 </Cell>
@@ -97,10 +97,10 @@ function BroadcastList() {
                 <Cell>
                   <StatusChip size="sm" domain="broadcast" state={item.state} />
                   {item.reached !== null && item.reached !== undefined && (
-                    <span className="block text-caption text-text-2">reached {item.reached}</span>
+                    <span className="block text-caption text-ink-subtle">reached {item.reached}</span>
                   )}
                   {item.sentAt && (
-                    <span className="block text-caption text-text-2">
+                    <span className="block text-caption text-ink-subtle">
                       <RelativeTime value={item.sentAt} />
                     </span>
                   )}

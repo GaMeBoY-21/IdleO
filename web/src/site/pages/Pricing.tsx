@@ -5,7 +5,7 @@ import { EXAMPLE_CLASS_GB } from "../examples";
 import { band, column, heading, largeButton, muted, primaryButton, sectionTitle, tile } from "../ui";
 
 /** The same, in lavender, for the two typical examples. */
-const EXAMPLE_ROW = "flex h-24 flex-col justify-center rounded-panel bg-ion px-6 text-ink";
+const EXAMPLE_ROW = "flex h-24 flex-col justify-center rounded-card bg-ion px-6 text-ink";
 
 /**
  * The pricing page (ADR 0029). Its figures come from GET /v1/public/availability after the page has painted
@@ -17,7 +17,7 @@ export function Pricing({ context }: { context: SiteContext }) {
     <>
       <section className={`${column} ${band}`}>
         <h1 className={`${heading} max-w-prose`}>Pricing</h1>
-        <p className={`${muted} mt-4 max-w-prose md:text-option`}>
+        <p className={`${muted} mt-4 max-w-prose md:text-card`}>
           You pay for the minutes your session runs, at the price of the GPU it was given. These are the
           prices right now, by the GPU memory your job needs.
         </p>
@@ -34,7 +34,7 @@ export function Pricing({ context }: { context: SiteContext }) {
         <h2 className={`${sectionTitle} mt-10`} id="examples">
           Two examples
         </h2>
-        <p className="mt-2 text-small text-text-2">
+        <p className="mt-2 text-small text-ink-subtle">
           Typical, not promises: the runs' minutes are the usual ones for each option, priced on the{" "}
           {EXAMPLE_CLASS_GB} GB class at the prices above. A job's real cost depends on the model, the data
           and the GPU it gets.
@@ -49,7 +49,7 @@ export function Pricing({ context }: { context: SiteContext }) {
               data-gb={example.gpuMemoryGb}
               data-label={example.label}
             >
-              <p className="text-option font-semibold">{example.label}</p>
+              <p className="text-card font-semibold">{example.label}</p>
               <p className="text-small text-ink">About {example.minutes} minutes, typical</p>
               <span
                 data-role="skeleton"
@@ -94,8 +94,8 @@ export function Pricing({ context }: { context: SiteContext }) {
             ],
           ].map(([title, text]) => (
             <div key={title} className={tile}>
-              <dt className="text-option font-semibold">{title}</dt>
-              <dd className="mt-1 text-body text-text-2">{text}</dd>
+              <dt className="text-card font-semibold">{title}</dt>
+              <dd className="mt-1 text-body text-ink-subtle">{text}</dd>
             </div>
           ))}
         </dl>

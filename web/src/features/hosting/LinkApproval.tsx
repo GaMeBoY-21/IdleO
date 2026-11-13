@@ -63,7 +63,7 @@ export function LinkApproval({ id }: { id: string }) {
 }
 
 /**
- * The dark tile: the laptop as it described itself, and how long the link has left. It is drawn whole while the link is
+ * The raised card: the laptop as it described itself, and how long the link has left. It is drawn whole while the link is
  * looked up, its title and labels in place and bars where the values go, with the rows of a laptop with one GPU, so the
  * tile is the height it will be and nothing below it moves when the values arrive.
  */
@@ -72,14 +72,14 @@ function Machine({ link }: { link: HostLink | undefined }) {
   const left = link?.state === "pending" ? formatCountdown(link.expiresAt, now) : null;
   return (
     <Tile
-      tone="night"
+      tone="raised"
       size="lg"
       as="section"
       aria-labelledby="link-title"
       aria-busy={link === undefined}
       className="flex flex-col gap-4"
     >
-      <TileLabel tone="night">A laptop is asking to be linked</TileLabel>
+      <TileLabel>A laptop is asking to be linked</TileLabel>
       <PageTitle variant="panel" id="link-title">
         Link this laptop to your account?
       </PageTitle>
@@ -87,7 +87,6 @@ function Machine({ link }: { link: HostLink | undefined }) {
         layout="split"
         size="body"
         divided
-        onNight
         items={[
           ["Laptop", shown(link?.machineName)],
           ...(link === undefined
@@ -99,7 +98,7 @@ function Machine({ link }: { link: HostLink | undefined }) {
           ["App version", shown(link?.agentVersion)],
         ]}
       />
-      <p className="min-h-10 text-small text-on-night-2" aria-live="off">
+      <p className="min-h-10 text-small text-ink-subtle" aria-live="off">
         {link === undefined
           ? ""
           : link.state === "pending"
@@ -114,7 +113,7 @@ function Machine({ link }: { link: HostLink | undefined }) {
 
 /** A value, or its place held at its size while the link loads. */
 function shown(value: string | undefined) {
-  return value ?? <Skeleton className="skeleton-dark block h-6 w-32" />;
+  return value ?? <Skeleton className="skeleton block h-6 w-32" />;
 }
 
 function AnswerSkeleton() {
@@ -132,7 +131,7 @@ function LinkError({ error, retry, retrying }: { error: unknown; retry: () => vo
   return gone ? (
     <Tile size="lg" className="flex flex-col gap-2">
       <h2 className="text-section">We can&apos;t find that link</h2>
-      <p className="text-body text-text-2">
+      <p className="text-body text-ink-subtle">
         It may be for another account, or the address is wrong. Start again from the app on your laptop.
       </p>
     </Tile>
@@ -150,7 +149,7 @@ function Answer({ link }: { link: HostLink }) {
       return (
         <Tile size="lg" className="flex flex-col gap-2">
           <h2 className="text-section">Nothing was linked</h2>
-          <p className="text-body text-text-2">
+          <p className="text-body text-ink-subtle">
             This link was denied. If that was a mistake, start again from the app on your laptop.
           </p>
         </Tile>
@@ -159,7 +158,7 @@ function Answer({ link }: { link: HostLink }) {
       return (
         <Tile size="lg" className="flex flex-col gap-2">
           <h2 className="text-section">This link has expired</h2>
-          <p className="text-body text-text-2">
+          <p className="text-body text-ink-subtle">
             Links last 10 minutes. Start again from the app on your laptop.
           </p>
         </Tile>
@@ -219,7 +218,7 @@ function Approve({ link }: { link: HostLink }) {
             approve.reset();
           }}
         />
-        <div className="flex flex-col gap-2 rounded-control bg-panel-2 px-4 py-4">
+        <div className="flex flex-col gap-2 rounded-control bg-surface-2 px-4 py-4">
           <p className="min-h-12 text-body md:min-h-6" role="status">
             {earn === null || price === null ? (
               <span className="block w-full">
@@ -228,20 +227,20 @@ function Approve({ link }: { link: HostLink }) {
             ) : (
               <>
                 You&apos;ll earn{" "}
-                <strong className="font-bold tabular">
+                <strong className="font-semibold tabular">
                   <Money paise={earn.keep} /> an hour
                 </strong>{" "}
-                <span className="text-text-2">
+                <span className="text-ink-subtle">
                   (renters pay <Money paise={price * 60} />)
                 </span>
               </>
             )}
           </p>
-          <p className="text-small text-text-2">
+          <p className="text-small text-ink-subtle">
             The middle of what others with this GPU charge. You keep 80%; you can change it any time.{" "}
             <button
               type="button"
-              className="font-semibold text-text underline underline-offset-4"
+              className="font-semibold text-ink underline underline-offset-4"
               aria-expanded={changing}
               onClick={() => setChanging(!changing)}
             >
@@ -269,7 +268,7 @@ function Approve({ link }: { link: HostLink }) {
           </Button>
           <button
             type="button"
-            className="min-h-touch text-small font-semibold text-text-2 underline underline-offset-4 hover:text-text"
+            className="min-h-touch text-small font-semibold text-ink-subtle underline underline-offset-4 hover:text-ink"
             disabled={approve.isPending || deny.isPending}
             onClick={() => deny.mutate()}
           >
@@ -284,8 +283,8 @@ function Approve({ link }: { link: HostLink }) {
 /** Approved. While new laptops are checked first, it says so. */
 function Done({ link }: { link: HostLink }) {
   return (
-    <Tile tone="volt" size="lg" as="section" aria-labelledby="linked-title" className="flex flex-col gap-4">
-      <h2 id="linked-title" className="font-title text-display-feature">
+    <Tile size="lg" as="section" aria-labelledby="linked-title" className="flex flex-col gap-4">
+      <h2 id="linked-title" className="text-title">
         Linked
       </h2>
       <p className="max-w-prose text-body text-ink">
@@ -295,7 +294,7 @@ function Done({ link }: { link: HostLink }) {
       </p>
       <p className="text-small text-ink">You can close this tab; the laptop finishes linking by itself.</p>
       {link.hostId && (
-        <Link href={laptopPath(link.hostId)} className={buttonClasses("ink", true, false)}>
+        <Link href={laptopPath(link.hostId)} className={buttonClasses("primary", true, false)}>
           Open your laptop
         </Link>
       )}

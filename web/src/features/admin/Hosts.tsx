@@ -380,7 +380,7 @@ function HostRecord({ id }: { id: string }) {
               </Link>
             </div>
             {selfTest.data && !selfTest.data.canRun && selfTest.data.whyNot ? (
-              <p className="text-small text-text-2">{selfTest.data.whyNot.message}</p>
+              <p className="text-small text-ink-subtle">{selfTest.data.whyNot.message}</p>
             ) : null}
             <HostScore score={found.score ?? null} />
             <SelfTestRun status={selfTest.data ?? null} />

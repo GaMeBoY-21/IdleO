@@ -36,7 +36,7 @@ function Approval() {
     return (
       <SignInFrame title="Signed in">
         <div className="flex flex-col gap-4">
-          <Check aria-hidden="true" className="size-8 text-running" strokeWidth={1.75} />
+          <Check aria-hidden="true" className="size-8 text-live" strokeWidth={1.75} />
           <p className="text-body">You can close this tab. The command line has what it needs.</p>
         </div>
       </SignInFrame>
@@ -46,7 +46,7 @@ function Approval() {
     return (
       <SignInFrame title="Not signed in">
         <div className="flex flex-col gap-6">
-          <p className="text-body text-text-2">
+          <p className="text-body text-ink-subtle">
             Nothing was approved. The sign-in expires by itself in a few minutes.
           </p>
           <Link href="/" className={buttonClasses("ghost", true, true)}>
@@ -59,7 +59,7 @@ function Approval() {
   if (code === null || code === "") {
     return (
       <SignInFrame title="Sign in the command line">
-        <p className="text-body text-text-2">
+        <p className="text-body text-ink-subtle">
           Run <span className="font-semibold">idleo login</span> in a terminal and open the link it prints.
         </p>
       </SignInFrame>
@@ -70,7 +70,7 @@ function Approval() {
     return (
       <SignInFrame title={gone ? "That sign-in has ended" : "We couldn't check that sign-in"}>
         <div className="flex flex-col gap-4">
-          <p className="text-body text-text-2">
+          <p className="text-body text-ink-subtle">
             {gone
               ? "It has expired, was already approved, or the code is wrong. Run idleo login again for a new one."
               : problemMessage(login.error)}
@@ -91,7 +91,7 @@ function Approval() {
     <SignInFrame title="Sign in the command line?">
       <div className="flex flex-col gap-6" aria-busy={device === undefined}>
         <div className="flex flex-col gap-1">
-          <p className="text-body text-text-2">
+          <p className="text-body text-ink-subtle">
             A command line is asking to sign in as you. Check that this is the code your terminal shows. If it
             isn&apos;t, don&apos;t approve it.
           </p>
@@ -105,7 +105,7 @@ function Approval() {
             </p>
           )}
         </div>
-        <p className="rounded-control bg-panel-2 p-6 text-title tabular" aria-label="The code to compare">
+        <p className="rounded-control bg-surface-2 p-6 text-title tabular" aria-label="The code to compare">
           {code.toUpperCase()}
         </p>
         {approve.isError && <Banner tone="danger">{problemMessage(approve.error)}</Banner>}

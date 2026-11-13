@@ -57,10 +57,10 @@ export function StepsTile({
               aria-current={stop.state === "current" ? "step" : undefined}
               className="flex flex-col gap-2"
             >
-              <span aria-hidden="true" className="relative h-1.5 overflow-hidden rounded-full bg-line">
+              <span aria-hidden="true" className="relative h-1.5 overflow-hidden rounded-full bg-hairline">
                 <span
                   className={cn(
-                    "absolute inset-y-0 left-0 rounded-full bg-progress",
+                    "absolute inset-y-0 left-0 rounded-full bg-live",
                     stop.state === "done" && "w-full",
                     stop.state === "current" && fill === null && "w-full opacity-35",
                   )}
@@ -69,13 +69,13 @@ export function StepsTile({
               </span>
               <span
                 className={cn(
-                  "text-small font-bold",
-                  (stop.state === "next" || stop.state === "end") && "text-text-2",
+                  "text-small font-semibold",
+                  (stop.state === "next" || stop.state === "end") && "text-ink-subtle",
                 )}
               >
                 {stop.title}
               </span>
-              <span className="text-caption text-text-2">{detail}</span>
+              <span className="text-caption text-ink-subtle">{detail}</span>
             </li>
           );
         })}

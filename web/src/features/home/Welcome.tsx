@@ -43,11 +43,11 @@ function WelcomeCard() {
   return (
     <SignInFrame title={`Welcome to ${brand.name}`}>
       <div className="flex flex-col gap-6">
-        <p className="text-body text-text-2">
+        <p className="text-body text-ink-subtle">
           Run your code on someone&apos;s idle gaming GPU, by the minute, paid in rupees. You&apos;re only
           charged for the minutes your session runs.
         </p>
-        <div className="min-h-6 text-option">
+        <div className="min-h-6 text-card">
           {wallet.data ? (
             wallet.data.availablePaise > 0 ? (
               <p>
@@ -55,10 +55,10 @@ function WelcomeCard() {
                 start with.
               </p>
             ) : (
-              <p className="text-text-2">Your credit will show on your home screen.</p>
+              <p className="text-ink-subtle">Your credit will show on your home screen.</p>
             )
           ) : (
-            <SkeletonLine size="option" width="w-3/4" />
+            <SkeletonLine size="card" width="w-3/4" />
           )}
         </div>
         <ol className="flex flex-col gap-4">
@@ -66,13 +66,13 @@ function WelcomeCard() {
             <li key={step.title} className="flex gap-2">
               <span
                 aria-hidden="true"
-                className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary text-small font-semibold text-primary-fg"
+                className="flex size-8 shrink-0 items-center justify-center rounded-full bg-volt text-small font-semibold text-on-volt"
               >
                 {index + 1}
               </span>
               <div>
-                <p className="text-option font-semibold">{step.title}</p>
-                <p className="text-small text-text-2">{step.detail}</p>
+                <p className="text-card font-semibold">{step.title}</p>
+                <p className="text-small text-ink-subtle">{step.detail}</p>
               </div>
             </li>
           ))}

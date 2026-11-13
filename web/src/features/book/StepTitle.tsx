@@ -22,9 +22,9 @@ export function StepTitle({
       <h2 id={id} className="text-section">
         {number !== null && <span className="tabular">{number}. </span>}
         {children}
-        {optional && <span className="font-medium text-text-2"> (optional)</span>}
+        {optional && <span className="font-medium text-ink-subtle"> (optional)</span>}
       </h2>
-      {help && <p className="text-small text-text-2">{help}</p>}
+      {help && <p className="text-small text-ink-subtle">{help}</p>}
     </div>
   );
 }

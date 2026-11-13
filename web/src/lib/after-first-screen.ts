@@ -21,7 +21,7 @@ export function afterFirstScreen(work: () => void): () => void {
   };
 }
 
-/** The app's body font has loaded, or a second has passed: until then, text may not be drawn yet (font-display). */
+/** The app's body font has loaded, or a second has passed: until then, text may not be drawn yet (). */
 function fontLoaded(): Promise<unknown> {
   if (typeof document === "undefined" || !("fonts" in document)) {
     return Promise.resolve();

@@ -28,7 +28,7 @@ export function NotificationChoices({ items }: { items: NotificationItem[] }) {
 
   return (
     <div className="flex flex-col gap-2">
-      <div className={cn(ROWS, "pb-1 text-caption font-medium text-text-2")} aria-hidden="true">
+      <div className={cn(ROWS, "pb-1 text-caption font-medium text-ink-subtle")} aria-hidden="true">
         <span className="flex-1" />
         {CHANNELS.map(({ channel, label }) => (
           <span key={channel} className={COLUMN}>
@@ -36,16 +36,16 @@ export function NotificationChoices({ items }: { items: NotificationItem[] }) {
           </span>
         ))}
       </div>
-      <ul className="flex flex-col divide-y divide-line">
+      <ul className="flex flex-col divide-y divide-hairline">
         {items.map((item) => (
           <li
             key={item.kind}
             className={cn(ROWS, "min-h-18 py-4 xl:min-h-16", save.isPending && "opacity-60")}
           >
             <div className="flex min-w-0 flex-1 flex-col gap-1">
-              <p className="text-option font-semibold">{item.title}</p>
+              <p className="text-card font-semibold">{item.title}</p>
               {item.locked && (
-                <p className="flex items-start gap-1 text-caption text-text-2">
+                <p className="flex items-start gap-1 text-caption text-ink-subtle">
                   <Lock aria-hidden="true" className="mt-1 size-3.5 shrink-0" strokeWidth={2} />
                   <span>{item.lockedReason}</span>
                 </p>
@@ -65,7 +65,7 @@ export function NotificationChoices({ items }: { items: NotificationItem[] }) {
           </li>
         ))}
       </ul>
-      <div className="min-h-4.5 text-caption text-text-2" aria-live="polite">
+      <div className="min-h-4.5 text-caption text-ink-subtle" aria-live="polite">
         {save.isPending ? "Saving…" : save.isSuccess ? "Saved." : ""}
       </div>
       {save.isError && <Banner tone="danger">{problemMessage(save.error)}</Banner>}
@@ -97,12 +97,12 @@ function SwitchBox({
           checked={checked}
           disabled={locked || disabled}
           onChange={(event) => onChange(event.target.checked)}
-          className="peer h-7 w-12 cursor-pointer appearance-none rounded-full border-2 border-control bg-panel transition-colors duration-press checked:border-primary checked:bg-primary disabled:cursor-not-allowed"
+          className="peer h-5 w-9 cursor-pointer appearance-none rounded-full border border-control bg-surface-3 transition-colors duration-press checked:border-live checked:bg-live disabled:cursor-not-allowed"
         />
         <span
           aria-hidden="true"
           className={cn(
-            "pointer-events-none absolute left-1.5 size-4 rounded-full bg-control transition-transform duration-press peer-checked:translate-x-5 peer-checked:bg-primary-fg",
+            "pointer-events-none absolute left-1 size-3 rounded-full bg-control transition-transform duration-press peer-checked:translate-x-4 peer-checked:bg-canvas",
             locked && "opacity-60",
           )}
         />

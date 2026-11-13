@@ -2,42 +2,43 @@ import { useId, type ButtonHTMLAttributes, type ReactNode } from "react";
 import { cn } from "@/lib/cn";
 
 /**
- * Buttons (web/DESIGN.md "Buttons"): 14 px corners, and one primary per screen: volt at night, the page's ink with volt text
- * by day.
- * - `primary`: the screen's one next step;
- * - `secondary`: ion-deep, white text, for a weighty second choice like "Stop session";
- * - `ghost`: the raised fill (white with an edge by day), for everyday actions; inside a tile it is pressed in with the tile's own step;
- * - `live`: volt in either theme, the one button that sits inside a night tile ("Request a GPU");
- * - `ink`: the page's dark with volt text in either theme, the one button that sits inside a volt tile ("Download outputs");
- * - `quiet`: a bold text action, like "Change";
- * - `danger`: confirming something destructive, in the one dialog.
- * `large` is the 56 px button at the foot of a flow (60 px on a laptop). Every button is at least 44 px tall. A link
- * that looks like a button uses buttonClasses(). A pressed button that's waiting shows a small spinner inside it.
+ * Buttons (web/DESIGN.md "Buttons"): 32 px tall (44 on a touch screen), 8 px corners, 14 px at weight 500, and one
+ * primary per screen.
+ * - `primary`: volt with canvas text, the screen's one next step;
+ * - `secondary`: surface-1 with a hairline border, for the other choices;
+ * - `ghost`: no fill, for everyday and quiet actions;
+ * - `danger`: a ghost button with danger text; it is solid only in the confirm dialog (`solid`);
+ * - `quiet`: a text action, like "Change".
+ * `large` is the 40 px button at the foot of a flow. A link that looks like a button uses buttonClasses(). A pressed
+ * button that's waiting shows a small spinner inside it.
  */
-export type ButtonVariant = "primary" | "secondary" | "ghost" | "live" | "ink" | "quiet" | "danger";
+export type ButtonVariant = "primary" | "secondary" | "ghost" | "quiet" | "danger";
 
 const variants: Record<ButtonVariant, string> = {
-  primary: "bg-primary font-bold text-primary-fg hover:bg-primary-hover",
-  secondary: "bg-ion-deep text-on-ion-deep hover:bg-ion-deep-hover",
-  ghost:
-    "border border-edge bg-ghost text-text hover:bg-ghost-hover tiled:bg-panel-2 tiled:hover:bg-ghost-hover",
-  live: "bg-volt font-bold text-ink hover:bg-volt-hover",
-  ink: "bg-ink font-bold text-volt hover:bg-ink/85",
-  quiet: "text-text underline-offset-4 hover:underline",
-  // Hovering adds a ring outside the button rather than fading it, so its text keeps its contrast.
-  danger:
-    "bg-danger text-danger-fg hover:ring-2 hover:ring-danger hover:ring-offset-2 hover:ring-offset-panel",
+  primary: "bg-volt text-on-volt hover:bg-volt-hover active:bg-volt-pressed",
+  secondary: "border border-hairline-strong bg-surface-1 text-ink hover:bg-surface-2",
+  ghost: "text-ink hover:bg-surface-2",
+  quiet: "text-ink underline-offset-4 hover:underline",
+  danger: "text-danger hover:bg-surface-2",
 };
 
-export function buttonClasses(variant: ButtonVariant = "primary", block = false, large = false) {
+/** The confirm dialog's danger button: solid, the only place danger is a fill. */
+const SOLID_DANGER = "bg-danger text-danger-fg hover:bg-danger/90";
+
+export function buttonClasses(
+  variant: ButtonVariant = "primary",
+  block = false,
+  large = false,
+  solid = false,
+) {
   return cn(
-    "inline-flex items-center justify-center gap-2 font-semibold",
+    "inline-flex items-center justify-center gap-2 text-button",
     "transition-colors duration-press select-none disabled:cursor-not-allowed disabled:opacity-60",
     // One least height each: with both, the stylesheet's order, not this line, would decide which wins.
     large
-      ? "min-h-14 rounded-control-lg px-6 text-option md:min-h-15"
-      : "min-h-touch rounded-control px-4 text-small",
-    variants[variant],
+      ? "min-h-10 rounded-control px-4 pointer-coarse:min-h-touch"
+      : "min-h-control rounded-control px-button pointer-coarse:min-h-touch",
+    variant === "danger" && solid ? SOLID_DANGER : variants[variant],
     block && "w-full",
   );
 }
@@ -46,6 +47,8 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant;
   block?: boolean;
   large?: boolean;
+  /** A danger button as a fill: the confirm dialog's. */
+  solid?: boolean;
   busy?: boolean;
   /** While disabled, why: shown on hover and read with the button (web/DESIGN.md "Feedback"). */
   why?: string;
@@ -56,6 +59,7 @@ export function Button({
   variant = "primary",
   block = false,
   large = false,
+  solid = false,
   busy = false,
   className,
   children,
@@ -70,7 +74,7 @@ export function Button({
     <>
       <button
         type={type ?? "button"}
-        className={cn(buttonClasses(variant, block, large), className)}
+        className={cn(buttonClasses(variant, block, large, solid), className)}
         disabled={disabled || busy}
         aria-busy={busy || undefined}
         title={saysWhy ? why : undefined}

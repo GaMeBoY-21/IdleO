@@ -95,11 +95,11 @@ export function CreditHistory() {
                   aria-label={dayHeading(group.first, now)}
                   className="flex flex-col gap-2"
                 >
-                  <h3 className="px-1 text-small font-semibold text-text-2">
+                  <h3 className="px-1 text-small font-semibold text-ink-subtle">
                     {dayHeading(group.first, now)}
                   </h3>
                   <Tile as="div" className="px-4 py-0">
-                    <ul className="flex flex-col divide-y divide-line">
+                    <ul className="flex flex-col divide-y divide-hairline">
                       {group.entries.map((entry) => (
                         <HistoryRow key={entry.id} entry={entry} />
                       ))}
@@ -134,17 +134,17 @@ export function CreditHistory() {
         ) : (
           <Tile
             as="div"
-            className="flex flex-col divide-y divide-line px-4 py-0"
+            className="flex flex-col divide-y divide-hairline px-4 py-0"
             role="status"
             aria-label="Loading your credit history"
           >
             {[0, 1, 2, 3].map((key) => (
               <div key={key} className={ROW}>
                 <div className="flex flex-1 flex-col gap-1">
-                  <SkeletonLine size="option" width="w-1/2" />
+                  <SkeletonLine size="card" width="w-1/2" />
                   <SkeletonLine size="small" width="w-1/3" />
                 </div>
-                <SkeletonLine size="option" width="w-1/4" />
+                <SkeletonLine size="card" width="w-1/4" />
                 <span aria-hidden="true" className="size-5 shrink-0" />
               </div>
             ))}
@@ -176,7 +176,7 @@ function Narrow({ title, summary, more, documents, children }: FrameProps) {
 }
 
 /**
- * From 768 px: the balance in the left rail's dark tile, Add credit, billing details and refunds under it, and the
+ * From 768 px: the balance in the left rail's raised card, Add credit, billing details and refunds under it, and the
  * documents and history beside it (web/DESIGN.md "Laptop layout"). On a phone the balance is the first block of the
  * page, under its title.
  */
@@ -208,12 +208,12 @@ function HistoryRow({ entry }: { entry: HistoryEntry }) {
   const content = (
     <>
       <div className="flex min-w-0 flex-1 flex-col gap-1">
-        <p className="text-option font-semibold">{creditKind(entry.kind)}</p>
-        <p className="text-small text-text-2 first-letter:uppercase">
+        <p className="text-card font-semibold">{creditKind(entry.kind)}</p>
+        <p className="text-small text-ink-subtle first-letter:">
           <RelativeTime value={entry.createdAt} />
         </p>
       </div>
-      <p className={cn("text-option font-semibold tabular", credit && "text-running")}>
+      <p className={cn("text-card font-semibold tabular", credit && "text-live")}>
         <span className="sr-only">{credit ? "Added" : "Taken"} </span>
         <span aria-hidden="true">{credit ? "+" : "−"}</span>
         <Money paise={entry.amountPaise} />
@@ -225,7 +225,7 @@ function HistoryRow({ entry }: { entry: HistoryEntry }) {
       {isSession ? (
         <Link href={`/session/?id=${entry.reference.id}`} className={cn(ROW, "hover:underline")}>
           {content}
-          <ChevronRight aria-hidden="true" className="size-5 shrink-0 text-text-2" strokeWidth={1.75} />
+          <ChevronRight aria-hidden="true" className="size-5 shrink-0 text-ink-subtle" strokeWidth={1.75} />
         </Link>
       ) : (
         // The same width as a linked row's chevron, so amounts line up down the list.

@@ -8,13 +8,13 @@ import { SERVICE_ICONS } from "@/lib/service-icons";
 
 type Service = components["schemas"]["ServiceResponse"];
 
-/** The accent each service has, by its place in the catalog: ember, then ion, then a plain panel (the approved reference). */
+/** The card each service has, by its place in the catalog: the first goes up a step of the ladder, the rest are plain. */
 export function serviceTone(index: number): TileTone {
-  return index === 0 ? "ember" : index === 1 ? "ion" : "panel";
+  return index === 0 ? "raised" : "panel";
 }
 
 /**
- * The first service, as the tall ember tile: its icon, its name and what you bring. It opens Book at it. The catalog
+ * The first service, as the tall tile: its icon, its name and what you bring. It opens Book at it. The catalog
  * decides which service is first, so a different one is a change there.
  */
 export function MainServiceTile({ service }: { service: Service }) {
@@ -23,8 +23,8 @@ export function MainServiceTile({ service }: { service: Service }) {
     <TileLink href={bookHref(service.id)} tone={serviceTone(0)} className="row-span-2">
       <Icon aria-hidden="true" className="size-7.5" strokeWidth={1.6} />
       <span className="flex flex-col gap-1">
-        <span className="font-title text-display-card break-words">{service.name}</span>
-        <TileLabel tone="ember">{sentence(service.tagline)}</TileLabel>
+        <span className="text-section break-words">{service.name}</span>
+        <TileLabel>{sentence(service.tagline)}</TileLabel>
       </span>
     </TileLink>
   );
@@ -41,8 +41,8 @@ export function WideServiceTile({ service, index = 1 }: { service: Service; inde
       className="col-span-2 flex-row items-center justify-between gap-2"
     >
       <span className="flex min-w-0 flex-col gap-1">
-        <span className="font-title text-display-card break-words">{service.name}</span>
-        <TileLabel tone={tone}>{sentence(service.tagline)}</TileLabel>
+        <span className="text-section break-words">{service.name}</span>
+        <TileLabel>{sentence(service.tagline)}</TileLabel>
       </span>
       <Icon aria-hidden="true" className="size-7.5 shrink-0" strokeWidth={1.6} />
     </TileLink>
@@ -56,7 +56,7 @@ export function WideServiceTile({ service, index = 1 }: { service: Service; inde
 export function QuestionTile({ services }: { services: Service[] }) {
   return (
     <Tile
-      tone="night"
+      tone="raised"
       aria-labelledby="question"
       className={services.length > 2 ? "col-span-2 row-span-3" : "col-span-2 row-span-2"}
     >
@@ -70,7 +70,7 @@ export function QuestionTile({ services }: { services: Service[] }) {
             <Link
               key={service.id}
               href={bookHref(service.id)}
-              className={buttonClasses(index === 0 ? "live" : "ghost", true)}
+              className={buttonClasses(index === 0 ? "primary" : "secondary", true)}
             >
               <Icon aria-hidden="true" className="size-5" strokeWidth={1.75} />
               {service.name}

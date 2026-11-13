@@ -29,7 +29,7 @@ export function ServicesTile({
     <section
       aria-label="Services"
       className={cn(
-        "grid cols-cards gap-4 rounded-panel",
+        "grid cols-cards gap-4 rounded-card",
         dropping && "ring-4 ring-focus ring-offset-4 ring-offset-canvas",
       )}
     >
@@ -43,7 +43,7 @@ export function ServicesTile({
             size="lg"
             className="min-h-service-card gap-4"
           >
-            <span className="flex flex-col gap-1 text-caption font-bold tracking-wider uppercase">
+            <span className="flex flex-col gap-1 text-caption font-semibold">
               <span>{serviceTime(catalog, service.id)}</span>
               {/* Its line is kept from the start, so the cost arriving moves nothing. */}
               <span className="min-h-4.5 font-semibold tracking-normal normal-case">
@@ -51,8 +51,8 @@ export function ServicesTile({
               </span>
             </span>
             <span className="flex flex-col gap-1">
-              <span className="font-title text-display-card break-words">{service.name}</span>
-              <span className={cn("text-small", tone === "panel" && "text-text-2")}>
+              <span className="text-section break-words">{service.name}</span>
+              <span className={cn("text-small", tone === "panel" && "text-ink-subtle")}>
                 {serviceSentence(catalog, service.id)}
               </span>
             </span>

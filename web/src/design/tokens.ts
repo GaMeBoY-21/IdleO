@@ -4,117 +4,79 @@
  * and arbitrary values anywhere else.
  */
 
-import { ring } from "../brand/brand.ts";
-
 /**
- * Night Shift (ADR 0043): a deep indigo page with a few loud colours, in two themes. `dark` ("Night Shift") is the
- * default; `light` ("Day Shift") has the same layout. The tokens below are the whole vocabulary: the surfaces, the
- * three tones of text, the accents (volt, ember, ion, ion-deep), and the roles that differ between the themes
- * (`primary`, `link`, `running`, the chips). A `night*` token is the same in both themes: the dark preview card and the
- * "sealed" band stay dark in Day Shift, as drawn. Volt is never text on a light background; there it is only a fill
- * under dark text (`ink`).
+ * The IdleO system (ADR 0060, Linear's structure with IdleO's identity): a surface ladder (canvas, then surface-1 to
+ * surface-4), hairline borders instead of shadows, quiet type, and one accent, volt, used only for the screen's one primary
+ * button, the focus ring, the brand mark and live indicators. `dark` is the default; `light` follows the device. The
+ * status colours (success, warning, danger, info) are for chips' dots, small marks and charts, never fills.
+ *
+ * Two values are a touch off the reference so the contrast table (web/DESIGN.md "Contrast") holds: the light theme's
+ * `ink-subtle` and `ink-tertiary` are darker, and `control` (the border of a field or a switch, WCAG 1.4.11) is
+ * stronger than a hairline.
  */
 export const themes = {
   dark: {
-    canvas: "#0C0A1F",
-    sidebar: "#0F0D25",
-    panel: "#17142F",
-    "panel-2": "#221E40",
-    raised: "#1B1838",
-    /** A ghost button: the raised fill by night, white with an edge by day (the website draws it so). */
-    ghost: "#1B1838",
-    "ghost-hover": "#27234B",
-    line: "#2A2650",
-    /** A panel's own edge: none at night, where panels are told apart by colour. */
-    edge: "transparent",
+    canvas: "#08090A",
+    "surface-1": "#0F1011",
+    "surface-2": "#141516",
+    "surface-3": "#18191A",
+    "surface-4": "#1C1D1F",
+    hairline: "#23252A",
+    "hairline-strong": "#34343A",
+    "hairline-tertiary": "#3E3E44",
     /** The border of a field or a control, which must show against any surface (WCAG 1.4.11). */
-    control: "#7A75B0",
-    text: "#FFFFFF",
-    "text-2": "#B9B5DA",
-    "text-3": "#8F8AB8",
+    control: "#666B73",
+    ink: "#F7F8F8",
+    "ink-muted": "#D0D6E0",
+    "ink-subtle": "#8A8F98",
+    "ink-tertiary": "#80858E",
     volt: "#C8FF3D",
-    "volt-hover": "#DAFF70",
-    ember: "#FF7A2F",
-    ion: "#8E80FF",
-    "ion-deep": "#5B4BE8",
-    "ion-deep-hover": "#7060F0",
-    black: "#000000",
-    ink: "#0C0A1F",
-    "on-ion-deep": "#FFFFFF",
-    primary: "#C8FF3D",
-    "primary-hover": "#DAFF70",
-    "primary-fg": "#0C0A1F",
-    link: "#C8FF3D",
-    "link-hover": "#E2FF8F",
-    progress: "#C8FF3D",
-    running: "#C8FF3D",
-    "running-dot": "#C8FF3D",
-    ok: "#22351A",
-    "ok-fg": "#C8FF3D",
-    warn: "#3A2214",
-    "warn-fg": "#FFB27F",
-    danger: "#FF7A7A",
-    "danger-soft": "#3A1620",
-    "danger-fg": "#0C0A1F",
-    bone: "#221E40",
-    "bone-shine": "#2A2650",
-    night: "#17142F",
-    "night-2": "#221E40",
-    "night-line": "#2A2650",
-    "on-night": "#FFFFFF",
-    "on-night-2": "#B9B5DA",
-    "on-night-3": "#8F8AB8",
-    "danger-on-night": "#FF8A8A",
-    ...ring.dark,
+    "volt-hover": "#D6FF6E",
+    "volt-pressed": "#B3E02F",
+    /** Text on volt: the canvas. */
+    "on-volt": "#08090A",
+    /** Live and running indicators, the brand mark and progress: volt, darker by day. */
+    live: "#C8FF3D",
+    /** The focus ring: volt at half strength, as a colour (2 px). */
+    focus: "#688423",
+    success: "#27A644",
+    warning: "#D9A400",
+    danger: "#E5484D",
+    info: "#4C8DF6",
+    /** Text on a solid danger button (the confirm dialog's). */
+    "danger-fg": "#08090A",
+    /** What dims the page behind a dialog. */
+    scrim: "#000000",
+    /** The QR code's ground: always white, so a scanner reads it. */
+    paper: "#FFFFFF",
   },
   light: {
-    canvas: "#F4F3FA",
-    sidebar: "#FFFFFF",
-    panel: "#FFFFFF",
-    "panel-2": "#F4F3FA",
-    raised: "#EEECF8",
-    ghost: "#FFFFFF",
-    "ghost-hover": "#EEECF8",
-    line: "#ECEAF5",
-    edge: "#E4E2F0",
-    control: "#7A76A0",
-    text: "#0C0A1F",
-    "text-2": "#4A4668",
-    "text-3": "#5E5A80",
+    canvas: "#FFFFFF",
+    "surface-1": "#F7F8F8",
+    "surface-2": "#F1F2F3",
+    "surface-3": "#EBECEE",
+    "surface-4": "#E4E5E7",
+    hairline: "#E4E5E7",
+    "hairline-strong": "#D6D8DB",
+    "hairline-tertiary": "#C9CBCF",
+    control: "#80858E",
+    ink: "#0B0C0E",
+    "ink-muted": "#3C4149",
+    "ink-subtle": "#5F646D",
+    "ink-tertiary": "#666B74",
     volt: "#C8FF3D",
-    "volt-hover": "#DAFF70",
-    ember: "#FF7A2F",
-    ion: "#8E80FF",
-    "ion-deep": "#5B4BE8",
-    "ion-deep-hover": "#4A3BD0",
-    black: "#000000",
-    ink: "#0C0A1F",
-    "on-ion-deep": "#FFFFFF",
-    primary: "#0C0A1F",
-    "primary-hover": "#25214A",
-    "primary-fg": "#C8FF3D",
-    link: "#4B3BD6",
-    "link-hover": "#3427B0",
-    progress: "#5B4BE8",
-    running: "#3A7D0A",
-    "running-dot": "#47A010",
-    ok: "#E6F7D4",
-    "ok-fg": "#2F6B06",
-    warn: "#FFE9DB",
-    "warn-fg": "#9A3D06",
-    danger: "#C0262D",
-    "danger-soft": "#FDECEC",
+    "volt-hover": "#D6FF6E",
+    "volt-pressed": "#B3E02F",
+    "on-volt": "#08090A",
+    live: "#4A7300",
+    focus: "#4A7300",
+    success: "#1F8A3C",
+    warning: "#A07400",
+    danger: "#C8282D",
+    info: "#2F6FE0",
     "danger-fg": "#FFFFFF",
-    bone: "#E4E2F0",
-    "bone-shine": "#F4F3FA",
-    night: "#17142F",
-    "night-2": "#221E40",
-    "night-line": "#2A2650",
-    "on-night": "#FFFFFF",
-    "on-night-2": "#B9B5DA",
-    "on-night-3": "#8F8AB8",
-    "danger-on-night": "#FF8A8A",
-    ...ring.light,
+    scrim: "#000000",
+    paper: "#FFFFFF",
   },
 } as const;
 
@@ -123,154 +85,114 @@ export type ThemeName = keyof typeof themes;
 
 /**
  * The pairs DESIGN.md's contrast table lists, checked in both themes: text needs 4.5:1 (3:1 for the 24 px and larger
- * headlines), controls, rings and the progress bar 3:1 (WCAG 2.2 AA). Volt is text only on the `night` surfaces; the
- * roles that carry its place to Day Shift (`link`, `running`, `brand`) have their own colour there.
+ * headlines), controls, rings, marks and the progress bar 3:1 (WCAG 2.2 AA). Tertiary text is for placeholders and table
+ * heads on the canvas and the first two surfaces only; it never sits on a hover fill.
  */
 export const contrastPairs: ReadonlyArray<{
   fg: ColourToken;
   bg: ColourToken;
   min: 4.5 | 3;
 }> = [
-  { fg: "text", bg: "canvas", min: 4.5 },
-  { fg: "text", bg: "sidebar", min: 4.5 },
-  { fg: "text", bg: "panel", min: 4.5 },
-  { fg: "text", bg: "panel-2", min: 4.5 },
-  { fg: "text", bg: "raised", min: 4.5 },
-  { fg: "text", bg: "ghost", min: 4.5 },
-  { fg: "text", bg: "ghost-hover", min: 4.5 },
-  { fg: "text-2", bg: "canvas", min: 4.5 },
-  { fg: "text-2", bg: "sidebar", min: 4.5 },
-  { fg: "text-2", bg: "panel", min: 4.5 },
-  { fg: "text-2", bg: "panel-2", min: 4.5 },
-  { fg: "text-2", bg: "raised", min: 4.5 },
-  { fg: "text-3", bg: "canvas", min: 4.5 },
-  { fg: "text-3", bg: "sidebar", min: 4.5 },
-  { fg: "text-3", bg: "panel", min: 4.5 },
-  { fg: "text-3", bg: "panel-2", min: 4.5 },
-  { fg: "text-3", bg: "raised", min: 4.5 },
-  { fg: "primary-fg", bg: "primary", min: 4.5 },
-  { fg: "primary-fg", bg: "primary-hover", min: 4.5 },
-  { fg: "ink", bg: "volt", min: 4.5 },
-  { fg: "ink", bg: "volt-hover", min: 4.5 },
-  { fg: "ink", bg: "ember", min: 4.5 },
-  { fg: "ink", bg: "ion", min: 4.5 },
-  { fg: "on-ion-deep", bg: "ion-deep", min: 4.5 },
-  { fg: "on-ion-deep", bg: "ion-deep-hover", min: 4.5 },
-  { fg: "link", bg: "canvas", min: 4.5 },
-  { fg: "link", bg: "panel", min: 4.5 },
-  { fg: "link-hover", bg: "canvas", min: 4.5 },
-  { fg: "link-hover", bg: "panel", min: 4.5 },
-  { fg: "running", bg: "canvas", min: 4.5 },
-  { fg: "running", bg: "panel", min: 4.5 },
-  { fg: "running", bg: "panel-2", min: 4.5 },
-  { fg: "ok-fg", bg: "ok", min: 4.5 },
-  { fg: "running", bg: "ok", min: 4.5 },
-  { fg: "warn-fg", bg: "warn", min: 4.5 },
-  { fg: "warn-fg", bg: "panel", min: 4.5 },
+  { fg: "ink", bg: "canvas", min: 4.5 },
+  { fg: "ink", bg: "surface-1", min: 4.5 },
+  { fg: "ink", bg: "surface-2", min: 4.5 },
+  { fg: "ink", bg: "surface-3", min: 4.5 },
+  { fg: "ink", bg: "surface-4", min: 4.5 },
+  { fg: "ink-muted", bg: "canvas", min: 4.5 },
+  { fg: "ink-muted", bg: "surface-1", min: 4.5 },
+  { fg: "ink-muted", bg: "surface-2", min: 4.5 },
+  { fg: "ink-muted", bg: "surface-3", min: 4.5 },
+  { fg: "ink-subtle", bg: "canvas", min: 4.5 },
+  { fg: "ink-subtle", bg: "surface-1", min: 4.5 },
+  { fg: "ink-subtle", bg: "surface-2", min: 4.5 },
+  { fg: "ink-subtle", bg: "surface-3", min: 4.5 },
+  { fg: "ink-tertiary", bg: "canvas", min: 4.5 },
+  { fg: "ink-tertiary", bg: "surface-1", min: 4.5 },
+  { fg: "ink-tertiary", bg: "surface-2", min: 4.5 },
+  { fg: "on-volt", bg: "volt", min: 4.5 },
+  { fg: "on-volt", bg: "volt-hover", min: 4.5 },
+  { fg: "on-volt", bg: "volt-pressed", min: 4.5 },
+  { fg: "live", bg: "canvas", min: 4.5 },
+  { fg: "live", bg: "surface-1", min: 4.5 },
+  { fg: "live", bg: "surface-2", min: 4.5 },
   { fg: "danger", bg: "canvas", min: 4.5 },
-  { fg: "danger", bg: "panel", min: 4.5 },
-  { fg: "danger", bg: "panel-2", min: 4.5 },
-  { fg: "danger", bg: "danger-soft", min: 4.5 },
+  { fg: "danger", bg: "surface-1", min: 4.5 },
+  { fg: "danger", bg: "surface-2", min: 4.5 },
   { fg: "danger-fg", bg: "danger", min: 4.5 },
-  { fg: "on-night", bg: "night", min: 4.5 },
-  { fg: "on-night", bg: "night-2", min: 4.5 },
-  { fg: "on-night", bg: "black", min: 4.5 },
-  { fg: "on-night-2", bg: "night", min: 4.5 },
-  { fg: "on-night-2", bg: "night-2", min: 4.5 },
-  { fg: "on-night-2", bg: "black", min: 4.5 },
-  { fg: "on-night-3", bg: "night", min: 4.5 },
-  { fg: "on-night-3", bg: "night-2", min: 4.5 },
-  { fg: "on-night-3", bg: "black", min: 4.5 },
-  { fg: "volt", bg: "night", min: 4.5 },
-  { fg: "volt", bg: "night-2", min: 4.5 },
-  { fg: "ion", bg: "night", min: 4.5 },
-  { fg: "ion", bg: "black", min: 4.5 },
-  { fg: "danger-on-night", bg: "night", min: 4.5 },
   { fg: "control", bg: "canvas", min: 3 },
-  { fg: "control", bg: "panel", min: 3 },
-  { fg: "control", bg: "panel-2", min: 3 },
+  { fg: "control", bg: "surface-1", min: 3 },
+  { fg: "control", bg: "surface-2", min: 3 },
   { fg: "focus", bg: "canvas", min: 3 },
-  { fg: "focus", bg: "panel", min: 3 },
-  { fg: "progress", bg: "line", min: 3 },
-  { fg: "progress", bg: "panel", min: 3 },
-  { fg: "running-dot", bg: "canvas", min: 3 },
-  { fg: "running-dot", bg: "panel", min: 3 },
-  { fg: "running-dot", bg: "night", min: 3 },
-  { fg: "brand", bg: "canvas", min: 4.5 },
-  { fg: "brand", bg: "panel", min: 4.5 },
+  { fg: "focus", bg: "surface-1", min: 3 },
+  { fg: "focus", bg: "surface-2", min: 3 },
+  { fg: "focus", bg: "surface-3", min: 3 },
+  { fg: "success", bg: "canvas", min: 3 },
+  { fg: "success", bg: "surface-1", min: 3 },
+  { fg: "success", bg: "surface-2", min: 3 },
+  { fg: "warning", bg: "canvas", min: 3 },
+  { fg: "warning", bg: "surface-1", min: 3 },
+  { fg: "warning", bg: "surface-2", min: 3 },
+  { fg: "info", bg: "canvas", min: 3 },
+  { fg: "info", bg: "surface-1", min: 3 },
+  { fg: "info", bg: "surface-2", min: 3 },
+  { fg: "live", bg: "hairline", min: 3 },
 ];
 
 /**
- * The type scale: [size, line height] in px. Archivo's display sizes are in `displayScale` below; these are Inter's.
- * From `headingFrom` up, Inter is bold and tightly spaced (`headingStyle`): the panel titles and the figures.
+ * The type scale: [size, line height] in px. Inter for everything, JetBrains Mono for ids, logs and code. `weights` and
+ * `tracking` say how each size is set: the quiet sizes are regular, the headlines 500 to 600 with negative tracking
+ * (px), as the system draws them. The names are Tailwind's `text-*`.
  */
 export const typeScale = {
-  caption: [13, 18],
-  small: [14, 20],
-  body: [16, 24],
-  option: [17, 24],
+  caption: [12, 16],
+  small: [13, 20],
+  /** A button's label. */
+  button: [14, 20],
+  /** 15 px; the console sets it to 14 (`dense`, styles.css). */
+  body: [15, 24],
+  /** A card's title, and an option's. */
+  card: [16, 24],
   /** The website's opening paragraph: large, but regular weight. */
-  lede: [20, 30],
-  section: [20, 26],
+  lede: [18, 28],
+  section: [20, 28],
   figure: [24, 28],
-  headline: [26, 28],
   title: [28, 34],
-  question: [40, 44],
+  hero: [40, 44],
+  display: [56, 62],
   timer: [54, 54],
   "timer-lg": [60, 60],
   "timer-xl": [72, 72],
 } as const;
 
-/** From this size up, type is bold with tight letter-spacing, except the sizes named here. */
-export const headingFrom = 20;
-export const plainSizes: ReadonlySet<string> = new Set(["lede"]);
+/** Weight and tracking (px) for each size that isn't plain 15 px regular. */
+export const typeStyle: Record<string, { weight: 400 | 500 | 600; tracking: number }> = {
+  button: { weight: 500, tracking: 0 },
+  card: { weight: 500, tracking: 0 },
+  section: { weight: 500, tracking: -0.2 },
+  figure: { weight: 600, tracking: -0.4 },
+  title: { weight: 600, tracking: -0.6 },
+  hero: { weight: 600, tracking: -1 },
+  display: { weight: 600, tracking: -1.8 },
+  timer: { weight: 600, tracking: -1.8 },
+  "timer-lg": { weight: 600, tracking: -1.8 },
+  "timer-xl": { weight: 600, tracking: -1.8 },
+};
 
-export function headingStyle(size: number): { weight: 700; letterSpacing: string } {
-  return { weight: 700, letterSpacing: size >= 54 ? "-0.03em" : size >= 28 ? "-0.02em" : "-0.01em" };
-}
+/** The eyebrow: 12 px at 500, tracked out 0.4 px, in sentence case. */
+export const eyebrow = { size: 12, lineHeight: 16, weight: 500, tracking: 0.4 } as const;
 
-/**
- * Archivo's sizes: fluid between a smallest and a largest, as `[min px, vw, max px, line height, face]`, or fixed
- * (`min` equal to `max`). `display` is width 125% at weight 900, set uppercase; `title` is width 112% at weight 800.
- * The names are Tailwind's `text-*`.
- */
-export const displayScale = {
-  /** The website's headline. */
-  "display-hero": [44, 6, 84, 0.98, "display"],
-  /** A section of the website. */
-  "display-band": [36, 4.4, 60, 1, "display"],
-  "display-section": [32, 4, 52, 1, "display"],
-  /** The app's page headline. */
-  "display-page": [32, 3.2, 44, 1, "display"],
-  /** A panel's title. */
-  "display-card": [26, 0, 26, 1.1, "title"],
-  "display-feature": [30, 0, 30, 1.1, "title"],
-  "display-panel": [40, 0, 40, 1.05, "title"],
-  /** The step numbers on the website, and the credit tile's figure. */
-  "display-number": [72, 0, 72, 1, "display"],
-  "display-figure": [52, 0, 52, 1, "display"],
-  /** The wordmark. */
-  "display-logo": [28, 0, 28, 1.2, "display"],
-  /** The footer's wordmark. */
-  "display-wordmark": [96, 19, 280, 0.8, "display"],
-} as const satisfies Record<string, readonly [number, number, number, number, "display" | "title"]>;
-
-export const fontWeights = { regular: 400, medium: 500, semibold: 600, bold: 700 } as const;
+export const fontWeights = { regular: 400, medium: 500, semibold: 600 } as const;
 
 /** What the first screen's font files hold: Basic Latin, the few Latin-1 signs we use, the punctuation, arrows and rupee. */
 const BASIC_LATIN =
   "U+0020-007E,U+00A0,U+00A7,U+00A9,U+00B0,U+00B7,U+00D7,U+2013-2014,U+2018-201D,U+2022,U+2026,U+20B9,U+2190-2193,U+2212,U+2248";
-/** Archivo at 125% / 900 is set uppercase, so its file holds no lowercase; the wordmark's few lowercase letters are a second, tiny file. */
-const DISPLAY_CAPS =
-  "U+0020-0060,U+007B-007E,U+00A0,U+00A9,U+00B7,U+00D7,U+2013-2014,U+2018-201D,U+2022,U+2026,U+20B9,U+2190-2193,U+2212,U+2248";
-const DISPLAY_LOWER = "U+0061-007A";
 /** The rest of Latin-1: accented letters and the signs we do not use. */
 const LATIN_ACCENTS = "U+00A1-00A6,U+00A8,U+00AA-00AF,U+00B1-00B6,U+00B8-00D6,U+00D8-00FF";
 
 /**
  * The fonts (web/DESIGN.md "Typography"): self-hosted, Latin plus the rupee sign, cut by scripts/subset-font.sh. Each
  * has a fallback, Arial scaled to the font's metrics, so the page does not move when the font arrives
- * (`font-display: swap`). `preload` marks the files the first screen uses.
+ * (`: swap`). `preload` marks the files the first screen uses.
  */
 export const fonts = {
   sans: {
@@ -282,22 +204,6 @@ export const fonts = {
     more: { file: "inter-400-700-latin1.woff2", range: LATIN_ACCENTS },
     fallback: [107.17, 90.39, 22.51],
   },
-  display: {
-    family: "Archivo Display",
-    file: "archivo-125-900.woff2",
-    weight: "900",
-    range: DISPLAY_CAPS,
-    more: { file: "archivo-125-900-lower.woff2", range: DISPLAY_LOWER },
-    fallback: [133.81, 65.62, 15.69],
-  },
-  title: {
-    family: "Archivo Title",
-    file: "archivo-112-800.woff2",
-    weight: "800",
-    range: BASIC_LATIN,
-    more: null,
-    fallback: [123.4, 71.15, 17.02],
-  },
   mono: {
     family: "JetBrains Mono",
     file: "jetbrains-mono-400.woff2",
@@ -308,16 +214,10 @@ export const fonts = {
   },
 } as const;
 
-/**
- * The files a first screen preloads, by file name. The app's is Inter and the titles' face (its wordmark is drawn); the website adds
- * its wordmark's lowercase and the uppercase of its headlines, and doesn't use the titles' face. Everything else loads when the page
- * asks for it.
- */
+/** The files a first screen preloads, by file name: Inter, for the app and the website alike. */
 export const preloadedFonts = {
-  app: [fonts.sans.file, fonts.title.file],
-  /** Only from the app's md width up (the link's `media`), where its headings are set in the display face: a phone never fetches it (ADR 0049). */
-  appWide: [fonts.display.file],
-  site: [fonts.sans.file, fonts.display.more.file, fonts.display.file],
+  app: [fonts.sans.file],
+  site: [fonts.sans.file],
 } as const;
 
 /**
@@ -366,11 +266,16 @@ export const spacing = {
   "80": 320,
   "96": 384,
   touch: 44,
-  /** The laptop's header, from 768 px. */
-  header: 76,
+  /** A button's side padding, 14 px. */
+  button: 14,
+  /** The top bar, 48 px. */
+  header: 48,
+  /** A button's height (44 on a touch screen: `touch`), and a table's rows: 36 in the console, 44 elsewhere. */
+  control: 32,
+  "row-admin": 36,
   /** A row of the phone's tile grid (a small tile is one row, a tall one two). */
   "tile-row": 88,
-  /** The session screen's dark tile on a phone, as its placeholder draws it. */
+  /** The session screen's raised card on a phone, as its placeholder draws it. */
   "session-tile": 336,
   /** The Hosting tab's chart of the week on a laptop. */
   chart: 180,
@@ -391,9 +296,10 @@ export const spacing = {
   "kept-wide": 136,
   /** Home on a laptop: a service card at its least, the row of running and credit panels, and the recent sessions' table. */
   "service-card": 176,
-  /** The app's left sidebar, and the admin console's (denser). */
-  sidebar: 256,
-  "sidebar-admin": 240,
+  /** The left sidebar, on every site that has one. */
+  sidebar: 240,
+  /** The sidebar collapsed to its icons. */
+  "sidebar-icons": 56,
   /** The running session's row of the GPU's panel (with the loss chart over it) and the log: the same before the log is
    * read and after, so the steps under it never move. */
   "session-row": 580,
@@ -413,19 +319,14 @@ export const spacing = {
 } as const;
 
 /**
- * Controls are 14 px (16 for the large button), chips 12, inner panels 20, panels 28, feature panels 32 and the big ones 40; the phone's tab bar
- * is 22; buttons' pills, chips and the avatar are round. A bottom sheet's top is a panel's corner.
+ * Tags are 6 px, buttons and inputs 8, cards 12, big panels 16 (dialogs, sheets and the website's framed pictures);
+ * status chips, segmented tabs and the avatar are round.
  */
 export const radii = {
-  control: 14,
-  "control-lg": 16,
-  icon: 12,
-  inner: 20,
-  panel: 28,
-  feature: 32,
-  hero: 40,
-  sheet: 28,
-  bar: 22,
+  tag: 6,
+  control: 8,
+  card: 12,
+  panel: 16,
   full: 9999,
 } as const;
 
@@ -438,7 +339,7 @@ export const layout = {
   /** The laptop's left column on Account: the profile tile and the section navigation. */
   railSm: 320,
   prose: "68ch",
-  content: 1120,
+  content: 1200,
   /** The website's frame, as drawn: 1280 px with 32 px at the sides. */
   site: 1280,
   /** The laptop's left panel: the question, the choices and the one button. */
@@ -462,21 +363,23 @@ export const layout = {
 } as const;
 
 /**
- * One easing curve and three durations (web/DESIGN.md "Motion"): a press or hover, something small appearing (a menu, a
- * toast, an expanding row) and something large (a sheet, a dialog). Nothing moves under reduced motion.
+ * One easing curve and one duration (web/DESIGN.md "Motion"): 150 ms ease-out on a hover, a menu, a sheet and a toast.
+ * Nothing moves under reduced motion.
  */
 export const motion = {
-  durations: { press: 120, appear: 150, large: 200 },
-  /** The running pulse, and the finding ring's breath: the only continuous motions beside the shimmer and the marquee. */
+  durations: { press: 150, appear: 150, large: 150 },
+  /** The running pulse: the only continuous motion beside the shimmer. */
   pulse: 2_000,
-  /** The website's marquee crosses its text in this long; it stops under reduced motion. */
-  marquee: 60_000,
-  easing: { enter: "cubic-bezier(0.2, 0, 0, 1)", leave: "cubic-bezier(0.4, 0, 1, 1)" },
+  easing: { enter: "cubic-bezier(0, 0, 0.2, 1)", leave: "cubic-bezier(0, 0, 0.2, 1)" },
 } as const;
 
-/** Depth comes from colour. The one shadow is the website's hero card's soft violet glow. */
+/**
+ * Depth is the surface ladder and hairlines, so there are no shadows but a soft one on what floats over a scrim (a menu, a
+ * popover, a dialog), and a faint top-edge highlight on a lifted panel.
+ */
 export const shadows = {
-  glow: "0 24px 80px rgb(91 75 232 / 0.18)",
+  menu: "0 8px 24px rgb(0 0 0 / 0.4)",
+  lift: "inset 0 1px 0 rgb(255 255 255 / 0.04)",
 } as const;
 
 /**

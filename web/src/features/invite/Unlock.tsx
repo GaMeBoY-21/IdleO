@@ -20,12 +20,12 @@ export function Unlock() {
             <h2 id="unlock-title" className="text-section">
               Enter an invite code for {nav.side}
             </h2>
-            <p className="max-w-prose text-body text-text-2">{nav.locked.body}</p>
+            <p className="max-w-prose text-body text-ink-subtle">{nav.locked.body}</p>
           </div>
         </div>
         {/* The account it answers with has this side, so the screen behind this page draws at once. */}
         <CodeForm label={`Unlock ${nav.side}`} onDone={() => undefined} />
-        <p className="text-small text-text-2">
+        <p className="text-small text-ink-subtle">
           Don&apos;t have a code? Ask the person who invited you. Meanwhile,{" "}
           <a href={nav.otherSite.href} className="font-semibold underline">
             {nav.otherSite.label.toLowerCase()}

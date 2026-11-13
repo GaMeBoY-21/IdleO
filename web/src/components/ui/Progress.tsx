@@ -4,12 +4,11 @@ import { cn } from "@/lib/cn";
 export function ProgressBar({
   percent,
   label,
-  onDark = false,
+  className,
 }: {
   percent: number;
   label: string;
-  /** On a night tile: its own line for a track and a volt bar. */
-  onDark?: boolean;
+  className?: string;
 }) {
   return (
     <div
@@ -18,12 +17,9 @@ export function ProgressBar({
       aria-valuemin={0}
       aria-valuemax={100}
       aria-valuenow={percent}
-      className={cn("h-2.5 w-full overflow-hidden rounded-full", onDark ? "bg-night-line" : "bg-line")}
+      className={cn("h-1.5 w-full overflow-hidden rounded-full bg-surface-3", className)}
     >
-      <div
-        className={cn("h-full rounded-full", onDark ? "bg-volt" : "bg-progress")}
-        style={{ width: `${percent}%` }}
-      />
+      <div className="h-full rounded-full bg-live" style={{ width: `${percent}%` }} />
     </div>
   );
 }

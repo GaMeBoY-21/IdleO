@@ -17,19 +17,19 @@ beforeEach(() => {
 afterEach(() => vi.useRealTimers());
 
 describe("the Hosting tab's machines", () => {
-  it("shows a running machine as a dark tile that opens it, with what it has earned so far", () => {
+  it("shows a running machine as a raised row that opens it, with what it has earned so far", () => {
     render(<MachineRow host={data.hostRunning} />);
     const row = screen.getByRole("link");
     expect(row).toHaveAttribute("href", `/laptop/?id=${data.ROG.id}`);
     expect(row).toHaveTextContent(`${data.ROG.name}Running a session · earning ₹`);
-    expect(row.className).toContain("bg-night");
+    expect(row.className).toContain("bg-surface-2");
   });
 
   it("shows a paused machine in grey, until when", () => {
     render(<MachineRow host={data.hostPaused} />);
     const row = screen.getByRole("link");
     expect(row).toHaveTextContent("Home desktopPaused until 6 pm");
-    expect(row.className).toContain("bg-panel");
+    expect(row.className).toContain("bg-surface-1");
   });
 
   it("says in words when a machine is offline, or needs an update", () => {

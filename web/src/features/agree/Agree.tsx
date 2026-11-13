@@ -78,7 +78,7 @@ function AgreeStep() {
 
   return (
     <SignInFrame title="Before you start">
-      <p className="mb-8 text-body text-text-2">
+      <p className="mb-8 text-body text-ink-subtle">
         {changed
           ? "Our Terms or Privacy notice changed since you last agreed. Read them, then agree to carry on."
           : "Read our Terms and Privacy notice. You need to agree to them to use IdleO."}
@@ -124,7 +124,7 @@ function AgreeStep() {
           </Button>
         </form>
       )}
-      <p className="mt-6 text-caption text-text-2">
+      <p className="mt-6 text-caption text-ink-subtle">
         {email ? `Signed in as ${email}. ` : ""}
         <button type="button" className="underline" onClick={() => void signOut()}>
           Sign out
@@ -149,7 +149,7 @@ function Tick({
       <input
         id={id}
         type="checkbox"
-        className="size-5 shrink-0 cursor-pointer accent-primary"
+        className="size-5 shrink-0 cursor-pointer accent-volt"
         checked={checked}
         onChange={(event) => onChange(event.target.checked)}
       />

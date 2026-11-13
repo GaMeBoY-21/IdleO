@@ -9,7 +9,7 @@ import { Empty } from "./ui";
  */
 type HeatCell = components["schemas"]["ControlRoomCell"];
 
-const SHADES = ["", "bg-progress/10", "bg-progress/15", "bg-progress/20", "bg-progress/30"];
+const SHADES = ["", "bg-live/10", "bg-live/15", "bg-live/20", "bg-live/30"];
 
 /** A GPU model by hour of day in India, each cell shaded by its share of the busiest, with its value for a screen reader. */
 export function Heatmap({
@@ -37,7 +37,7 @@ export function Heatmap({
               GPU model
             </th>
             {Array.from({ length: 24 }, (_, hour) => (
-              <th key={hour} scope="col" className="w-6 text-center font-normal text-text-2">
+              <th key={hour} scope="col" className="w-6 text-center font-normal text-ink-subtle">
                 {hour % 6 === 0 ? hour : <span className="sr-only">{hour}</span>}
               </th>
             ))}
@@ -53,7 +53,7 @@ export function Heatmap({
                 const value = cells.find((cell) => cell.model === model && cell.hour === hour)?.value ?? 0;
                 const shade = most === 0 || value === 0 ? 0 : Math.max(1, Math.ceil((4 * value) / most));
                 return (
-                  <td key={hour} className={cn("h-6 border border-line p-0", SHADES[shade])}>
+                  <td key={hour} className={cn("h-6 border border-hairline p-0", SHADES[shade])}>
                     {value > 0 && href?.(model, hour) ? (
                       <Link
                         href={href(model, hour) ?? ""}

@@ -56,10 +56,10 @@ export function RefundTile({
   }
   return (
     <Tile as="section" aria-labelledby="refund-title" className="flex flex-col gap-2">
-      <h2 id="refund-title" className="font-title text-display-card">
+      <h2 id="refund-title" className="text-section">
         Refund unused credit
       </h2>
-      <p className="text-small text-text-2">
+      <p className="text-small text-ink-subtle">
         {refundablePaise > 0
           ? `${formatPaise(refundablePaise)} of the credit you bought can go back to where you paid from. Free credit can't.`
           : "Credit you bought can go back to where you paid from, once it isn't on hold. Free credit can't."}

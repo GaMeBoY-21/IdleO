@@ -6,7 +6,7 @@ import { cn } from "@/lib/cn";
 
 /**
  * Book's frame (web/DESIGN.md "Book"). On a laptop, the questions in a column of tiles on the left and, on the right,
- * what happens next in a white tile, or "Your request" (`service`), the dark tile, which sticks to the top as the
+ * what happens next in a card, or "Your request" (`service`), the raised card, which sticks to the top as the
  * questions scroll. On a phone, a flow without the bars: the services under a back button, or a service's questions
  * as tiles with "Your request" held at the foot (part of `left`), its own "← All services" at the top.
  */

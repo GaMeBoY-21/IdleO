@@ -35,11 +35,11 @@ function Questions() {
       <SectionHeader id="questions-title">Questions hosts ask</SectionHeader>
       <div className="grid grid-cols-1 gap-x-6 xl:grid-cols-2">
         {HOST_QUESTIONS.map((item) => (
-          <details key={item.question} className="border-b border-line py-4">
+          <details key={item.question} className="border-b border-hairline py-4">
             <summary className="min-h-touch cursor-pointer content-center text-body font-semibold">
               {item.question}
             </summary>
-            <p className="mt-1 text-small text-text-2">{item.answer}</p>
+            <p className="mt-1 text-small text-ink-subtle">{item.answer}</p>
           </details>
         ))}
       </div>
@@ -62,7 +62,7 @@ export function HostHelp() {
     <>
       <Tile as="section" aria-labelledby="app-title" className="flex flex-col gap-2 md:p-6">
         <SectionHeader id="app-title">The Windows app</SectionHeader>
-        <p className="text-small text-text-2">
+        <p className="text-small text-ink-subtle">
           It runs renters&apos; jobs in a sealed sandbox, pauses the moment you use the laptop, and updates by
           itself.
         </p>
@@ -70,12 +70,12 @@ export function HostHelp() {
       </Tile>
       <Tile as="section" aria-labelledby="trouble-title" className="flex flex-col gap-1 md:p-6">
         <SectionHeader id="trouble-title">When something&apos;s wrong</SectionHeader>
-        <ul className="flex flex-col divide-y divide-line">
+        <ul className="flex flex-col divide-y divide-hairline">
           {TROUBLES.map((trouble) => (
             <li key={trouble.href}>
               <AppLink href={trouble.href} className={ROW}>
                 <span className="flex-1">{trouble.label}</span>
-                <ChevronRight aria-hidden="true" className="size-5 text-text-2" strokeWidth={1.75} />
+                <ChevronRight aria-hidden="true" className="size-5 text-ink-subtle" strokeWidth={1.75} />
               </AppLink>
             </li>
           ))}
@@ -94,16 +94,16 @@ export function HostHelp() {
         </SectionHeader>
         {inbox.data ? (
           latest.length === 0 ? (
-            <p className="min-h-touch content-center text-small text-text-2">
+            <p className="min-h-touch content-center text-small text-ink-subtle">
               Nothing new. When a laptop goes offline or a payout is made, it&apos;s here and in your email.
             </p>
           ) : (
-            <ul className="flex flex-col divide-y divide-line">
+            <ul className="flex flex-col divide-y divide-hairline">
               {latest.map((item) => (
                 <li key={item.id}>
                   <AppLink href={item.link} site={item.site} className={ROW}>
                     <span className="min-w-0 flex-1 truncate">{item.title}</span>
-                    <RelativeTime value={item.createdAt} className="shrink-0 text-small text-text-2" />
+                    <RelativeTime value={item.createdAt} className="shrink-0 text-small text-ink-subtle" />
                   </AppLink>
                 </li>
               ))}

@@ -52,7 +52,7 @@ export function MyFilesChoice({
             key={key}
             className="flex flex-col gap-1 rounded-control border-2 border-transparent px-4 py-4"
           >
-            <SkeletonLine size="option" width="w-1/2" />
+            <SkeletonLine size="card" width="w-1/2" />
             <SkeletonLine size="small" width="w-2/3" />
           </div>
         ))}
@@ -62,7 +62,7 @@ export function MyFilesChoice({
   return (
     <div className="flex flex-col gap-2">
       {uploads.length === 0 ? (
-        <p className="text-small text-text-2">
+        <p className="text-small text-ink-subtle">
           Nothing in My files fits here yet. Upload it once, and it&apos;s kept for your next sessions.
         </p>
       ) : (

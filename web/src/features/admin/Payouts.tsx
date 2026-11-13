@@ -164,7 +164,7 @@ function RunsAndPayouts() {
                         state={found.balance.isShort ? "short" : "enough"}
                       />
                       {found.balance.failure && (
-                        <span className="block text-caption text-text-2">{found.balance.failure}</span>
+                        <span className="block text-caption text-ink-subtle">{found.balance.failure}</span>
                       )}
                     </span>
                   ) : (
@@ -283,7 +283,7 @@ function PayoutRow({ payout, onRetry }: { payout: AdminPayout; onRetry: () => vo
       </Cell>
       <Cell>
         <Money paise={payout.tdsPaise} />
-        <span className="block text-caption text-text-2">{payout.tdsSection}</span>
+        <span className="block text-caption text-ink-subtle">{payout.tdsSection}</span>
       </Cell>
       <Cell>
         <Money paise={payout.netPaise} />
@@ -291,7 +291,7 @@ function PayoutRow({ payout, onRetry }: { payout: AdminPayout; onRetry: () => vo
       <Cell>
         <StatusChip size="sm" domain="payout" state={payout.status} />
         {(payout.statusDescription ?? payout.lastError) && (
-          <span className="block text-caption text-text-2">
+          <span className="block text-caption text-ink-subtle">
             {payout.statusReason ? `${word(payout.statusReason ?? "")}: ` : ""}
             {payout.statusDescription ?? payout.lastError}
           </span>
@@ -391,7 +391,7 @@ function Reconciliation() {
                     <Cell>
                       {item.detail}
                       {item.closeReason && (
-                        <span className="block text-caption text-text-2">
+                        <span className="block text-caption text-ink-subtle">
                           {item.closedBy}: {item.closeReason}
                         </span>
                       )}
@@ -583,11 +583,11 @@ function Batch({ id }: { id: string }) {
                     <Cell>{item.upiMasked ?? "—"}</Cell>
                     <Cell>
                       {item.leftOutWords ? (
-                        <span className="text-text-2">left out: {item.leftOutWords}</span>
+                        <span className="text-ink-subtle">left out: {item.leftOutWords}</span>
                       ) : item.payoutStatus ? (
                         <StatusChip size="sm" domain="payout" state={item.payoutStatus} />
                       ) : (
-                        <span className="text-text-2">when released</span>
+                        <span className="text-ink-subtle">when released</span>
                       )}
                     </Cell>
                   </Row>

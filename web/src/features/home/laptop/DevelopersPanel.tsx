@@ -15,17 +15,17 @@ session.wait()`;
 export function DevelopersPanel() {
   return (
     <Tile size="lg" aria-labelledby="developers-title" className="flex flex-col gap-2">
-      <h2 id="developers-title" className="text-caption font-bold tracking-wider text-text-2 uppercase">
+      <h2 id="developers-title" className="text-caption font-semibold text-ink-subtle">
         From your terminal
       </h2>
-      <p className="text-small text-text-2">
+      <p className="text-small text-ink-subtle">
         Build the command line in <code className="font-mono">cli/</code> with{" "}
         <code className="font-mono">cargo build --release</code>, then{" "}
         <code className="font-mono">idleo login</code>. The Python SDK:{" "}
         <code className="font-mono">pip install ./sdk/python</code>.
       </p>
       {/* Wrapped, never scrolled sideways: nothing in it is out of reach of a keyboard. */}
-      <pre className="rounded-control bg-panel-2 p-4 font-mono text-caption break-words whitespace-pre-wrap">
+      <pre className="rounded-control bg-surface-2 p-4 font-mono text-caption break-words whitespace-pre-wrap">
         <code>{SDK_SNIPPET}</code>
       </pre>
       <div className="flex flex-wrap items-center gap-2">

@@ -30,8 +30,8 @@ const HEADLINES: Record<string, string> = {
 };
 
 /**
- * A session that has ended. Completed: "Done", the final charge in the dark tile and how long it ran, its outputs in the
- * lime tile with "Download outputs" as the one primary action, the rating, "Report a problem" and "Run again". Failed,
+ * A session that has ended. Completed: "Done", the final charge in the raised card and how long it ran, its outputs in the
+ * card with "Download outputs" as the one primary action, the rating, "Report a problem" and "Run again". Failed,
  * cancelled or never matched: why in plain words, the charge (often nothing), and "Try again", which opens Book filled
  * from it. The charge is "so far" until the API says it's settled. On a laptop the outputs, the rating and the report are
  * beside it.
@@ -91,7 +91,7 @@ export function Ended({
   );
 
   const charge = (
-    <Tile tone="night" className="flex flex-col gap-4">
+    <Tile tone="raised" className="flex flex-col gap-4">
       <div className="flex flex-col gap-2">
         {!done && (
           <span className="self-start">
@@ -99,7 +99,7 @@ export function Ended({
           </span>
         )}
         <PageTitle variant="panel">{done ? "Done" : (HEADLINES[session.state] ?? "Ended")}</PageTitle>
-        <p className="text-small text-on-night-2">
+        <p className="text-small text-ink-subtle">
           {templateName}
           {ran && ` · ${ran}`}
           {session.endedAt && (
@@ -112,8 +112,8 @@ export function Ended({
       </div>
       {why && !done && (
         <div className="flex max-w-prose flex-col gap-1">
-          <p className="text-option font-semibold">{why.sentence}</p>
-          <p className="text-body text-on-night-2">{why.next}</p>
+          <p className="text-card font-semibold">{why.sentence}</p>
+          <p className="text-body text-ink-subtle">{why.next}</p>
         </div>
       )}
       <Charge session={session} laptop={laptop} />
@@ -172,9 +172,9 @@ function Charge({ session, laptop }: { session: Session; laptop: boolean }) {
       <p className="flex flex-col gap-1">
         <Money
           paise={session.chargedPaise + session.accruedPaise}
-          className={cn("font-title", laptop ? "text-timer-lg" : "text-timer")}
+          className={cn("", laptop ? "text-timer-lg" : "text-timer")}
         />
-        <span className="text-small text-on-night-2">so far · working out the final charge</span>
+        <span className="text-small text-ink-subtle">so far · working out the final charge</span>
       </p>
     );
   }
@@ -183,11 +183,8 @@ function Charge({ session, laptop }: { session: Session; laptop: boolean }) {
   }
   return (
     <p className="flex flex-col gap-1">
-      <Money
-        paise={session.chargedPaise}
-        className={cn("font-title", laptop ? "text-timer-lg" : "text-timer")}
-      />
-      <span className="text-small text-on-night-2">Charged</span>
+      <Money paise={session.chargedPaise} className={cn("", laptop ? "text-timer-lg" : "text-timer")} />
+      <span className="text-small text-ink-subtle">Charged</span>
     </p>
   );
 }

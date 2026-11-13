@@ -24,7 +24,7 @@ export function Documents({ invoices }: { invoices: UseQueryResult<{ invoices: I
       <SectionHeader id="documents-title">Invoices and receipts</SectionHeader>
       {/* One height whatever it holds, three documents' worth, the rest scrolled to: nothing beside or below it moves
           when they arrive (CLS 0). */}
-      <div className="h-documents overflow-y-auto rounded-panel">
+      <div className="h-documents overflow-y-auto rounded-card">
         {invoices.data ? (
           invoices.data.invoices.length === 0 ? (
             <EmptyState title="Nothing yet">
@@ -32,7 +32,7 @@ export function Documents({ invoices }: { invoices: UseQueryResult<{ invoices: I
             </EmptyState>
           ) : (
             <Tile as="div" className="px-4 py-0">
-              <ul className="flex flex-col divide-y divide-line">
+              <ul className="flex flex-col divide-y divide-hairline">
                 {invoices.data.invoices.map((invoice) => (
                   <DocumentRow key={invoice.id} invoice={invoice} />
                 ))}
@@ -49,17 +49,17 @@ export function Documents({ invoices }: { invoices: UseQueryResult<{ invoices: I
         ) : (
           <Tile
             as="div"
-            className="flex flex-col divide-y divide-line px-4 py-0"
+            className="flex flex-col divide-y divide-hairline px-4 py-0"
             role="status"
             aria-label="Loading your invoices"
           >
             {[0, 1].map((key) => (
               <div key={key} className={ROW}>
                 <div className="flex flex-1 flex-col gap-1">
-                  <SkeletonLine size="option" width="w-1/2" />
+                  <SkeletonLine size="card" width="w-1/2" />
                   <SkeletonLine size="small" width="w-1/3" />
                 </div>
-                <SkeletonLine size="option" width="w-1/5" />
+                <SkeletonLine size="card" width="w-1/5" />
                 <span aria-hidden="true" className="size-touch shrink-0" />
               </div>
             ))}
@@ -86,8 +86,8 @@ function DocumentRow({ invoice }: { invoice: Invoice }) {
   return (
     <li className={ROW}>
       <div className="flex min-w-0 flex-1 flex-col gap-1">
-        <p className="text-option font-semibold">{invoice.title}</p>
-        <p className="text-small text-text-2">
+        <p className="text-card font-semibold">{invoice.title}</p>
+        <p className="text-small text-ink-subtle">
           <span className="tabular">{invoice.number}</span> · {formatDay(invoice.issuedAt)}
           {state === "failed" && (
             <span role="alert" className="block text-danger">
@@ -96,7 +96,7 @@ function DocumentRow({ invoice }: { invoice: Invoice }) {
           )}
         </p>
       </div>
-      <Money paise={invoice.totalPaise} className="text-option font-semibold tabular" />
+      <Money paise={invoice.totalPaise} className="text-card font-semibold tabular" />
       <Button
         variant="ghost"
         className="shrink-0"

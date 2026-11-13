@@ -114,7 +114,7 @@ export function Approvals() {
                 <Row key={request.id}>
                   <Cell>
                     <RelativeTime value={request.createdAt} />
-                    <span className="tabular block text-caption text-text-2 break-all">
+                    <span className="tabular block text-caption text-ink-subtle break-all">
                       {request.requestedBy}
                     </span>
                   </Cell>
@@ -128,15 +128,15 @@ export function Approvals() {
                   <Cell>
                     <StatusChip size="sm" domain="approval" state={request.state} />
                     {request.state === "pending" && request.solo && request.runAfter && (
-                      <span className="block text-caption text-text-2">
+                      <span className="block text-caption text-ink-subtle">
                         Runs by itself at {formatDateTime(request.runAfter)}
                       </span>
                     )}
                     {request.failure && (
-                      <span className="block text-caption text-text-2">{request.failure}</span>
+                      <span className="block text-caption text-ink-subtle">{request.failure}</span>
                     )}
                     {request.decisionReason && (
-                      <span className="block text-caption text-text-2">{request.decisionReason}</span>
+                      <span className="block text-caption text-ink-subtle">{request.decisionReason}</span>
                     )}
                   </Cell>
                   <Cell>

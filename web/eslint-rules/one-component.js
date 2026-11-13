@@ -20,9 +20,9 @@ const OWNERS = {
   chip: /components\/ui\/StatusChip\.tsx$/,
 };
 const ELEMENTS = { h1: "h1", table: "table", dl: "dl", dialog: "dialog" };
-// A pill painted in a state's colour is a state chip.
+// A padded pill painted in a status colour is a state chip (a bare dot, `size-1.5 rounded-full bg-success`, is only a mark).
 const CHIP =
-  /rounded-full[^"'`]*\bbg-(ok|warn|danger-soft)\b|\bbg-(ok|warn|danger-soft)\b[^"'`]*rounded-full/;
+  /\b(?:px|py)-\d[^"'`]*\brounded-full[^"'`]*\bbg-(?:success|warning|danger|info)\b|\brounded-full[^"'`]*\b(?:px|py)-\d[^"'`]*\bbg-(?:success|warning|danger|info)\b|\bbg-(?:success|warning|danger|info)\b[^"'`]*\b(?:px|py)-\d[^"'`]*\brounded-full/;
 
 export default {
   meta: {

@@ -3,44 +3,30 @@ import { AppLink } from "./AppLink";
 import { cn } from "@/lib/cn";
 
 /**
- * Tiles (web/DESIGN.md "Shapes and space", ADR 0043): the one surface of Night Shift. A `panel` sits on the page; a
- * `night` tile stays dark in Day Shift too, and is what matters now; `volt`, `ion` and `ember` are the main action,
- * history, and hosting and earning; `ion-deep` is the credit tile. Every tile has 28 px corners and 18 px of padding,
- * and depth comes from colour: a panel has a 1 px edge by day and none at night. Anything inside a tile that is filled (a
- * field, a ghost button) is pressed in with a darker or lighter step of the tile's own colour: a tile marks its inside
- * with `data-tile`, which the `tiled` variant (styles.css) reads, so those components never need to know where they
- * are. A `night` tile also carries the dark theme's colours for everything inside it (tokens.gen.css).
+ * Cards (web/DESIGN.md "Shapes and space", ADR 0060): a surface of the ladder with a hairline border and 12 px corners,
+ * no shadow. A `panel` sits on the canvas as surface-1; `raised` is one step up (surface-2) for what matters now, or for a
+ * card on a card. Colour is never a card's fill: the accent is only a button, a ring, the brand mark and live marks.
+ * `feature` is a big panel with 16 px corners and the faint top-edge highlight of a lifted panel.
  */
-export type TileTone = "panel" | "night" | "volt" | "ion" | "ember" | "ion-deep";
+export type TileTone = "panel" | "raised";
 
 const surfaces: Record<TileTone, string> = {
-  panel: "border border-edge bg-panel text-text",
-  night: "bg-night text-on-night",
-  volt: "bg-volt text-ink",
-  ion: "bg-ion text-ink",
-  ember: "bg-ember text-ink",
-  "ion-deep": "bg-ion-deep text-on-ion-deep",
+  panel: "border border-hairline bg-surface-1 text-ink",
+  raised: "border border-hairline bg-surface-2 text-ink",
 };
 
-/** The colour of a tile's small lines (its label, the line under its title). */
-export const tileMuted: Record<TileTone, string> = {
-  panel: "text-text-2",
-  night: "text-on-night-2",
-  volt: "text-ink",
-  ion: "text-ink",
-  ember: "text-ink",
-  "ion-deep": "text-on-ion-deep",
-};
+/** The colour of a card's small lines (its label, the line under its title). */
+export const tileMuted = "text-ink-subtle";
 
 /**
- * `lg`: the laptop's padding, 24 px and 28 px from 1200 px (web/DESIGN.md "Laptop layout"). `feature`: a big feature
- * panel with 32 px corners, as the live session's band.
+ * `lg`: the laptop's padding, 24 px and 32 px from 1200 px (web/DESIGN.md "Laptop layout"). `feature`: a big panel with
+ * 16 px corners, as the live session's band.
  */
 export type TileSize = "md" | "lg" | "feature";
 
 export function tileClasses(tone: TileTone = "panel", size: TileSize = "md") {
   return cn(
-    size === "feature" ? "rounded-feature p-6 xl:px-8 xl:py-8" : "rounded-panel",
+    size === "feature" ? "rounded-panel p-6 shadow-lift xl:px-8 xl:py-8" : "rounded-card",
     size === "lg" ? "p-6 xl:p-8" : size === "md" ? "p-4" : "",
     surfaces[tone],
   );
@@ -57,10 +43,10 @@ export function Tile({
   size?: TileSize;
   as?: "section" | "div" | "li" | "article";
 }) {
-  return <Tag data-tile={tone} className={cn(tileClasses(tone, size), className)} {...props} />;
+  return <Tag className={cn(tileClasses(tone, size), className)} {...props} />;
 }
 
-/** A tile that opens something: it lifts a little on hover and presses in on tap (`tile-motion`). */
+/** A card that opens something: it goes up one step of the ladder on hover (`tile-motion`). */
 export function TileLink({
   href,
   tone = "panel",
@@ -77,7 +63,6 @@ export function TileLink({
   return (
     <AppLink
       href={href}
-      data-tile={tone}
       className={cn(tileClasses(tone, size), "tile-motion flex flex-col justify-between", className)}
       {...props}
     >
@@ -86,11 +71,7 @@ export function TileLink({
   );
 }
 
-/** A tile's small label ("Credit", "Running now"). */
-export function TileLabel({
-  tone = "panel",
-  className,
-  ...props
-}: HTMLAttributes<HTMLSpanElement> & { tone?: TileTone }) {
-  return <span className={cn("text-caption", tileMuted[tone], className)} {...props} />;
+/** A card's small label ("Credit", "Running now"). */
+export function TileLabel({ className, ...props }: HTMLAttributes<HTMLSpanElement>) {
+  return <span className={cn("text-caption", tileMuted, className)} {...props} />;
 }

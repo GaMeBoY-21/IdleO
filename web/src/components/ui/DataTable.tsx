@@ -2,8 +2,8 @@ import type { ReactNode } from "react";
 import { cn } from "@/lib/cn";
 
 /**
- * A table (web/DESIGN.md "Tables"), one way on every site: a caption for screen readers, tracked uppercase headings, a
- * row at least a touch target tall with a line between rows, and numbers aligned right in tabular figures, so their
+ * A table (web/DESIGN.md "Tables"), one way on every site: a caption for screen readers, quiet 12 px headings, a
+ * 44 px row with a hairline between rows and a quiet hover, and numbers aligned right in tabular figures, so their
  * digits line up. The console's dense table (features/admin/Table.tsx: columns to show, pin and resize, sorting, saved
  * views, bulk selection and long lists drawn as they scroll) is this one with those features on top: its headings and
  * cells take the classes below.
@@ -16,8 +16,7 @@ export interface Column {
   hidden?: boolean;
 }
 
-export const HEADING =
-  "py-2 pr-4 text-left text-caption font-semibold tracking-wider text-text-3 uppercase last:pr-0";
+export const HEADING = "py-2 pr-4 text-left text-caption font-medium text-ink-subtle last:pr-0";
 export const NUMERIC = "text-right tabular";
 
 export function DataTable({
@@ -36,7 +35,7 @@ export function DataTable({
       <table className="w-full border-collapse text-small">
         <caption className="sr-only">{caption}</caption>
         <thead>
-          <tr className="border-b border-line">
+          <tr className="border-b border-hairline">
             {columns.map((column, index) => (
               <th
                 key={index}
@@ -48,14 +47,14 @@ export function DataTable({
             ))}
           </tr>
         </thead>
-        <tbody className="divide-y divide-line">{children}</tbody>
+        <tbody className="divide-y divide-hairline">{children}</tbody>
       </table>
     </div>
   );
 }
 
 export function DataRow({ children, className }: { children: ReactNode; className?: string }) {
-  return <tr className={cn("h-touch", className)}>{children}</tr>;
+  return <tr className={cn("h-11 hover:bg-surface-2", className)}>{children}</tr>;
 }
 
 export function DataCell({

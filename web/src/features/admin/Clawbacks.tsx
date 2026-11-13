@@ -101,7 +101,7 @@ export function Clawbacks() {
                   <Cell>
                     <StatusChip size="sm" domain="clawback" state={clawback.state} />
                     {clawback.waiveReason && (
-                      <span className="block text-caption text-text-2">
+                      <span className="block text-caption text-ink-subtle">
                         {clawback.waivedBy}: {clawback.waiveReason}
                       </span>
                     )}

@@ -19,19 +19,21 @@ export interface Crumb {
 export function Breadcrumbs({ trail, current }: { trail: Crumb[]; current: string }) {
   return (
     <nav aria-label="Breadcrumb">
-      <ol className="flex flex-wrap items-center gap-x-2 text-small text-text-2">
+      <ol className="flex flex-wrap items-center gap-x-2 text-small text-ink-subtle">
         {trail.map((crumb) => (
           <li key={crumb.href} className="flex items-center gap-2">
             <Link
               href={crumb.href}
-              className="inline-flex min-h-touch items-center font-medium underline-offset-4 hover:text-text hover:underline"
+              className="inline-flex min-h-control items-center underline-offset-4 hover:text-ink hover:underline pointer-coarse:min-h-touch"
             >
               {crumb.label}
             </Link>
-            <span aria-hidden="true">/</span>
+            <span aria-hidden="true" className="text-ink-tertiary">
+              /
+            </span>
           </li>
         ))}
-        <li aria-current="page" className="max-w-full truncate text-text" title={current}>
+        <li aria-current="page" className="max-w-full truncate text-ink" title={current}>
           {current}
         </li>
       </ol>
@@ -39,14 +41,14 @@ export function Breadcrumbs({ trail, current }: { trail: Crumb[]; current: strin
   );
 }
 
-/** The page title's faces: a page's own, the console's denser one, and a title held by a panel (a night panel's headline). */
+/** The page title's sizes: a page's own, the console's denser one, and a title held by a panel. */
 const TITLE = {
-  page: "font-title text-display-feature md:font-display md:text-display-page md:uppercase",
-  dense: "font-display text-headline uppercase",
-  display: "font-display text-display-page uppercase",
-  panel: "font-title text-display-feature",
-  "panel-lg": "font-title text-display-panel",
-  card: "font-title text-display-card",
+  page: "text-title",
+  dense: "text-figure",
+  display: "text-hero",
+  panel: "text-section",
+  "panel-lg": "text-hero",
+  card: "text-section",
   section: "text-section",
 } as const;
 
@@ -124,11 +126,11 @@ export function PageHeader({
       {trail && trail.length > 0 && <Breadcrumbs trail={trail} current={crumb ?? named ?? ""} />}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className={cn("flex min-w-0 flex-col gap-2", hideTitle && "sr-only")}>
-          {kicker && <p className="text-small text-text-2">{kicker}</p>}
+          {kicker && <p className="text-small text-ink-subtle">{kicker}</p>}
           <PageTitle id={id} tabTitle={named} variant={dense ? "dense" : "page"}>
             {title}
           </PageTitle>
-          {description && <p className="max-w-prose text-small text-text-2">{description}</p>}
+          {description && <p className="max-w-prose text-small text-ink-subtle">{description}</p>}
         </div>
         {action && <div className="flex shrink-0 flex-wrap items-center gap-2">{action}</div>}
       </div>
@@ -158,12 +160,12 @@ export function SectionHeader({
 }) {
   const Heading = level === 2 ? "h2" : "h3";
   return (
-    <div className={cn("flex min-h-touch items-center justify-between gap-4", className)}>
+    <div className={cn("flex min-h-control items-center justify-between gap-4", className)}>
       <div className="flex min-w-0 flex-col gap-1">
-        <Heading id={id} className={level === 2 ? "text-section" : "text-option font-semibold"}>
+        <Heading id={id} className={level === 2 ? "text-section" : "text-card"}>
           {children}
         </Heading>
-        {description && <p className="max-w-prose text-small text-text-2">{description}</p>}
+        {description && <p className="max-w-prose text-small text-ink-subtle">{description}</p>}
       </div>
       {action}
     </div>

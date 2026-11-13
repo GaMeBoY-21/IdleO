@@ -76,7 +76,7 @@ export function StopAction({
     return (
       <div className="flex max-w-menu flex-col gap-2">
         {button}
-        <p className="text-caption text-on-night-3">
+        <p className="text-caption text-ink-tertiary">
           It saves a checkpoint first. Nothing more is charged once it stops.
         </p>
       </div>
@@ -116,7 +116,7 @@ export function CancelAction({ session, laptop }: { session: Session; laptop: bo
 /**
  * The foot of a session's screen. On a phone it's the action bar (web/DESIGN.md "The phone action bar"): stuck to
  * the bottom of the screen on the page's colour, in space of its own in the page, so it covers nothing; on a laptop,
- * a white tile in the column.
+ * a card in the column.
  */
 export function ActionFoot({
   laptop,
@@ -131,7 +131,7 @@ export function ActionFoot({
     <>
       {children}
       {note && (
-        <p className={cn("text-center text-text-2", laptop ? "text-small" : "text-caption")}>{note}</p>
+        <p className={cn("text-center text-ink-subtle", laptop ? "text-small" : "text-caption")}>{note}</p>
       )}
     </>
   );
