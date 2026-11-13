@@ -26,7 +26,7 @@ export function Sheet({
   description?: ReactNode;
   /** Above another sheet: the step-up, which an action's sheet may be waiting on. */
   above?: boolean;
-  /** The whole screen on a phone: the search box. */
+  /** The whole screen on a phone, and wider on a laptop: the search box. */
   fullOnPhone?: boolean;
   children: ReactNode;
 }) {
@@ -50,8 +50,9 @@ export function Sheet({
           }}
           {...(description === undefined ? { "aria-describedby": undefined } : {})}
           className={cn(
-            "appear fixed mx-auto flex max-w-narrow flex-col border border-hairline-strong bg-surface-2 shadow-menu",
+            "appear fixed mx-auto flex flex-col border border-hairline-strong bg-surface-2 shadow-menu",
             above ? "z-above" : "z-sheet",
+            fullOnPhone ? "max-w-form" : "max-w-narrow",
             fullOnPhone
               ? "inset-0 gap-2 p-4 md:inset-x-4 md:top-1/6 md:bottom-auto md:max-h-2/3 md:rounded-panel"
               : "inset-x-4 bottom-4 max-h-11/12 gap-4 overflow-y-auto rounded-panel p-6 md:top-1/4 md:bottom-auto md:max-h-2/3",

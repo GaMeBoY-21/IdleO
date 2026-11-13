@@ -140,6 +140,9 @@ function Layout({ children }: { children: React.ReactNode }) {
   const client = useQueryClient();
   const can = useCan();
   const screens = ADMIN_SCREENS.filter((screen) => can(screen.needs));
+  // Where this page is, for the top bar's breadcrumbs: its group, then its own name.
+  const here = ADMIN_SCREENS.find((screen) => screen.href === path);
+  const group = GROUPS.find((candidate) => candidate.hrefs.includes(path));
   // On a phone the sections are behind Menu, so a screen starts with its own content; going anywhere closes it.
   const [menu, setMenu] = useState<string | null>(null);
   const menuOpen = menu === path;
@@ -169,17 +172,14 @@ function Layout({ children }: { children: React.ReactNode }) {
           href={screen.href}
           aria-current={current ? "page" : undefined}
           className={cn(
-            "flex min-h-touch items-center gap-2 rounded-control px-4 text-small whitespace-nowrap md:min-h-9",
-            current
-              ? "bg-surface-3 font-semibold text-ink"
-              : "font-medium text-ink-subtle hover:bg-surface-3 hover:text-ink",
+            "flex min-h-touch items-center gap-2 rounded-control px-2 text-button whitespace-nowrap md:min-h-control",
+            current ? "bg-surface-3 text-ink" : "text-ink-subtle hover:bg-surface-2 hover:text-ink",
           )}
         >
-          {current && <span aria-hidden="true" className="h-4 w-1 rounded-full bg-live" />}
           {screen.label}
           {screen.href === "/admin/inbox/" && counts.data && (
             <span
-              className="tabular ml-auto text-caption font-semibold"
+              className="tabular ml-auto text-caption"
               aria-label={`${counts.data.mine} mine, ${counts.data.unassigned} unassigned, ${counts.data.breaching} breaching`}
             >
               {/* In words: what's an admin's own, and what's past its target, when anything is. */}
@@ -191,7 +191,7 @@ function Layout({ children }: { children: React.ReactNode }) {
           )}
           {screen.href === "/admin/approvals/" && (waiting.data?.pending ?? 0) > 0 && (
             <span
-              className="tabular ml-auto text-caption font-semibold"
+              className="tabular ml-auto text-caption"
               aria-label={`${waiting.data?.pending ?? 0} waiting`}
             >
               {waiting.data?.pending}
@@ -202,25 +202,22 @@ function Layout({ children }: { children: React.ReactNode }) {
     );
   };
   return (
-    <div className="flex min-h-dvh flex-col md:flex-row">
-      <header className="flex flex-wrap items-center gap-2 border-b border-hairline bg-surface-1 px-4 py-2 md:sticky md:top-0 md:h-dvh md:w-sidebar-admin md:shrink-0 md:flex-col md:flex-nowrap md:items-stretch md:overflow-y-auto md:border-r md:border-b-0 md:py-6">
+    <div className="dense flex min-h-dvh flex-col md:flex-row">
+      <header className="flex flex-wrap items-center gap-2 border-b border-hairline bg-surface-1 px-4 py-2 md:sticky md:top-0 md:h-dvh md:w-sidebar md:shrink-0 md:flex-col md:flex-nowrap md:items-stretch md:gap-1 md:overflow-y-auto md:border-r md:border-b-0 md:p-2">
         <div className="flex basis-full items-center gap-2 md:basis-auto md:flex-col md:items-start">
           <Link
             href="/admin/"
-            className="flex min-h-touch items-center gap-2 md:min-h-0 md:px-4"
+            className="flex min-h-touch items-center gap-2 text-live md:h-header md:min-h-0 md:px-2"
             aria-label="IdleO admin, control room"
           >
-            <Wordmark />
+            <Wordmark className="text-section" />
           </Link>
-          <span className="text-caption font-semibold text-ink-tertiary md:px-4">Admin</span>
+          <span className="text-eyebrow text-ink-tertiary md:hidden">Admin</span>
         </div>
-        <div className="flex gap-2 md:flex-col">
+        <div className="flex gap-2 md:hidden">
           <PaletteButton />
-          <div className="hidden md:contents">
-            <HelpButton />
-          </div>
         </div>
-        <nav aria-label="Admin" className={cn("md:mt-4", menuOpen && "basis-full")}>
+        <nav aria-label="Admin" className={cn("md:mt-2", menuOpen && "basis-full")}>
           <Button
             variant="ghost"
             className="md:hidden"
@@ -237,8 +234,8 @@ function Layout({ children }: { children: React.ReactNode }) {
             {GROUPS.filter((group) => screens.some((screen) => group.hrefs.includes(screen.href))).map(
               (group) => (
                 <div key={group.label} role="group" aria-label={group.label} className="flex flex-col gap-1">
-                  <h2 className="px-4 pb-1 text-caption font-semibold text-ink-tertiary">{group.label}</h2>
-                  <ul className="flex flex-col gap-1">
+                  <h2 className="px-2 pt-2 pb-1 text-eyebrow text-ink-tertiary">{group.label}</h2>
+                  <ul className="flex flex-col gap-px">
                     {screens.filter((screen) => group.hrefs.includes(screen.href)).map(item)}
                   </ul>
                 </div>
@@ -246,11 +243,26 @@ function Layout({ children }: { children: React.ReactNode }) {
             )}
           </div>
         </nav>
-        <Button variant="quiet" className="md:mt-auto md:self-start" onClick={() => void leave()}>
-          Leave<span className="sr-only md:not-sr-only"> the console</span>
+        <Button variant="quiet" className="md:hidden" onClick={() => void leave()}>
+          Leave the console
         </Button>
       </header>
-      <main className="min-w-0 flex-1 px-4 py-6 md:px-8 md:py-8">{children}</main>
+      <div className="flex min-w-0 flex-1 flex-col">
+        <div className="sticky top-0 z-raised hidden h-header items-center justify-between gap-4 border-b border-hairline bg-canvas px-8 md:flex">
+          <p className="truncate text-button text-ink-muted">
+            {group ? `${group.label} / ` : ""}
+            <span className="text-ink">{here?.label ?? "Control room"}</span>
+          </p>
+          <div className="flex items-center gap-2">
+            <PaletteButton />
+            <HelpButton />
+            <Button variant="ghost" onClick={() => void leave()}>
+              Leave the console
+            </Button>
+          </div>
+        </div>
+        <main className="min-w-0 flex-1 px-4 py-6 md:px-8 md:py-6">{children}</main>
+      </div>
       <Toasts />
     </div>
   );

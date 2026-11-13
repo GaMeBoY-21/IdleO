@@ -53,7 +53,7 @@ export function AdminPage({
           record ? (
             <>
               <span className="block font-sans text-caption font-semibold text-ink-subtle">{title}</span>{" "}
-              <span className="block normal-case">{name ?? "…"}</span>
+              <span className="block">{name ?? "…"}</span>
             </>
           ) : (
             title

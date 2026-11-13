@@ -408,7 +408,7 @@ export function Table({
                       ...(pin === undefined ? {} : { left: pin }),
                     }}
                     className={cn(
-                      "group sticky top-0 bg-surface-1 px-2 py-2 font-semibold",
+                      "group sticky top-0 bg-surface-1 px-2 py-2 font-medium text-ink-subtle",
                       numeric.has(index) && "text-right",
                       pin === undefined ? "z-raised" : "z-sticky",
                     )}
@@ -504,7 +504,7 @@ export function Row({ children, className }: { children: ReactNode; className?: 
       {...(row.index >= 0 ? { "data-row-index": row.index } : {})}
       aria-current={row.active ? "true" : undefined}
       className={cn(
-        "border-b border-hairline align-top last:border-b-0",
+        "border-b border-hairline align-top last:border-b-0 hover:bg-surface-2",
         row.active && "bg-surface-3 outline-2 -outline-offset-2 outline-live",
         className,
       )}
@@ -590,7 +590,8 @@ function TableControls({
         : [...settings.pinned, id],
     });
   };
-  const small = "min-h-6 min-w-6 rounded-control bg-surface-3 px-1 text-caption font-medium";
+  const small =
+    "min-h-6 min-w-6 rounded-control border border-hairline-strong bg-surface-1 px-1 text-caption font-medium";
   return (
     <div className="flex flex-wrap items-center gap-2 text-small">
       <details ref={details} className="relative" onToggle={(event) => setOpen(event.currentTarget.open)}>
