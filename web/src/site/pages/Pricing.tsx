@@ -4,8 +4,9 @@ import { LivePrices } from "./LivePrices";
 import { EXAMPLE_CLASS_GB } from "../examples";
 import { band, column, heading, largeButton, muted, primaryButton, sectionTitle, tile } from "../ui";
 
-/** The same, in lavender, for the two typical examples. */
-const EXAMPLE_ROW = "flex h-24 flex-col justify-center rounded-card bg-ion px-6 text-ink";
+/** A card for each of the two typical examples. */
+const EXAMPLE_ROW =
+  "flex h-24 flex-col justify-center rounded-card border border-hairline bg-surface-2 px-6 text-ink";
 
 /**
  * The pricing page (ADR 0029). Its figures come from GET /v1/public/availability after the page has painted
@@ -49,8 +50,8 @@ export function Pricing({ context }: { context: SiteContext }) {
               data-gb={example.gpuMemoryGb}
               data-label={example.label}
             >
-              <p className="text-card font-semibold">{example.label}</p>
-              <p className="text-small text-ink">About {example.minutes} minutes, typical</p>
+              <p className="text-card">{example.label}</p>
+              <p className="text-small text-ink-subtle">About {example.minutes} minutes, typical</p>
               <span
                 data-role="skeleton"
                 className="skeleton block h-6 w-2/5 rounded-control"
@@ -94,7 +95,7 @@ export function Pricing({ context }: { context: SiteContext }) {
             ],
           ].map(([title, text]) => (
             <div key={title} className={tile}>
-              <dt className="text-card font-semibold">{title}</dt>
+              <dt className="text-card">{title}</dt>
               <dd className="mt-1 text-body text-ink-subtle">{text}</dd>
             </div>
           ))}

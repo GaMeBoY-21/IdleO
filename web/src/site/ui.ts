@@ -21,6 +21,11 @@ export const link = "text-ink underline underline-offset-4 hover:text-ink-muted"
 /** The cards (web/DESIGN.md "Shapes and space"): a card on the canvas, and a big panel one step up. */
 export const tile = "rounded-card border border-hairline bg-surface-1 p-6 text-ink";
 export const tileRaised = "rounded-panel border border-hairline bg-surface-2 p-6 text-ink shadow-lift md:p-8";
+/** A framed picture of the product (web/DESIGN.md "The public pages"): a 16 px panel, its figures labelled as examples. */
+export const frame = "rounded-panel border border-hairline bg-surface-1 p-4 shadow-lift md:p-6";
+/** The "Example" label on a picture's figures: the rule against invented numbers still holds. */
+export const exampleTag =
+  "inline-flex items-center rounded-tag border border-hairline bg-surface-2 px-2 text-caption text-ink-subtle";
 /** The grid the pages lay their panels on: 16 px apart. */
 export const grid = "grid grid-cols-1 gap-4 md:gap-4";
 
