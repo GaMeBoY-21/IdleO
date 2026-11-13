@@ -42,7 +42,7 @@ export function ManageMachine({ host }: { host: Host }) {
         type="button"
         aria-expanded={open}
         onClick={() => setOpen(!open)}
-        className="tile-motion flex min-h-18 w-full items-center gap-4 rounded-card bg-surface-1 px-4 py-4 text-left"
+        className="tile-motion flex min-h-18 w-full items-center gap-4 rounded-card border border-hairline bg-surface-1 px-4 py-4 text-left"
       >
         <span className="flex min-w-0 flex-1 flex-col gap-1">
           <span className="text-body font-semibold">Rename or remove</span>

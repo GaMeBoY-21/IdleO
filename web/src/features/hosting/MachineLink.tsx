@@ -7,7 +7,7 @@ export function MachineLink({ href, title, detail }: { href: string; title: stri
   return (
     <Link
       href={href}
-      className="tile-motion flex min-h-18 w-full items-center gap-4 rounded-card bg-surface-1 px-4 py-4"
+      className="tile-motion flex min-h-18 w-full items-center gap-4 rounded-card border border-hairline bg-surface-1 px-4 py-4"
     >
       <span className="flex min-w-0 flex-1 flex-col gap-1">
         <span className="text-body font-semibold">{title}</span>

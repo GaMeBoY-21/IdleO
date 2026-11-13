@@ -82,7 +82,7 @@ export function EarningsHero({
         {owner ? <WeeksBars weeks={owner.weeks} /> : <BarsSkeleton count={8} />}
         <AppLink
           href={HOST_PATHS.earnings}
-          className="self-start text-small font-semibold text-volt hover:underline"
+          className="self-start text-small text-ink underline underline-offset-4 hover:text-ink-muted"
         >
           Earnings, all laptops →
         </AppLink>

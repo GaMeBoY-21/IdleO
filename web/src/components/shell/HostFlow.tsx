@@ -37,7 +37,7 @@ export function HostFlow({
   const pill = (
     <Link
       href={back}
-      className="flex min-h-touch items-center gap-1 self-start rounded-full bg-surface-1 px-4 text-small font-semibold hover:bg-surface-3"
+      className="flex min-h-control items-center gap-1 self-start rounded-control border border-hairline bg-surface-1 px-4 text-button hover:bg-surface-2 pointer-coarse:min-h-touch"
     >
       <ChevronLeft aria-hidden="true" className="size-4" strokeWidth={2} />
       {backLabel}
