@@ -46,7 +46,7 @@ export function ServicesTile({
             <span className="flex flex-col gap-1 text-caption font-semibold">
               <span>{serviceTime(catalog, service.id)}</span>
               {/* Its line is kept from the start, so the cost arriving moves nothing. */}
-              <span className="min-h-4.5 font-semibold tracking-normal normal-case">
+              <span className="min-h-4.5 font-semibold">
                 {prices ? serviceTypicalCost(catalog, service.id, prices) : null}
               </span>
             </span>

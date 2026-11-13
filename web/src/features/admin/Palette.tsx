@@ -142,7 +142,7 @@ const PaletteOpener = createContext<() => void>(() => undefined);
 export function PaletteButton() {
   const openPalette = useContext(PaletteOpener);
   return (
-    <Button variant="ghost" onClick={openPalette} className="justify-between">
+    <Button variant="secondary" onClick={openPalette} className="justify-between gap-4">
       Find anything
       <kbd className="hidden text-caption text-ink-tertiary md:inline">Ctrl K</kbd>
     </Button>
@@ -272,7 +272,7 @@ function PaletteBox({
             options[current]?.run();
           }
         }}
-        className="min-h-touch rounded-control bg-surface-3 px-4 text-body text-ink"
+        className="min-h-touch border-b border-hairline bg-transparent px-2 text-card text-ink placeholder:text-ink-tertiary md:min-h-10"
       />
       {found.isError && searching && <Banner tone="danger">{problemMessage(found.error)}</Banner>}
       {unanswered.length > 0 && (
@@ -298,7 +298,7 @@ function PaletteBox({
         ) : (
           groups.map(([name, members]) => (
             <div key={name} role="group" aria-label={name} className="flex flex-col pb-2">
-              <p aria-hidden="true" className="px-4 pb-1 text-caption font-semibold text-ink-tertiary">
+              <p aria-hidden="true" className="px-2 pt-2 pb-1 text-eyebrow text-ink-tertiary">
                 {name}
               </p>
               {members.map((option) => {
@@ -314,14 +314,12 @@ function PaletteBox({
                     onMouseMove={() => setActiveKey(option.key)}
                     onClick={option.run}
                     className={cn(
-                      "flex min-h-touch w-full cursor-pointer flex-col justify-center rounded-control px-4 text-left text-small md:min-h-9",
-                      index === current ? "bg-surface-3 font-semibold" : "font-medium",
+                      "flex min-h-touch w-full cursor-pointer flex-col justify-center rounded-control px-2 text-left text-button md:min-h-9",
+                      index === current ? "bg-surface-3 text-ink" : "text-ink-muted",
                     )}
                   >
                     {option.label}
-                    {option.detail && (
-                      <span className="text-caption font-normal text-ink-subtle">{option.detail}</span>
-                    )}
+                    {option.detail && <span className="text-caption text-ink-subtle">{option.detail}</span>}
                   </button>
                 );
               })}
@@ -329,6 +327,17 @@ function PaletteBox({
           ))
         )}
       </div>
+      <p className="hidden items-center gap-4 border-t border-hairline pt-2 text-caption text-ink-tertiary md:flex">
+        <span>
+          <kbd>↑</kbd> <kbd>↓</kbd> move
+        </span>
+        <span>
+          <kbd>↵</kbd> open
+        </span>
+        <span>
+          <kbd>Esc</kbd> close
+        </span>
+      </p>
     </>
   );
 }
