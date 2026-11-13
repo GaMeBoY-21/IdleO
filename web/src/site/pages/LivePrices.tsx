@@ -20,7 +20,7 @@ export function LivePrices({ title = "What a GPU costs" }: { title?: string }) {
       <ul className="mt-4 grid grid-cols-1 gap-2 md:grid-cols-2 md:gap-4">
         {GPU_CLASSES.map((gpu) => (
           <li key={gpu.gb} className={ROW} data-class-row={gpu.gb} data-state="loading">
-            <p className="flex items-center justify-between text-card font-semibold">
+            <p className="flex items-center justify-between text-card">
               <span>{gpu.gb} GB GPU memory</span>
               <span data-role="online" className="text-small font-medium text-ink-subtle" hidden></span>
             </p>
@@ -35,7 +35,7 @@ export function LivePrices({ title = "What a GPU costs" }: { title?: string }) {
         ))}
       </ul>
       <div
-        className="mt-2 flex min-h-14 items-start justify-between gap-x-2 text-caption text-ink-subtle"
+        className="mt-2 flex min-h-touch items-start justify-between gap-x-2 text-caption text-ink-subtle"
         aria-live="polite"
       >
         <p data-role="status" className="flex-1">
@@ -44,7 +44,7 @@ export function LivePrices({ title = "What a GPU costs" }: { title?: string }) {
         <button
           type="button"
           data-role="retry"
-          className="min-h-touch shrink-0 px-2 text-small font-semibold text-ink underline underline-offset-4"
+          className="min-h-touch shrink-0 px-2 text-small font-medium text-ink underline underline-offset-4"
           hidden
         >
           Try again

@@ -67,10 +67,14 @@ export function Shell({
       >
         Skip to the content
       </a>
-      <header>
-        <div className={`${column} flex flex-wrap items-center justify-between gap-x-6 gap-y-2 py-6`}>
-          <a href={LANDING} className="flex min-h-touch items-center" aria-label={`${brand.name} home`}>
-            <Wordmark />
+      <header className="border-b border-hairline">
+        <div className={`${column} flex flex-wrap items-center justify-between gap-x-6 gap-y-2 py-4`}>
+          <a
+            href={LANDING}
+            className="flex min-h-touch items-center text-live"
+            aria-label={`${brand.name} home`}
+          >
+            <Wordmark className="text-section" />
           </a>
           <nav aria-label="Pages" className="order-last flex w-full gap-1 md:order-none md:w-auto">
             {NAV.map((item) => (
@@ -78,7 +82,7 @@ export function Shell({
                 key={item.href}
                 href={item.href}
                 aria-current={current(item.href)}
-                className="flex min-h-touch items-center rounded-control px-4 text-small font-medium text-ink hover:underline hover:underline-offset-4 aria-[current=page]:font-semibold aria-[current=page]:underline aria-[current=page]:underline-offset-8 md:px-4"
+                className="flex min-h-control items-center rounded-control px-2 text-button text-ink-subtle hover:bg-surface-2 hover:text-ink aria-[current=page]:text-ink pointer-coarse:min-h-touch"
               >
                 {item.label}
               </a>
@@ -101,12 +105,12 @@ export function Shell({
         <div className="grid grid-cols-1 gap-8 text-small sm:grid-cols-2 md:grid-cols-4">
           {FOOTER.map((group) => (
             <nav key={group.title} aria-label={group.title} className="flex flex-col gap-1">
-              <p className="mb-1 font-semibold text-ink-tertiary">{group.title}</p>
+              <p className="mb-1 text-eyebrow text-ink-tertiary">{group.title}</p>
               {group.links.map((item) => (
                 <a
                   key={item.href}
                   href={item.href}
-                  className="flex min-h-touch items-center text-ink hover:underline hover:underline-offset-4"
+                  className="flex min-h-control items-center text-ink-subtle hover:text-ink pointer-coarse:min-h-touch"
                 >
                   {item.label}
                 </a>
@@ -114,7 +118,7 @@ export function Shell({
             </nav>
           ))}
           <div className="flex flex-col gap-1">
-            <p id="appearance" className="mb-1 font-semibold text-ink-tertiary">
+            <p id="appearance" className="mb-1 text-eyebrow text-ink-tertiary">
               Appearance
             </p>
             <div
@@ -129,7 +133,7 @@ export function Shell({
                   type="button"
                   aria-pressed="false"
                   data-choice={choice.value}
-                  className="min-h-touch rounded-control border border-hairline bg-surface-1 px-4 text-small font-semibold text-ink hover:bg-surface-2 aria-pressed:border-transparent aria-pressed:bg-volt aria-pressed:text-on-volt"
+                  className="min-h-control rounded-control border border-hairline bg-surface-1 px-button text-button text-ink-subtle hover:bg-surface-2 pointer-coarse:min-h-touch aria-pressed:border-hairline-tertiary aria-pressed:bg-surface-3 aria-pressed:text-ink"
                 >
                   {choice.label}
                 </button>
@@ -146,11 +150,6 @@ export function Shell({
         <p className="text-small text-ink-tertiary">
           © {brand.name}. We provide the GPU; you bring your own model, data and code.
         </p>
-        <span
-          aria-hidden="true"
-          data-text={brand.name.toLowerCase()}
-          className="ghost-wordmark text-display-wordmark text-bone select-none"
-        />
       </footer>
     </>
   );

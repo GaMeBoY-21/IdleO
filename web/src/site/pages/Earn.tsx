@@ -6,12 +6,14 @@ import { DOCS, type EntryLinks } from "../paths";
 import {
   band,
   column,
-  secondaryButton,
+  exampleTag,
+  frame,
   grid,
   largeButton,
   link,
   muted,
   primaryButton,
+  secondaryButton,
   sectionTitle,
   tile,
   tileRaised,
@@ -64,7 +66,12 @@ const REQUIREMENTS = [
   "Some free disk: you choose how much to keep for yourself",
 ] as const;
 
-const field = "mt-1 h-14 w-full rounded-control border border-hairline bg-surface-2 px-4 text-body text-ink";
+const field =
+  "mt-1 min-h-control w-full rounded-control border border-control bg-surface-1 px-button text-body text-ink pointer-coarse:min-h-touch";
+
+/** The earnings card's days, as a share of its height: an example, labelled so. */
+const WEEK = [30, 0, 55, 80, 25, 0, 60] as const;
+const DAYS = ["M", "T", "W", "T", "F", "S", "S"] as const;
 
 /**
  * The Windows app's download (ADR 0034): "Windows app: coming soon" in the page as built, swapped in place for the
@@ -73,7 +80,7 @@ const field = "mt-1 h-14 w-full rounded-control border border-hairline bg-surfac
  */
 function WindowsDownload({ apiUrl }: { apiUrl: string | null }) {
   return (
-    <div className="flex min-h-14 items-center gap-2 md:min-h-15" data-download="" data-api={apiUrl ?? ""}>
+    <div className="flex min-h-10 items-center gap-2" data-download="" data-api={apiUrl ?? ""}>
       <a
         data-role="download"
         hidden
@@ -83,7 +90,7 @@ function WindowsDownload({ apiUrl }: { apiUrl: string | null }) {
         Download for Windows
       </a>
       <span data-role="download-meta" hidden className="text-small text-ink tabular" />
-      <span data-role="download-soon" className="text-small font-semibold text-ink">
+      <span data-role="download-soon" className="text-small text-ink">
         Windows app: coming soon
       </span>
     </div>
@@ -98,20 +105,47 @@ function WindowsDownload({ apiUrl }: { apiUrl: string | null }) {
 export function Earn({ apiUrl, links }: { apiUrl: string | null; links: EntryLinks }) {
   return (
     <>
-      <section className={`${column} pt-4 pb-6 md:pt-6 md:pb-8`}>
-        <div className={tileRaised}>
-          <h1 className="text-hero max-w-form">Earn with your GPU</h1>
-          <p className="mt-4 max-w-prose text-body text-ink md:text-card">
+      <section
+        className={`${column} grid grid-cols-1 items-center gap-12 pt-6 pb-10 md:pt-12 md:pb-16 xl:grid-cols-2`}
+      >
+        <div className="flex flex-col gap-4">
+          <h1 className="max-w-form text-hero">Earn with your GPU</h1>
+          <p className="max-w-prose text-body text-ink-subtle md:text-card">
             If you have a gaming laptop or desktop with an NVIDIA RTX card, you can rent it out by the minute
             while you aren&apos;t using it. You set the price and keep {100 - COMMISSION_PERCENT}% of what
             renters pay. Payouts start with the paid pilot; until then earnings are counted but not paid out.
           </p>
-          <div className="mt-8 flex flex-wrap items-center gap-2">
+          <div className="mt-4 flex flex-wrap items-center gap-2">
             <a href={links.startHosting} className={`${primaryButton} ${largeButton}`}>
               Start hosting
             </a>
             <WindowsDownload apiUrl={apiUrl} />
           </div>
+        </div>
+        <div
+          role="img"
+          aria-label="An example of the host's earnings card: a week of days as bars, each as tall as its share of the busiest"
+          className={`${frame} flex flex-col gap-4`}
+        >
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-card">Earned this week</span>
+            <span className={exampleTag}>Example</span>
+          </div>
+          <div className="flex h-chart items-end gap-2">
+            {WEEK.map((height, index) => (
+              <span key={index} className="flex h-full flex-1 flex-col items-center justify-end gap-1">
+                <span
+                  className={`w-full rounded-tag ${height === 0 ? "bg-hairline" : index === WEEK.length - 1 ? "bg-live" : "bg-hairline-tertiary"}`}
+                  style={{ height: height === 0 ? "4px" : `${height}%` }}
+                />
+                <span className="text-caption text-ink-subtle">{DAYS[index]}</span>
+              </span>
+            ))}
+          </div>
+          <p className="text-caption text-ink-tertiary">
+            An example, not real earnings. Every minute a renter&apos;s job runs counts, and you see it as it
+            does.
+          </p>
         </div>
       </section>
 
@@ -122,11 +156,11 @@ export function Earn({ apiUrl, links }: { apiUrl: string | null; links: EntryLin
         <ol className="mt-4 grid grid-cols-1 gap-2 md:grid-cols-4 md:gap-4">
           {HOW.map((step, index) => (
             <li key={step.title} className={`${tile} flex flex-col gap-2`}>
-              <span className="text-display">
+              <span className="text-hero text-ink-tertiary">
                 <span className="sr-only">Step </span>
                 {index + 1}
               </span>
-              <h3 className="text-card font-semibold">{step.title}</h3>
+              <h3 className="text-card">{step.title}</h3>
               <p className={muted}>{step.text}</p>
             </li>
           ))}
@@ -143,7 +177,7 @@ export function Earn({ apiUrl, links }: { apiUrl: string | null; links: EntryLin
         <ul className="mt-4 grid grid-cols-1 gap-2 md:grid-cols-2 md:gap-4">
           {SAFETY.map((item) => (
             <li key={item.title} className={tile}>
-              <h3 className="text-card font-semibold">{item.title}</h3>
+              <h3 className="text-card">{item.title}</h3>
               <p className="mt-2 text-body text-ink-subtle">{item.text}</p>
             </li>
           ))}
@@ -175,7 +209,7 @@ export function Earn({ apiUrl, links }: { apiUrl: string | null; links: EntryLin
         </h2>
         {FAQ.map((item) => (
           <details key={item.question} className={tile}>
-            <summary className="cursor-pointer text-card font-semibold">{item.question}</summary>
+            <summary className="cursor-pointer text-card">{item.question}</summary>
             <p className={`${muted} mt-4`}>{item.answer}</p>
           </details>
         ))}
@@ -196,7 +230,7 @@ export function Earn({ apiUrl, links }: { apiUrl: string | null; links: EntryLin
         </p>
         <div className="mt-6 grid grid-cols-1 gap-2 md:grid-cols-2 md:gap-4">
           <div className={`${tile} grid grid-cols-1 gap-4`}>
-            <label className="block text-small font-semibold">
+            <label className="block text-small font-medium">
               Your GPU's memory
               <select id="calc-class" defaultValue="12" className={field}>
                 {GPU_CLASSES.map((gpu) => (
@@ -207,7 +241,7 @@ export function Earn({ apiUrl, links }: { apiUrl: string | null; links: EntryLin
               </select>
             </label>
             <div>
-              <label className="block text-small font-semibold" htmlFor="calc-price">
+              <label className="block text-small font-medium" htmlFor="calc-price">
                 Your price, ₹ an hour
               </label>
               <input
@@ -225,7 +259,7 @@ export function Earn({ apiUrl, links }: { apiUrl: string | null; links: EntryLin
                 &nbsp;
               </p>
             </div>
-            <label className="block text-small font-semibold">
+            <label className="block text-small font-medium">
               Hours a day your machine is free to rent
               <input
                 id="calc-hours"
@@ -237,7 +271,7 @@ export function Earn({ apiUrl, links }: { apiUrl: string | null; links: EntryLin
                 className={`${field} tabular`}
               />
             </label>
-            <label className="block text-small font-semibold">
+            <label className="block text-small font-medium">
               Share of those hours that get rented
               <select id="calc-occupancy" defaultValue={String(DEFAULT_OCCUPANCY)} className={field}>
                 {OCCUPANCY_CHOICES.map((choice) => (
@@ -252,13 +286,13 @@ export function Earn({ apiUrl, links }: { apiUrl: string | null; links: EntryLin
             <div aria-live="polite" className="grid grid-cols-1 gap-4" data-role="result">
               <div>
                 <p className="text-small text-ink-subtle">You keep, a day</p>
-                <p className="tabular text-title text-volt" data-role="per-day">
+                <p className="tabular text-title text-live" data-role="per-day">
                   –
                 </p>
               </div>
               <div>
                 <p className="text-small text-ink-subtle">You keep, in 30 days</p>
-                <p className="tabular text-title text-volt" data-role="per-month">
+                <p className="tabular text-title text-live" data-role="per-month">
                   –
                 </p>
               </div>
@@ -266,9 +300,7 @@ export function Earn({ apiUrl, links }: { apiUrl: string | null; links: EntryLin
                 Enter a price to see an estimate.
               </p>
             </div>
-            <p className="mt-4 text-small font-semibold text-ink">
-              Occupancy depends on demand; early on it may be low.
-            </p>
+            <p className="mt-4 text-small text-ink">Occupancy depends on demand; early on it may be low.</p>
           </div>
         </div>
         <div className="mt-8">
