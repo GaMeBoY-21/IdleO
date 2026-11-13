@@ -539,7 +539,7 @@ class InvoiceAndGstTests {
             }
             assertThat(fonts).isNotEmpty().allSatisfy(font -> {
                 assertThat(font.isEmbedded()).isTrue();
-                assertThat(font.getName()).containsAnyOf("Inter", "ArchivoDisplay");
+                assertThat(font.getName()).contains("Inter");
             });
             assertThat(new org.apache.pdfbox.text.PDFTextStripper().getText(read))
                     .contains(invoice.number())
