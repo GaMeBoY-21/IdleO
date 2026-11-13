@@ -100,7 +100,7 @@ export function Hosting() {
                 <WeekBars days={owner.days} />
                 <Link
                   href={HOST_PATHS.earnings}
-                  className="flex min-h-touch items-center gap-2 self-start text-small font-semibold text-volt hover:underline"
+                  className="flex min-h-touch items-center gap-2 self-start text-small text-ink underline underline-offset-4 hover:text-ink-muted"
                 >
                   Earnings, all machines
                   <ChevronRight aria-hidden="true" className="size-4" strokeWidth={2} />

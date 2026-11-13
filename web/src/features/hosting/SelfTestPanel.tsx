@@ -135,9 +135,9 @@ function CheckRow({ row, over }: { row: Row; over: boolean }) {
         aria-hidden="true"
         className={
           state === "failed"
-            ? "mt-1 flex size-5 shrink-0 items-center justify-center rounded-full bg-danger text-danger-fg"
+            ? "mt-1 flex size-5 shrink-0 items-center justify-center rounded-full bg-surface-3 text-danger"
             : state === "passed"
-              ? "mt-1 flex size-5 shrink-0 items-center justify-center rounded-full bg-volt text-ink"
+              ? "mt-1 flex size-5 shrink-0 items-center justify-center rounded-full bg-surface-3 text-success"
               : "mt-1 flex size-5 shrink-0 items-center justify-center text-ink-subtle"
         }
       >
@@ -178,7 +178,7 @@ function SelfTestSkeleton() {
     <div role="status" aria-label="Loading the self-test" className="flex flex-col gap-2">
       <SkeletonLine size="small" width="w-full" />
       <SkeletonLine size="small" width="w-2/3" />
-      <Skeleton className="h-14 w-full rounded-full" />
+      <Skeleton className="h-10 pointer-coarse:h-touch w-full" />
     </div>
   );
 }

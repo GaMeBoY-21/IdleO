@@ -31,7 +31,7 @@ const STEPS = [
 ] as const;
 
 const BUTTON =
-  "flex min-h-14 w-full items-center justify-center gap-2 rounded-full bg-volt px-6 text-card font-semibold text-on-volt disabled:opacity-40";
+  "flex min-h-10 w-full items-center justify-center gap-2 rounded-control bg-volt px-4 text-button text-on-volt pointer-coarse:min-h-touch disabled:opacity-40";
 
 /**
  * The main button (ADR 0034): Download for Windows, with the release's version and size, once the API says there is
@@ -47,7 +47,7 @@ export function DownloadButton() {
   if (release.isPending) {
     return (
       <div className="flex flex-col gap-2" aria-busy="true" aria-label="Checking for the Windows app">
-        <Skeleton className="h-14 w-full rounded-full" />
+        <Skeleton className="h-10 pointer-coarse:h-touch w-full" />
         <Skeleton className="h-5 w-32" />
       </div>
     );
