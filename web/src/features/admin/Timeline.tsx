@@ -58,7 +58,7 @@ export function Timeline({ subject, id }: { subject: Subject; id: string }) {
                 onClick={() => setOnly(on ? only.filter((other) => other !== kind) : [...only, kind])}
                 className={cn(
                   "min-h-touch rounded-full px-4 text-caption font-medium md:min-h-9",
-                  on ? "bg-volt text-on-primary" : "bg-surface-3 text-ink-subtle",
+                  on ? "bg-surface-4 text-ink" : "bg-surface-3 text-ink-subtle",
                 )}
               >
                 {shown(kind)}

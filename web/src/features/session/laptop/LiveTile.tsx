@@ -41,7 +41,7 @@ export function LiveTile({
     >
       <div className="flex min-w-0 flex-col gap-2">
         <span
-          className="flex items-center gap-2 text-caption font-semibold text-volt"
+          className="flex items-center gap-2 text-caption font-semibold text-live"
           data-testid="state-chip"
         >
           <span
@@ -89,7 +89,7 @@ export function LiveTile({
           <span className="text-caption text-ink-tertiary">
             Spent<span className="sr-only"> so far</span> · stops at <Money paise={session.maxSpendPaise} />
           </span>
-          <Money paise={costSoFar(session)} className="text-hero text-volt" />
+          <Money paise={costSoFar(session)} className="text-hero text-live" />
           <span className="min-h-4.5" />
         </div>
         {running ? (

@@ -1,5 +1,6 @@
 import type { components } from "@/api/schema.gen";
 import { useAvailability } from "@/api/queries";
+import { DataCell, DataRow, DataTable } from "@/components/ui/DataTable";
 import { Tile } from "@/components/ui/Tile";
 import { cn } from "@/lib/cn";
 import { siteLink } from "@/lib/site-links";
@@ -54,9 +55,10 @@ export function classRows(gpus: Gpu[]): ClassRow[] {
 }
 
 /**
- * "GPUs online now", a panel: a row for each size (8, 12, 16, 24 GB) with how many are online and free, and their price
- * an hour; a size with none free is dimmed. It is read again every 30 s while the tab is visible, and not at all until
- * the screen has painted. With none online it says so, and nothing is invented.
+ * "GPUs online now", a card with a quiet table: a row for each size (8, 12, 16, 24 GB) with how many are online (a volt dot
+ * for the live ones), how many are free, and their price an hour; a size with none free is dimmed. It is read again every
+ * 30 s while the tab is visible, and not at all until the screen has painted. With none online it says so, and nothing is
+ * invented.
  */
 export function FreeGpus({ enabled }: { enabled: boolean }) {
   const availability = useAvailability(enabled, AVAILABILITY_EVERY_MS);
@@ -64,45 +66,53 @@ export function FreeGpus({ enabled }: { enabled: boolean }) {
   return (
     <Tile size="lg" aria-labelledby="free-gpus" className="flex min-h-0 flex-1 flex-col gap-2">
       <div className="flex items-center justify-between text-caption text-ink-subtle">
-        <h2 id="free-gpus" className="flex items-center gap-2 text-caption font-semibold">
-          <span aria-hidden="true" className="size-2 rounded-full bg-live" />
+        <h2 id="free-gpus" className="text-card text-ink">
           GPUs online now
         </h2>
-        <span>live</span>
+        <span className="flex items-center gap-2">
+          <span aria-hidden="true" className="size-1.5 rounded-full bg-live" />
+          live
+        </span>
       </div>
-      <ul className="flex flex-1 flex-col">
-        {availability.data && rows.length === 0 ? (
-          <li className="flex flex-1 flex-col justify-center gap-1 text-small text-ink-subtle">
-            <span className="text-body font-semibold text-ink">No GPU is online right now</span>
-            <span>
-              Hosts&apos; laptops come and go through the day; this updates by itself.{" "}
-              <a href={siteLink(PRICING)} className="font-semibold underline">
-                Typical prices by size
-              </a>
-            </span>
-          </li>
-        ) : availability.data ? (
-          rows.map((row) => (
-            <li
-              key={row.gb}
-              className={cn(
-                "flex flex-1 items-center gap-2 border-b border-hairline py-2 text-body tabular last:border-b-0",
-                row.free === 0 && "text-ink-subtle",
-              )}
-            >
-              <span className="w-16 font-semibold">{row.gb} GB</span>
-              <span className="flex-1">
-                {row.online} online · {row.free === 0 ? "none free" : `${row.free} free`}
-              </span>
-              <span className={cn(row.free > 0 && "font-semibold text-live")}>
+      {availability.data && rows.length === 0 ? (
+        <div className="flex flex-1 flex-col justify-center gap-1 text-small text-ink-subtle">
+          <span className="text-card text-ink">No GPU is online right now</span>
+          <span>
+            Hosts&apos; laptops come and go through the day; this updates by itself.{" "}
+            <a href={siteLink(PRICING)} className="text-ink underline underline-offset-4">
+              Typical prices by size
+            </a>
+          </span>
+        </div>
+      ) : availability.data ? (
+        <DataTable
+          caption="GPUs online now, by size"
+          columns={[
+            { label: "Size" },
+            { label: "Online", numeric: true },
+            { label: "Free", numeric: true },
+            { label: "Price an hour", numeric: true },
+          ]}
+        >
+          {rows.map((row) => (
+            <DataRow key={row.gb} className={cn(row.free === 0 && "text-ink-subtle")}>
+              <DataCell>{row.gb} GB</DataCell>
+              <DataCell numeric>
+                <span className="inline-flex items-center justify-end gap-2">
+                  <span aria-hidden="true" className="size-1.5 rounded-full bg-live" />
+                  {row.online}
+                </span>
+              </DataCell>
+              <DataCell numeric>{row.free === 0 ? "None" : row.free}</DataCell>
+              <DataCell numeric>
                 {row.range ? `${formatPaiseRange(row.range.min * 60, row.range.max * 60)}/h` : "—"}
-              </span>
-            </li>
-          ))
-        ) : (
-          <li aria-hidden="true" className="h-24 skeleton rounded-control" />
-        )}
-      </ul>
+              </DataCell>
+            </DataRow>
+          ))}
+        </DataTable>
+      ) : (
+        <div aria-hidden="true" className="h-24 skeleton rounded-control" />
+      )}
     </Tile>
   );
 }

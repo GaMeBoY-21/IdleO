@@ -35,7 +35,7 @@ export function LogsLater({
       </Tile>
     </div>
   ) : (
-    <div className="flex min-h-14 items-center gap-2 rounded-card bg-surface-1 px-4 py-4 text-body">
+    <div className="flex min-h-14 items-center gap-2 rounded-card border border-hairline bg-surface-1 px-4 py-4 text-body">
       <ScrollText aria-hidden="true" className="size-5 shrink-0" strokeWidth={1.75} />
       <span className="font-semibold">Logs</span>
     </div>

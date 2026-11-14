@@ -172,7 +172,7 @@ export function StepImage({ number }: { number: number }) {
           </div>
         </div>
         {justChecked && (
-          <div className="rounded-control bg-surface-1 px-4 py-4">
+          <div className="rounded-control border border-hairline bg-surface-1 px-4 py-4">
             <p className="pb-1 text-small font-semibold break-all">{justChecked.reference}</p>
             <ImageFindings
               image={justChecked}

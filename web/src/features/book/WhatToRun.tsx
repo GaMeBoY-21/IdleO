@@ -77,7 +77,9 @@ export function TemplateChoice({
             onClick={() => onPick(template.id)}
             className={cn(
               "flex flex-col gap-1 rounded-card px-4 py-4 text-left transition-colors",
-              chosen ? "bg-volt text-ink" : "bg-surface-1 hover:bg-surface-3",
+              chosen
+                ? "border border-ink-tertiary bg-surface-3 text-ink"
+                : "border border-hairline bg-surface-1 hover:bg-surface-2",
             )}
           >
             <span className="text-body font-semibold break-words">{template.name}</span>
