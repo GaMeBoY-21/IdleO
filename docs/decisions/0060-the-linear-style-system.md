@@ -24,7 +24,7 @@ This changes how things look and are laid out. How a GPU is requested, how it is
 
 **Volt is used for four things:** the screen's one primary button, the focus ring (2 px, at half strength in the dark theme), the brand mark, and live or running indicators. It is never a background, a card fill or decoration. In the light theme, where volt fails contrast as text and as a ring, `live` and `focus` are a darker volt (`#4A7300`); the primary button is still volt.
 
-**Status colours** (success `#27A644`, warning `#D9A400`, danger `#E5484D`, info `#4C8DF6`) are for a chip's dot, small marks and charts; never a fill, except the danger button, which is solid in the confirm dialog only. A status chip is a `surface-2` pill with a dot and words.
+**Status colours** (success `#27A644`, warning `#D9A400`, danger `#EB5A5F` in the dark theme and `#C0262D` in the light one, info `#4C8DF6`) are for a chip's dot, small marks and charts; never a fill, except the danger button, which is solid in the confirm dialog only. A status chip is a `surface-2` pill with a dot and words.
 
 **The type** is Inter for everything and JetBrains Mono for ids, logs and code. Archivo is removed, with its three font files, and so are the uppercase headlines. The scale is: display 56, hero 40, page title 28, section 20, card title 16, body 15 (14 in the console), small 13, caption 12, button 14 and the eyebrow 12, with weights from 400 to 600 and negative tracking from 20 px up. Every number is in tabular figures.
 
@@ -32,7 +32,7 @@ This changes how things look and are laid out. How a GPU is requested, how it is
 
 **Layout.** A 240 px left sidebar (collapsible to icons) and a 48 px top bar; content at most 1200 px on the renter and host sites and full width in the console; a docked bottom tab bar on a phone. Tables have 44 px rows (36 in the console), hairline dividers, sticky headings, and numbers aligned right.
 
-**Four small departures from the reference,** so the contrast table still holds in both themes (WCAG 2.2 AA): the light theme's `ink-subtle` (`#5F646D`) and `ink-tertiary` (`#666B74`) are darker than the reference's `#6B7079`; the dark theme's `ink-tertiary` is `#80858E`, not `#62666D` (3.45:1 on the canvas); `control`, the border of a field or a switch, is `#666B73` (dark) and `#80858E` (light), stronger than a hairline, because a control's edge needs 3:1 (WCAG 1.4.11); and `danger` is `#C8282D` in the light theme.
+**Four small departures from the reference,** so the contrast table still holds in both themes (WCAG 2.2 AA): the light theme's `ink-subtle` (`#5F646D`) and `ink-tertiary` (`#666B74`) are darker than the reference's `#6B7079`; the dark theme's `ink-tertiary` is `#80858E`, not `#62666D` (3.45:1 on the canvas); `control`, the border of a field or a switch, is `#666B73` (dark) and `#80858E` (light), stronger than a hairline, because a control's edge needs 3:1 (WCAG 1.4.11); and `danger` is lighter in the dark theme (`#EB5A5F`, not `#E5484D`, which is 4.31:1 on the selected-row surface) and `#C0262D` in the light one.
 
 **Where it applies,** in six parts, each its own pull request: the foundation (tokens, fonts, every shared component, the gallery, DESIGN.md); the console; the renter app; the host site; the website; and everything outside the browser apps (emails, PDFs, the Windows setup window and tray, the error pages).
 

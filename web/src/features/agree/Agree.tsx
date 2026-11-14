@@ -88,7 +88,7 @@ function AgreeStep() {
           <Skeleton className="h-touch w-full" />
           <Skeleton className="h-touch w-full" />
           <div className="h-4.5" />
-          <Skeleton className="h-touch w-full" />
+          <Skeleton className="h-10 pointer-coarse:h-touch w-full" />
         </div>
       ) : (
         <form
