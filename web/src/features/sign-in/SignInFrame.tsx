@@ -38,13 +38,13 @@ export function SignInFrame({
           <a
             href={siteLink("/")}
             aria-label="Back to the idleo website"
-            className="flex min-h-touch items-center gap-1 self-start px-2 xl:px-0"
+            className="flex min-h-touch items-center gap-1 self-start px-2 text-live xl:px-0"
           >
             <ChevronLeft aria-hidden="true" className="size-5" strokeWidth={2} />
-            <Wordmark />
+            <Wordmark className="text-section" />
           </a>
         ) : (
-          <Wordmark className="self-start px-2 xl:px-0" />
+          <Wordmark className="self-start px-2 text-section text-live xl:px-0" />
         )}
         <div
           className={cn(

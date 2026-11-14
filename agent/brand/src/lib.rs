@@ -1,4 +1,4 @@
-//! The Windows app's look, in code (ADR 0033, ADR 0043): the round icon, the same disc the tray shows in its state's
+//! The Windows app's look, in code (ADR 0033, ADR 0060): the round icon, the same disc the tray shows in its state's
 //! colour and every program carries as its own icon, and the manifest each program embeds. No image files.
 //!
 //! The manifest matters as much as the icon:
@@ -11,9 +11,9 @@
 /// The brand's volt, as the web app's primary and a ready tray use it: #C8FF3D.
 pub const VOLT: [u8; 3] = [0xC8, 0xFF, 0x3D];
 
-/// The brand's ink, the page's dark: #0C0A1F. The disc's thin outline and its ring are drawn in it, so the disc reads on
+/// The brand's ink, the canvas's dark: #08090A. The disc's thin outline and its ring are drawn in it, so the disc reads on
 /// a light taskbar, where volt alone would not.
-pub const INK: [u8; 3] = [0x0C, 0x0A, 0x1F];
+pub const INK: [u8; 3] = [0x08, 0x09, 0x0A];
 
 /// The manifest every Windows program of the app embeds.
 pub const MANIFEST: &str = r#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?>

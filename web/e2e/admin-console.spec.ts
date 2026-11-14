@@ -222,6 +222,8 @@ test.describe("the one table", () => {
     });
     const table = page.getByRole("table", { name: "Users" });
     const first = () => table.getByRole("columnheader").nth(1);
+    // The selection column arrives with the admin's permissions and shifts every heading's place by one: wait for it.
+    await expect(table.getByRole("checkbox").first()).toBeVisible();
     const before = await first().innerText();
     const region = page.getByRole("region", { name: "Users" }).locator("..");
     await region.getByText("Columns", { exact: true }).click();

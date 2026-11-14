@@ -12,11 +12,11 @@ export function Skeleton({ className, tile = false }: { className?: string; tile
 
 /** Each text size's line height, and a bar a little shorter than it, so a line of skeleton is exactly as tall. */
 const lines = {
-  caption: ["h-4", "h-3"],
+  caption: ["h-4.5", "h-3"],
   small: ["h-5", "h-3"],
   body: ["h-6", "h-4"],
   card: ["h-6", "h-4"],
-  section: ["h-7", "h-5"],
+  section: ["h-6.5", "h-5"],
   title: ["h-8.5", "h-7"],
   hero: ["h-11", "h-9"],
   timer: ["h-14", "h-12"],
@@ -44,11 +44,11 @@ export function SkeletonLine({
 }
 
 const mdLines = {
-  caption: ["md:h-4", "md:h-3"],
+  caption: ["md:h-4.5", "md:h-3"],
   small: ["md:h-5", "md:h-3"],
   body: ["md:h-6", "md:h-4"],
   card: ["md:h-6", "md:h-4"],
-  section: ["md:h-7", "md:h-5"],
+  section: ["md:h-6.5", "md:h-5"],
   title: ["md:h-8.5", "md:h-7"],
   hero: ["md:h-11", "md:h-9"],
   timer: ["md:h-14", "md:h-12"],

@@ -41,7 +41,7 @@ export const themes = {
     focus: "#688423",
     success: "#27A644",
     warning: "#D9A400",
-    danger: "#E5484D",
+    danger: "#EB5A5F",
     info: "#4C8DF6",
     /** Text on a solid danger button (the confirm dialog's). */
     "danger-fg": "#08090A",
@@ -72,7 +72,7 @@ export const themes = {
     focus: "#4A7300",
     success: "#1F8A3C",
     warning: "#A07400",
-    danger: "#C8282D",
+    danger: "#C0262D",
     info: "#2F6FE0",
     "danger-fg": "#FFFFFF",
     scrim: "#000000",
@@ -118,6 +118,8 @@ export const contrastPairs: ReadonlyArray<{
   { fg: "danger", bg: "canvas", min: 4.5 },
   { fg: "danger", bg: "surface-1", min: 4.5 },
   { fg: "danger", bg: "surface-2", min: 4.5 },
+  { fg: "danger", bg: "surface-3", min: 4.5 },
+  { fg: "danger", bg: "surface-4", min: 4.5 },
   { fg: "danger-fg", bg: "danger", min: 4.5 },
   { fg: "control", bg: "canvas", min: 3 },
   { fg: "control", bg: "surface-1", min: 3 },
@@ -144,7 +146,7 @@ export const contrastPairs: ReadonlyArray<{
  * (px), as the system draws them. The names are Tailwind's `text-*`.
  */
 export const typeScale = {
-  caption: [12, 16],
+  caption: [12, 18],
   small: [13, 20],
   /** A button's label. */
   button: [14, 20],
@@ -154,7 +156,7 @@ export const typeScale = {
   card: [16, 24],
   /** The website's opening paragraph: large, but regular weight. */
   lede: [18, 28],
-  section: [20, 28],
+  section: [20, 26],
   figure: [24, 28],
   title: [28, 34],
   hero: [40, 44],

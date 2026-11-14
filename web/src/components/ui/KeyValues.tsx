@@ -39,7 +39,7 @@ export function KeyValueList({
           className={cn(
             layout === "columns"
               ? "flex flex-col md:flex-row md:gap-6"
-              : "flex min-h-control items-center justify-between gap-4",
+              : "flex min-h-touch items-center justify-between gap-4",
             divided && "py-2",
           )}
         >
@@ -92,7 +92,7 @@ export function StatTile({
     >
       <dt className={"text-small text-ink-subtle"}>{label}</dt>
       <dd className="flex flex-col gap-1">
-        <div className={cn("font-semibold tabular", size === "md" ? "text-figure" : "text-small")}>
+        <div className={cn("font-semibold tabular", size === "md" ? "text-card" : "text-small")}>
           {children}
         </div>
         {note !== undefined && <span className={"min-h-9 text-caption text-ink-subtle"}>{note}</span>}

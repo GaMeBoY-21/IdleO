@@ -30,11 +30,7 @@ async function windowsSetup(browser: Browser): Promise<number> {
   const setup = `${repo}agent/setup/`;
   const read = (file: string) => readFileSync(`${setup}${file}`, "utf8");
   const font = (file: string) => readFileSync(`${setup}assets/fonts/${file}`).toString("base64");
-  const style = read("assets/style.css")
-    .replace("/*FONT_INTER*/", font("inter-400-700.woff2"))
-    .replace("/*FONT_DISPLAY*/", font("archivo-125-900.woff2"))
-    .replace("/*FONT_DISPLAY_LOWER*/", font("archivo-125-900-lower.woff2"))
-    .replace("/*FONT_TITLE*/", font("archivo-112-800.woff2"));
+  const style = read("assets/style.css").replace("/*FONT_INTER*/", font("inter-400-700.woff2"));
   const html = read("assets/index.html")
     .replace("/*STYLE*/", () => style)
     .replace("/*SCRIPT*/", () => `${read("dev/preview.js")}\n${read("assets/app.js")}`);
