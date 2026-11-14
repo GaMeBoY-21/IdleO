@@ -39,7 +39,7 @@ export function KeyValueList({
           className={cn(
             layout === "columns"
               ? "flex flex-col md:flex-row md:gap-6"
-              : "flex min-h-control items-center justify-between gap-4",
+              : "flex min-h-touch items-center justify-between gap-4",
             divided && "py-2",
           )}
         >

@@ -100,7 +100,10 @@ function CreditSkeleton() {
       </div>
       <div className="grid grid-cols-2 gap-2">
         {[0, 1, 2, 3].map((key) => (
-          <div key={key} className="flex flex-col gap-1 rounded-control bg-surface-3 px-4 py-4">
+          <div
+            key={key}
+            className="flex flex-col gap-1 rounded-card border border-hairline bg-surface-2 px-4 py-4"
+          >
             <SkeletonLine size="small" width="w-1/2" />
             <SkeletonLine size="card" width="w-2/3" />
             <div className="min-h-9">
