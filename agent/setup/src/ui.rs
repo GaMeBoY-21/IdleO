@@ -1,4 +1,4 @@
-//! The setup window (ADR 0033): 720×520, fixed, a WebView2 page built into the program, in the Night Shift look (ADR 0043),
+//! The setup window (ADR 0033): 720×520, fixed, a WebView2 page built into the program, in the web app's system (ADR 0060),
 //! dark or light as Windows is set. Rust drives the page with typed messages ([`idleo_setup::ipc`]); the steps run on
 //! their own thread. With no WebView2 (an old Windows 10), a plain message asks for a Windows update instead.
 
@@ -19,16 +19,11 @@ use crate::windows_system::WindowsSystem;
 const PAGE: &str = include_str!("../assets/index.html");
 const STYLE: &str = include_str!("../assets/style.css");
 const SCRIPT: &str = include_str!("../assets/app.js");
-/// The faces of the web app (web/DESIGN.md "Typography"): Inter for text, and Archivo at width 125% (uppercase, and the
-/// wordmark's lowercase) and 112% for the headlines. OFL; the licences are agent/setup/assets/fonts/LICENSE-Inter.txt and
-/// LICENSE-Archivo.txt, shipped beside the programs in the app zip. Embedded, never fetched; each is the file the web
-/// app serves (a test in web/ keeps the two sets the same), and goes into the page where the style sheet names it.
-const FONTS: [(&str, &[u8]); 4] = [
-    ("/*FONT_INTER*/", include_bytes!("../assets/fonts/inter-400-700.woff2")),
-    ("/*FONT_DISPLAY*/", include_bytes!("../assets/fonts/archivo-125-900.woff2")),
-    ("/*FONT_DISPLAY_LOWER*/", include_bytes!("../assets/fonts/archivo-125-900-lower.woff2")),
-    ("/*FONT_TITLE*/", include_bytes!("../assets/fonts/archivo-112-800.woff2")),
-];
+/// The face of the web app (web/DESIGN.md "Typography"): Inter, for everything. OFL; the licence is
+/// agent/setup/assets/fonts/LICENSE-Inter.txt, shipped beside the programs in the app zip. Embedded, never fetched; it is
+/// the file the web app serves (a test in web/ keeps the two the same), and goes into the page where the style sheet
+/// names it.
+const FONTS: [(&str, &[u8]); 1] = [("/*FONT_INTER*/", include_bytes!("../assets/fonts/inter-400-700.woff2"))];
 /// Where Windows' WebView2 runtime is downloaded, for the rare Windows 10 without it.
 const WEBVIEW2_URL: &str = "https://go.microsoft.com/fwlink/p/?LinkId=2124703";
 

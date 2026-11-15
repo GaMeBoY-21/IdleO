@@ -47,9 +47,9 @@ test.describe("signing in", () => {
   test("sign-in", async ({ page }, info) => {
     await page.goto("/sign-in/");
     await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
-    // The large buttons at the foot of a flow are 56 px on a phone and 60 px on a laptop (web/DESIGN.md).
+    // The large buttons at the foot of a flow are 44 px on a phone (a touch screen) and 40 px on a laptop (web/DESIGN.md).
     const large = await page.getByRole("button", { name: "Continue with Google" }).boundingBox();
-    expect(large!.height).toBe(page.viewportSize()!.width < 768 ? 56 : 60);
+    expect(large!.height).toBe(page.viewportSize()!.width < 768 ? 44 : 40);
     await expectAccessible(page);
     await capture(page, info, "sign-in");
   });

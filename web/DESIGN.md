@@ -64,13 +64,13 @@ Each screen is designed first for the size it's mostly used on, then checked ful
 
 | Token | Size / line height | Used for |
 | --- | --- | --- |
-| `text-caption` | 12 / 16 px | Captions, timestamps, chips, the line under a field |
+| `text-caption` | 12 / 18 px | Captions, timestamps, chips, the line under a field |
 | `text-small` | 13 / 20 px | Secondary text, table cells, help lines |
 | `text-button` | 14 / 20 px | Buttons, navigation (weight 500) |
 | `text-body` | 15 / 24 px | Reading text (14 px in the console, set once by `.dense`) |
 | `text-card` | 16 / 24 px | A card's or an option's title (weight 500) |
 | `text-lede` | 18 / 28 px | The website's opening paragraph (regular) |
-| `text-section` | 20 / 28 px | A section's title (weight 500, −0.2 px) |
+| `text-section` | 20 / 26 px | A section's title (weight 500, −0.2 px) |
 | `text-figure` | 24 / 28 px | A figure on a small card (weight 600) |
 | `text-title` | 28 / 34 px | A page's title (weight 600, −0.6 px) |
 | `text-hero` | 40 / 44 px | A page hero, a big figure (weight 600, −1.0 px) |
@@ -114,7 +114,7 @@ Two themes with the same layout. The **dark** theme is the default: a near-black
 | `focus` | `#688423` | `#4A7300` | The 2 px focus ring, offset 2 px |
 | `success` | `#27A644` | `#1F8A3C` | A done or healthy dot, a chart's good series |
 | `warning` | `#D9A400` | `#A07400` | A warning's icon and dot |
-| `danger` | `#E5484D` | `#C8282D` | Errors, a failed dot, the danger button's text |
+| `danger` | `#EB5A5F` | `#C0262D` | Errors, a failed dot, the danger button's text |
 | `info` | `#4C8DF6` | `#2F6FE0` | An information icon and dot |
 | `danger-fg` | `#08090A` | `#FFFFFF` | Text on a solid danger button (the confirm dialog) |
 | `scrim` | `#000000` | `#000000` | The dimmed page behind a dialog (at 60%) |
@@ -148,10 +148,12 @@ Every text pair meets 4.5:1 (1.4.3; the 24 px and larger headlines need only 3:1
 | `live` on `canvas` | 16.92 | 5.61 | 4.5 |
 | `live` on `surface-1` | 16.17 | 5.27 | 4.5 |
 | `live` on `surface-2` | 15.52 | 5.00 | 4.5 |
-| `danger` on `canvas` | 5.09 | 5.53 | 4.5 |
-| `danger` on `surface-1` | 4.87 | 5.20 | 4.5 |
-| `danger` on `surface-2` | 4.67 | 4.93 | 4.5 |
-| `danger-fg` on `danger` | 5.09 | 5.53 | 4.5 |
+| `danger` on `canvas` | 5.85 | 5.90 | 4.5 |
+| `danger` on `surface-1` | 5.59 | 5.55 | 4.5 |
+| `danger` on `surface-2` | 5.36 | 5.27 | 4.5 |
+| `danger` on `surface-3` | 5.16 | 5.00 | 4.5 |
+| `danger` on `surface-4` | 4.95 | 4.68 | 4.5 |
+| `danger-fg` on `danger` | 5.85 | 5.90 | 4.5 |
 | `control` on `canvas` | 3.72 | 3.71 | 3 |
 | `control` on `surface-1` | 3.55 | 3.49 | 3 |
 | `control` on `surface-2` | 3.41 | 3.31 | 3 |

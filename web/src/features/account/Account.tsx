@@ -102,7 +102,7 @@ export function Account() {
                     <SkeletonLine size="caption" width="w-16" />
                     <SkeletonLine size="card" width="w-1/2" />
                   </div>
-                  {key === 0 && <Skeleton className="h-touch w-16" />}
+                  {key === 0 && <Skeleton className="h-control pointer-coarse:h-touch w-16" />}
                 </div>
               ))}
             </div>

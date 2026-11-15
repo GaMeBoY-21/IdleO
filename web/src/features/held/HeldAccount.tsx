@@ -21,8 +21,12 @@ export function HeldShell({ children }: { children: ReactNode }) {
       <header className="sticky top-0 z-raised bg-canvas">
         <div className={`${FRAME} flex h-16 items-center gap-6 md:h-header`}>
           <div className="flex flex-1 items-center">
-            <Link href="/" className="flex min-h-touch items-center" aria-label={`${brand.name} home`}>
-              <Wordmark className="md:text-title md:tracking-tighter" />
+            <Link
+              href="/"
+              className="flex min-h-touch items-center text-live"
+              aria-label={`${brand.name} home`}
+            >
+              <Wordmark className="text-section" />
             </Link>
           </div>
           <UserMenuButton />

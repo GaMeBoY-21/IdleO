@@ -1,11 +1,9 @@
 #!/usr/bin/env bash
-# Makes the font files invoices and statements are rendered with (ADR 0039, ADR 0043): the web app's own faces, as
+# Makes the font files invoices and statements are rendered with (ADR 0039, ADR 0060): the web app's own faces, as
 # static TrueType files, cut from the web app's subsets (web/public/fonts, which web/scripts/subset-font.sh cuts from a
 # pinned commit of google/fonts; SIL Open Font License 1.1), so a PDF and the screen share one source and rendering never
 # fetches anything.
 #   - Inter Regular (400) and Bold (700): the variable subset instanced at each weight, its accented letters merged in;
-#   - Archivo Display: width 125% at weight 900, the uppercase and the lowercase files merged, for the wordmark and the
-#     document's title.
 # Needs Python's fonttools and brotli (pip install fonttools brotli). Run it only to change the fonts; the output is
 # committed.
 set -euo pipefail
@@ -46,8 +44,6 @@ for name, weight in (("Regular", 400), ("Bold", 700)):
     merged = Merger().merge([f"{work}/a-{name}.ttf", f"{work}/b-{name}.ttf"])
     named(merged, "Inter", name, weight).save(f"{out}/Inter-{name}.ttf")
 
-display = Merger().merge([f"{web}/archivo-125-900.woff2", f"{web}/archivo-125-900-lower.woff2"])
-named(display, "Archivo Display", "Black", 900).save(f"{out}/Archivo-Display.ttf")
 PY
-cp "$web/LICENSE-Inter.txt" "$web/LICENSE-Archivo.txt" "$out/"
+cp "$web/LICENSE-Inter.txt" "$out/"
 ls -l "$out"
