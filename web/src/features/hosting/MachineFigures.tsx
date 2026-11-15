@@ -67,7 +67,7 @@ export function RatingLine({ host }: { host: Host }) {
     <p className="flex min-h-5 items-center gap-1 text-small text-ink-subtle">
       {rating ? (
         <>
-          <Star aria-hidden="true" className="size-4 text-volt" fill="currentColor" strokeWidth={1.75} />
+          <Star aria-hidden="true" className="size-4 text-warning" fill="currentColor" strokeWidth={1.75} />
           <span className="tabular">
             <span className="sr-only">Rated </span>
             {rating.averageStars.toFixed(1)}
