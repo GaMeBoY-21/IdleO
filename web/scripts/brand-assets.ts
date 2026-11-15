@@ -1,6 +1,6 @@
 // Draws the brand's pictures from the one icon (public/icon.svg) and the fonts, into public/: the icons the web app and the
 // website use (apple-touch-icon.png, icon-192.png, icon-512.png, favicon.ico) and the website's share picture
-// (og-image.png, 1200 x 630, in the Night Shift look, with the line from brand.share). Run it only to change the brand:
+// (og-image.png, 1200 x 630, in the IdleO system's dark look, with the line from brand.share). Run it only to change the brand:
 // the output is committed.
 //
 //   node scripts/brand-assets.ts
@@ -14,22 +14,20 @@ const font = (file: string) => readFileSync(here(`public/fonts/${file}`)).toStri
 const icon = readFileSync(here("public/icon.svg"), "utf8");
 
 const faces = `
-@font-face { font-family: "Archivo Display"; font-weight: 900; src: url(data:font/woff2;base64,${font("archivo-125-900.woff2")}) format("woff2"); unicode-range: U+0020-0060, U+007B-007E, U+00A0, U+00A9, U+00B7, U+00D7, U+2013-2014, U+2018-201D, U+2022, U+2026, U+20B9, U+2190-2193, U+2212, U+2248; }
-@font-face { font-family: "Archivo Display"; font-weight: 900; src: url(data:font/woff2;base64,${font("archivo-125-900-lower.woff2")}) format("woff2"); unicode-range: U+0061-007A; }`;
+@font-face { font-family: "Inter"; font-weight: 400 700; src: url(data:font/woff2;base64,${font("inter-400-700.woff2")}) format("woff2"); unicode-range: U+0020-007E, U+00A0, U+00A7, U+00A9, U+00B0, U+00B7, U+00D7, U+2013-2014, U+2018-201D, U+2022, U+2026, U+20B9, U+2190-2193, U+2212, U+2248; }`;
 
-/** The share picture: the wordmark, the line in Archivo uppercase with its second sentence in volt, and the ring. */
+/** The share picture: the wordmark, the line in Inter with its second sentence in volt, and the ring. No glow. */
 const [first = "", second = ""] = brand.share
   .split(". ")
   .map((part, index, all) => (index < all.length - 1 ? `${part}.` : part));
 const card = `<!doctype html><meta charset="utf-8"><style>${faces}
 * { box-sizing: border-box; }
-body { margin: 0; width: 1200px; height: 630px; background: #0C0A1F; color: #fff; font-family: "Archivo Display", Arial, sans-serif; font-weight: 900; position: relative; overflow: hidden; }
-.glow { position: absolute; right: -180px; top: -220px; width: 760px; height: 760px; border-radius: 50%; background: #5B4BE8; opacity: 0.55; }
-.ring { position: absolute; right: 70px; bottom: 60px; width: 300px; height: 300px; }
-.mark { position: absolute; left: 72px; top: 64px; font-size: 54px; letter-spacing: -0.03em; line-height: 1; }
-h1 { position: absolute; left: 72px; bottom: 72px; margin: 0; width: 760px; font-size: 68px; line-height: 0.98; letter-spacing: -0.03em; text-transform: uppercase; }
+body { margin: 0; width: 1200px; height: 630px; background: #08090A; color: #F7F8F8; font-family: "Inter", Arial, sans-serif; font-weight: 600; position: relative; overflow: hidden; border-top: 1px solid #23252A; }
+.ring { position: absolute; right: 72px; bottom: 64px; width: 280px; height: 280px; }
+.mark { position: absolute; left: 72px; top: 64px; font-size: 44px; letter-spacing: -1.8px; line-height: 1; color: #C8FF3D; }
+h1 { position: absolute; left: 72px; bottom: 72px; margin: 0; width: 760px; font-size: 68px; line-height: 1.06; letter-spacing: -1.8px; font-weight: 600; }
 h1 span { color: #C8FF3D; display: block; }
-</style><div class="glow"></div><div class="ring">${icon.replace("<svg ", '<svg width="300" height="300" ')}</div>
+</style><div class="ring">${icon.replace("<svg ", '<svg width="280" height="280" ')}</div>
 <div class="mark">${brand.name.toLowerCase()}</div>
 <h1>${first}<span>${second}</span></h1>`;
 

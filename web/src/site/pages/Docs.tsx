@@ -9,14 +9,14 @@ export function Docs({ page, pages }: { page: DocPage; pages: DocPage[] }) {
   return (
     <div className={`${column} ${readable} py-8 md:py-12 xl:flex xl:gap-12`}>
       <nav aria-label="Docs" className="mb-8 xl:mb-0 xl:w-menu xl:shrink-0">
-        <p className="mb-2 text-small font-semibold text-ink-subtle">Docs</p>
+        <p className="mb-2 text-eyebrow text-ink-subtle">Docs</p>
         <ul className="flex flex-wrap gap-2 xl:flex-col xl:gap-1">
           {pages.map((item) => (
             <li key={item.path}>
               <a
                 href={item.path}
                 aria-current={item.path === page.path ? "page" : undefined}
-                className="flex min-h-touch items-center rounded-full border border-hairline bg-surface-1 px-4 text-small font-semibold text-ink hover:bg-surface-3 aria-[current=page]:bg-volt aria-[current=page]:text-on-volt xl:rounded-control"
+                className="flex min-h-control items-center rounded-control px-2 text-button text-ink-subtle hover:bg-surface-2 hover:text-ink pointer-coarse:min-h-touch aria-[current=page]:bg-surface-3 aria-[current=page]:text-ink"
               >
                 {item.title}
               </a>
