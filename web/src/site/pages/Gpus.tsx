@@ -36,7 +36,7 @@ export function Gpus({ links }: { links: EntryLinks }) {
                   ] as const
                 ).map(([name, text]) => (
                   <div key={name}>
-                    <dt className="text-small font-semibold text-ink">{name}, typical</dt>
+                    <dt className="text-small font-medium text-ink">{name}, typical</dt>
                     <dd className="text-ink-subtle">{text}</dd>
                   </div>
                 ))}

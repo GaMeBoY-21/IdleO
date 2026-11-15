@@ -12,7 +12,10 @@ import {
   link,
   primaryButton,
   secondaryButton,
+  frame,
+  exampleTag,
   sectionHeading,
+  tile,
   tileRaised,
 } from "../ui";
 
@@ -20,17 +23,14 @@ const STEPS = [
   {
     title: "Upload your model or code",
     text: "From your laptop: a folder or a file. It carries on where it stopped if your connection drops, and stays in My files so it goes up once.",
-    surface: "bg-ember",
   },
   {
     title: "Request a GPU",
     text: "We find the best free GPU that fits, the way a ride app finds a car. You see the price range before you ask.",
-    surface: "bg-ion",
   },
   {
     title: "Download your results",
     text: "Watch it run, then download what it wrote. You pay for the minutes it ran.",
-    surface: "bg-volt",
   },
 ] as const;
 
@@ -83,15 +83,9 @@ const QUESTIONS = [
 /** The hero card's loss curve, as a share of its height; the last bar is the one still to come. */
 const CURVE = [96, 82, 70, 61, 55, 50, 46, 43, 41, 39, 38, 37, 36] as const;
 
-/** The marquee's words, crossed twice over so it can start again where it began. */
-const MARQUEE = "Fine-tune · Run your code · Pay by the minute · Earn while you sleep · ";
-
-/** The service tiles' colours, in turn: ember, ion, then the always-dark panel. */
-const SERVICE_SURFACES = ["bg-ember text-ink", "bg-ion text-ink", "scope-night bg-night text-ink"] as const;
-
 /**
- * The landing page (ADR 0029, ADR 0043): the dark theme's home. What this is, with a preview of a live session beside it;
- * the marquee; three steps; what you can run; the promises and the hosts' pitch; the sealed band; the GPUs with their
+ * The landing page (ADR 0029, ADR 0060): dark first. What this is, with a framed example of a live session beside it;
+ * three steps; what you can run; the promises and the hosts' pitch; the sealed band; the GPUs with their
  * prices (live, after the page has painted: src/site/islands/pricing.ts, and "typical" until then); the questions; and
  * one more way in.
  */
@@ -104,7 +98,7 @@ export function Landing({ context }: { context: SiteContext }) {
       >
         <div className="flex flex-col gap-6">
           <span
-            className={`${label} self-start rounded-full bg-surface-3 px-4 py-2 text-ink`}
+            className={`${label} self-start rounded-full border border-hairline bg-surface-1 px-4 py-1`}
             data-testid="kicker"
           >
             India&apos;s peer-to-peer GPU cloud
@@ -124,7 +118,7 @@ export function Landing({ context }: { context: SiteContext }) {
               Earn with your laptop
             </a>
           </div>
-          <p className="text-small text-ink-tertiary">
+          <p className="text-small text-ink-subtle">
             {brand.name} is invite-only while it&apos;s in its pilot.
           </p>
         </div>
@@ -132,53 +126,44 @@ export function Landing({ context }: { context: SiteContext }) {
         <div
           role="img"
           aria-label="An example of a live session: a fine-tune running on a laptop RTX GPU, with its time, cost so far and checkpoints"
-          className={`${tileRaised} flex flex-col gap-4 shadow-glow`}
+          className={`${frame} flex flex-col gap-4`}
         >
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <span className="flex items-center gap-2 text-small font-semibold text-volt">
-              <span className="size-2.5 rounded-full bg-volt" />
+            <span className="flex items-center gap-2 text-caption text-ink">
+              <span className="size-1.5 rounded-full bg-live" />
               Running · epoch 4 of 5
             </span>
-            <span className="text-small text-ink-tertiary">RTX 4080 Laptop · 12 GB</span>
+            <span className={exampleTag}>Example</span>
           </div>
-          <span className="text-title">Fine-tune your model</span>
-          <div className="grid h-hero-chart grid-cols-14 items-end gap-1 rounded-card bg-canvas p-4">
+          <span className="text-section">Fine-tune your model</span>
+          <span className="-mt-2 text-small text-ink-subtle">RTX 4080 Laptop · 12 GB</span>
+          <div className="grid h-hero-chart grid-cols-14 items-end gap-1 rounded-card border border-hairline bg-canvas p-4">
             {CURVE.map((height, index) => (
               <span
                 key={index}
-                className={`rounded-control ${index === CURVE.length - 1 ? "bg-volt" : "bg-ion-deep"}`}
+                className={`rounded-tag ${index === CURVE.length - 1 ? "bg-live" : "bg-hairline-tertiary"}`}
                 style={{ height: `${height}%` }}
               />
             ))}
-            <span className="rounded-control bg-hairline" style={{ height: "8%" }} />
+            <span className="rounded-tag bg-hairline" style={{ height: "8%" }} />
           </div>
           <div className="grid grid-cols-3 gap-2">
             {(
               [
-                ["Time", "1:24", ""],
-                ["Spent", "₹0.24", "text-volt"],
-                ["Checkpoints", "16", ""],
+                ["Time", "1:24"],
+                ["Spent", "₹0.24"],
+                ["Checkpoints", "16"],
               ] as const
-            ).map(([name, value, tone]) => (
-              <div key={name} className="rounded-card bg-surface-2 p-4">
-                <span className="block text-caption text-ink-tertiary">{name}</span>
-                <span className={`tabular text-figure font-semibold ${tone}`}>{value}</span>
+            ).map(([name, value]) => (
+              <div key={name} className="rounded-card border border-hairline bg-surface-2 p-4">
+                <span className="block text-caption text-ink-subtle">{name}</span>
+                <span className="tabular text-figure">{value}</span>
               </div>
             ))}
           </div>
           <p className="text-caption text-ink-tertiary">An example, not a live session.</p>
         </div>
       </section>
-
-      <div aria-hidden="true" className="overflow-hidden bg-ion-deep py-6 text-on-ion-deep">
-        <div className="flex w-max animate-marquee text-hero whitespace-nowrap">
-          {[0, 1].map((half) => (
-            <span key={half} className="shrink-0 pr-4">
-              {MARQUEE.repeat(2)}
-            </span>
-          ))}
-        </div>
-      </div>
 
       <HowItWorks />
 
@@ -187,11 +172,8 @@ export function Landing({ context }: { context: SiteContext }) {
           What you can run
         </h2>
         <ul className="mt-10 grid grid-cols-1 gap-4 md:grid-cols-3">
-          {context.services.map((service, index) => (
-            <li
-              key={service.id}
-              className={`${SERVICE_SURFACES[index % SERVICE_SURFACES.length]} flex min-h-step flex-col justify-between gap-6 rounded-panel p-8`}
-            >
+          {context.services.map((service) => (
+            <li key={service.id} className={`${tile} flex min-h-step flex-col justify-between gap-6`}>
               <h3 className="text-section">{service.name}</h3>
               <div>
                 <p className="text-body">{service.tagline}</p>
@@ -209,18 +191,15 @@ export function Landing({ context }: { context: SiteContext }) {
       </section>
 
       <section className={`${column} grid grid-cols-1 gap-4 py-6 xl:grid-cols-2`}>
-        <div
-          className="flex flex-col gap-4 rounded-panel border border-hairline bg-surface-1 p-8 text-ink md:p-10"
-          aria-labelledby="promises"
-        >
-          <span className={`${label} text-live`}>For builders</span>
+        <div className={`${tile} flex flex-col gap-4 md:p-8`} aria-labelledby="promises">
+          <span className={label}>For builders</span>
           <h2 id="promises" className="text-hero">
             Your job, on someone&apos;s idle RTX.
           </h2>
           <ul className="flex flex-col gap-4">
             {PROMISES.map((promise) => (
               <li key={promise.title}>
-                <h3 className="text-card font-semibold">{promise.title}</h3>
+                <h3 className="text-card">{promise.title}</h3>
                 <p className="mt-1 text-body text-ink-subtle">{promise.text}</p>
               </li>
             ))}
@@ -229,22 +208,16 @@ export function Landing({ context }: { context: SiteContext }) {
             Get started
           </a>
         </div>
-        <div
-          className="flex flex-col gap-4 rounded-panel bg-volt p-8 text-ink md:p-10"
-          aria-labelledby="hosts"
-        >
+        <div className={`${tileRaised} flex flex-col gap-4`} aria-labelledby="hosts">
           <span className={label}>For gamers</span>
           <h2 id="hosts" className="text-hero">
             Have an RTX laptop or desktop?
           </h2>
-          <p className="max-w-prose text-card">
+          <p className="max-w-prose text-card text-ink-muted">
             Rent out the hours you aren&apos;t using it and keep {100 - COMMISSION_PERCENT}% of what renters
             pay.
           </p>
-          <a
-            href={EARN}
-            className="mt-auto inline-flex min-h-touch items-center justify-center self-start rounded-control bg-ink px-6 text-small font-semibold text-ink hover:bg-night"
-          >
+          <a href={EARN} className={`${secondaryButton} mt-auto self-start`}>
             Earn with your GPU
           </a>
         </div>
@@ -270,17 +243,17 @@ export function Landing({ context }: { context: SiteContext }) {
         >
           <table className="w-full min-w-form border-collapse text-body">
             <thead>
-              <tr className="text-left text-caption text-ink-tertiary">
-                <th scope="col" className="px-8 py-6 font-semibold">
+              <tr className="text-left text-caption text-ink-subtle">
+                <th scope="col" className="px-6 py-4 font-medium">
                   GPU memory
                 </th>
-                <th scope="col" className="px-8 py-6 font-semibold">
+                <th scope="col" className="px-6 py-4 font-medium">
                   Typical cards
                 </th>
-                <th scope="col" className="px-8 py-6 font-semibold">
+                <th scope="col" className="px-6 py-4 font-medium">
                   Fine-tuning, typical
                 </th>
-                <th scope="col" className="px-8 py-6 font-semibold">
+                <th scope="col" className="px-6 py-4 font-medium">
                   Price per hour
                 </th>
               </tr>
@@ -293,22 +266,18 @@ export function Landing({ context }: { context: SiteContext }) {
                   data-class-row={gpu.gb}
                   data-state="loading"
                 >
-                  <th scope="row" className="px-8 py-6 text-left font-semibold">
+                  <th scope="row" className="px-6 py-4 text-left font-medium">
                     {gpu.gb} GB
                   </th>
-                  <td className="px-8 py-6 text-ink-subtle">{gpu.cards.slice(0, 3).join(", ")}</td>
-                  <td className="px-8 py-6 text-ink-subtle">{gpu.qlora}</td>
-                  <td className="px-8 py-6 align-top">
+                  <td className="px-6 py-4 text-ink-subtle">{gpu.cards.slice(0, 3).join(", ")}</td>
+                  <td className="px-6 py-4 text-ink-subtle">{gpu.qlora}</td>
+                  <td className="px-6 py-4 align-top">
                     <span
                       data-role="skeleton"
                       className="skeleton mt-1 block h-6 w-24 rounded-control"
                       aria-hidden="true"
                     />
-                    <span
-                      data-role="price"
-                      className="tabular block h-6 font-semibold text-ink"
-                      hidden
-                    ></span>
+                    <span data-role="price" className="tabular block h-6 text-ink" hidden></span>
                     <span data-role="kind" className="block h-4.5 text-caption text-ink-tertiary"></span>
                   </td>
                 </tr>
@@ -317,7 +286,7 @@ export function Landing({ context }: { context: SiteContext }) {
           </table>
         </div>
         <div
-          className="flex min-h-14 items-start justify-between gap-x-2 text-caption text-ink-tertiary"
+          className="flex min-h-touch items-start justify-between gap-x-2 text-caption text-ink-tertiary"
           aria-live="polite"
         >
           <p data-role="status" className="flex-1">
@@ -326,7 +295,7 @@ export function Landing({ context }: { context: SiteContext }) {
           <button
             type="button"
             data-role="retry"
-            className="min-h-touch shrink-0 px-2 text-small font-semibold text-ink underline underline-offset-4"
+            className="min-h-touch shrink-0 px-2 text-button text-ink underline underline-offset-4"
             hidden
           >
             Try again
@@ -340,8 +309,8 @@ export function Landing({ context }: { context: SiteContext }) {
       <Questions />
 
       <section className={`${column} pb-24`}>
-        <div className="flex flex-wrap items-center justify-between gap-6 rounded-panel bg-ion-deep px-6 py-12 text-on-ion-deep md:px-12 md:py-16">
-          <h2 className="text-hero max-w-form">Your first GPU is a minute away.</h2>
+        <div className={`${tileRaised} flex flex-wrap items-center justify-between gap-6 md:px-12 md:py-16`}>
+          <h2 className="max-w-form text-hero">Your first GPU is a minute away.</h2>
           <a href={context.links.getStarted} className={`${primaryButton} ${largeButton}`}>
             Get started
           </a>
@@ -354,23 +323,20 @@ export function Landing({ context }: { context: SiteContext }) {
 /** How renting works, in three steps: the landing page's and the rent page's (ADR 0058). */
 export function HowItWorks() {
   return (
-    <section className={`${column} flex flex-col gap-10 pt-20 pb-6 md:pt-28`} aria-labelledby="steps">
+    <section className={`${column} flex flex-col gap-10 pt-16 pb-6 md:pt-24`} aria-labelledby="steps">
       <h2 id="steps" className={`${bandTitle} max-w-form`}>
         How it works
       </h2>
       <ol className="grid grid-cols-1 gap-4 md:grid-cols-3">
         {STEPS.map((step, index) => (
-          <li
-            key={step.title}
-            className={`${step.surface} flex min-h-step flex-col justify-between gap-8 rounded-panel p-8 text-ink`}
-          >
-            <p className="text-display">
+          <li key={step.title} className={`${tile} flex min-h-step flex-col justify-between gap-8`}>
+            <p className="text-hero text-ink-tertiary">
               <span className="sr-only">Step </span>
               {index + 1}
             </p>
             <div>
-              <h3 className="text-figure font-semibold">{step.title}</h3>
-              <p className="mt-2 text-body">{step.text}</p>
+              <h3 className="text-figure">{step.title}</h3>
+              <p className="mt-2 text-body text-ink-subtle">{step.text}</p>
             </div>
           </li>
         ))}
@@ -383,8 +349,8 @@ export function HowItWorks() {
 export function Sealed() {
   return (
     <section className={`${column} ${band}`} aria-labelledby="sealed">
-      <div className="scope-night flex flex-col gap-10 rounded-panel bg-black px-6 py-12 text-ink md:px-12 md:py-14">
-        <h2 id="sealed" className={`${sectionHeading} max-w-form text-ink`}>
+      <div className={`${tileRaised} flex flex-col gap-10 md:px-12 md:py-14`}>
+        <h2 id="sealed" className={`${sectionHeading} max-w-form`}>
           Sealed, on both sides.
         </h2>
         <ul className="grid grid-cols-1 gap-6 md:grid-cols-3">
@@ -395,7 +361,7 @@ export function Sealed() {
             </li>
           ))}
         </ul>
-        <p className="text-small text-ink-tertiary">
+        <p className="text-small text-ink-subtle">
           A host owns the laptop. Don&apos;t send truly secret data to community hosts.
         </p>
       </div>
@@ -411,8 +377,8 @@ export function Questions() {
         Questions
       </h2>
       {QUESTIONS.map((item) => (
-        <details key={item.question} className="rounded-card border border-hairline bg-surface-1 px-8 py-6">
-          <summary className="cursor-pointer text-card font-semibold">{item.question}</summary>
+        <details key={item.question} className="rounded-card border border-hairline bg-surface-1 px-6 py-4">
+          <summary className="cursor-pointer text-card">{item.question}</summary>
           <p className="mt-4 text-body text-ink-subtle">{item.answer}</p>
         </details>
       ))}
