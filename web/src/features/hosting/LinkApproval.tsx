@@ -119,9 +119,9 @@ function shown(value: string | undefined) {
 function AnswerSkeleton() {
   return (
     <Tile size="lg" className="flex flex-col gap-4" role="status" aria-label="Loading this link">
-      <Skeleton className="h-14" />
+      <Skeleton className="h-10 pointer-coarse:h-touch" />
       <Skeleton className="h-24" />
-      <Skeleton className="h-14 rounded-full" />
+      <Skeleton className="h-10 pointer-coarse:h-touch" />
     </Tile>
   );
 }

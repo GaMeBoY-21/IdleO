@@ -89,8 +89,8 @@ function FormsSkeleton() {
       {[0, 1].map((key) => (
         <Tile key={key} className="flex min-h-64 flex-col gap-4">
           <SkeletonLine size="card" width="w-1/3" />
-          <div className="skeleton h-14 rounded-control" />
-          <div className="skeleton h-14 rounded-control" />
+          <div className="skeleton h-control pointer-coarse:h-touch rounded-control" />
+          <div className="skeleton h-control pointer-coarse:h-touch rounded-control" />
         </Tile>
       ))}
     </div>
