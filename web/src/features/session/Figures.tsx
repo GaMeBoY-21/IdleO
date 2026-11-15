@@ -64,7 +64,7 @@ export function RunningTile({
           <p className="min-h-5 text-small text-ink-subtle">{about && `of ${about}`}</p>
         </div>
         <div className="flex flex-col items-end gap-1">
-          <Money paise={cost} className="text-figure text-volt" />
+          <Money paise={cost} className="text-figure text-live" />
           <span className="min-h-5 text-small text-ink-subtle">so far</span>
         </div>
       </div>

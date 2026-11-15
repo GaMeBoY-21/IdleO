@@ -87,7 +87,7 @@ export function CreateKey() {
       noValidate
       aria-label="Create a key"
       data-tile=""
-      className="flex flex-col gap-2 rounded-card bg-surface-1 p-4"
+      className="flex flex-col gap-2 rounded-card border border-hairline bg-surface-1 p-4"
       onSubmit={(event) => {
         event.preventDefault();
         void submit();

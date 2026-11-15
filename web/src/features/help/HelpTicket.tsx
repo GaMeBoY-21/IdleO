@@ -51,7 +51,7 @@ export function HelpTicket() {
               {thread.data.messages.map((entry) => (
                 <li
                   key={`${entry.createdAt}${entry.author}`}
-                  className={`flex flex-col gap-1 rounded-control p-4 ${entry.author === "admin" ? "bg-canvas" : "bg-surface-1 "}`}
+                  className={`flex flex-col gap-1 rounded-control p-4 ${entry.author === "admin" ? "bg-canvas" : "border border-hairline bg-surface-1 "}`}
                 >
                   <p className="text-caption text-ink-subtle">
                     {entry.author === "admin" ? "We wrote" : "You wrote"}, {formatDateTime(entry.createdAt)}

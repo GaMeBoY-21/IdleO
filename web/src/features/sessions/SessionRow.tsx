@@ -21,7 +21,7 @@ export function SessionRow({ session }: { session: Session }) {
     <li>
       <Link
         href={`/session/?id=${session.id}`}
-        className="tile-motion flex min-h-18 items-center gap-2 rounded-card bg-surface-1 px-4 py-4"
+        className="tile-motion flex min-h-18 items-center gap-2 rounded-card border border-hairline bg-surface-1 px-4 py-4"
       >
         {live && (
           <span aria-hidden="true" className="size-3 shrink-0 rounded-full bg-live ring-1 ring-live/30" />
@@ -168,7 +168,10 @@ export function SessionRowsSkeleton({ rows = 3, table = false }: { rows?: number
   return (
     <div className="flex flex-col gap-2">
       {Array.from({ length: rows }, (_, key) => (
-        <div key={key} className="flex min-h-18 items-center gap-2 rounded-card bg-surface-1 px-4 py-4">
+        <div
+          key={key}
+          className="flex min-h-18 items-center gap-2 rounded-card border border-hairline bg-surface-1 px-4 py-4"
+        >
           <div className="flex flex-1 flex-col gap-1">
             <SkeletonLine size="card" width="w-1/2" />
             <SkeletonLine size="small" width="w-2/3" />

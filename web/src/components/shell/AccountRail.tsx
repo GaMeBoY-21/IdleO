@@ -32,7 +32,7 @@ export function AccountRail({
           <button
             type="button"
             onClick={() => void signOut()}
-            className="min-h-12 rounded-control bg-surface-1 text-small font-semibold hover:bg-surface-3"
+            className="min-h-12 rounded-control border border-hairline bg-surface-1 text-small font-semibold hover:bg-surface-3"
           >
             Sign out
           </button>
@@ -62,7 +62,7 @@ function ProfileTile() {
     <Tile tone="raised" size="lg" aria-label="You" className="flex flex-col gap-4">
       <span
         aria-hidden="true"
-        className="flex size-16 items-center justify-center rounded-full bg-volt text-title font-semibold text-ink"
+        className="flex size-16 items-center justify-center rounded-full border border-hairline bg-surface-3 text-title text-ink"
       >
         {(name ?? " ").charAt(0).toUpperCase()}
       </span>

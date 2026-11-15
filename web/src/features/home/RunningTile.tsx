@@ -37,7 +37,7 @@ export function RunningTile({
       className={cn(wide ? "gap-4" : "col-span-2 row-span-2")}
     >
       <span className="flex items-center justify-between gap-2">
-        <TileLabel className="flex items-center gap-2 font-semibold text-volt">
+        <TileLabel className="flex items-center gap-2 font-semibold text-live">
           <span
             aria-hidden="true"
             className={cn("size-2 rounded-full bg-live", running && "motion-safe:animate-pulse")}
@@ -57,7 +57,7 @@ export function RunningTile({
               <span className="sr-only">Running for </span>
               <Elapsed from={session.startedAt} />
             </span>
-            <span className="text-section font-semibold text-volt tabular">
+            <span className="text-section font-semibold text-live tabular">
               <Money paise={costSoFar(session)} />
               <span className="sr-only"> so far</span>
             </span>
