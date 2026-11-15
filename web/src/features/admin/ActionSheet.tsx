@@ -186,7 +186,7 @@ export function ActionSheet({
               aria-invalid={touched && problem !== null ? true : undefined}
               aria-describedby={`${id}-message`}
               className={cn(
-                "rounded-control bg-surface-1 px-4 py-4 text-body text-ink",
+                "rounded-control border border-hairline bg-surface-1 px-4 py-4 text-body text-ink",
                 touched && problem !== null && "ring-2 ring-danger",
               )}
             />
@@ -213,7 +213,7 @@ export function ActionSheet({
                 aria-invalid={touched && !typedRight ? true : undefined}
                 aria-describedby={`${id}-typed-message`}
                 className={cn(
-                  "rounded-control bg-surface-1 px-4 py-4 text-body text-ink",
+                  "rounded-control border border-hairline bg-surface-1 px-4 py-4 text-body text-ink",
                   touched && !typedRight && "ring-2 ring-danger",
                 )}
               />

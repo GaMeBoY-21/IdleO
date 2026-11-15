@@ -49,7 +49,7 @@ function InviteStep() {
       </p>
       {me.isPending ? (
         <div className="flex flex-col gap-2" role="status" aria-label="Loading">
-          <Skeleton className="h-14 w-full" />
+          <Skeleton className="h-control pointer-coarse:h-touch w-full" />
           <div className="h-4.5" />
           <Skeleton className="h-touch w-full" />
         </div>

@@ -33,7 +33,7 @@ export function Budget({ chips }: { chips: number[] }) {
   const chip = (selected: boolean) =>
     cn(
       "flex min-h-touch items-center rounded-full px-4 text-small font-semibold transition-colors",
-      selected ? "bg-volt text-on-volt" : "bg-surface-2 hover:bg-hairline",
+      selected ? "bg-surface-4 text-ink ring-1 ring-ink-tertiary" : "bg-surface-2 hover:bg-surface-3",
     );
 
   return (

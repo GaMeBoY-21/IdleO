@@ -36,7 +36,7 @@ export function CodeField({
         aria-invalid={error ? true : undefined}
         aria-describedby={`${id}-message`}
         className={cn(
-          "tabular min-h-14 rounded-control bg-surface-1 px-4 text-title text-ink placeholder:text-ink-subtle",
+          "tabular min-h-14 rounded-control border border-hairline bg-surface-1 px-4 text-title text-ink placeholder:text-ink-subtle",
           error && "ring-2 ring-danger",
         )}
       />

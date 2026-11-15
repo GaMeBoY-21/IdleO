@@ -93,7 +93,7 @@ export function GpuCard({
         aria-hidden="true"
         className={cn(
           "flex size-12 shrink-0 items-center justify-center rounded-control",
-          free ? "bg-volt text-ink" : "bg-surface-3 text-ink",
+          free ? "bg-surface-3 text-live" : "bg-surface-2 text-ink-subtle",
         )}
       >
         <Cpu className="size-7" strokeWidth={1.75} />

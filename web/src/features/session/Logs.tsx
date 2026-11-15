@@ -111,7 +111,7 @@ export function Logs({
         aria-expanded={open}
         aria-controls="logs-panel"
         onClick={() => setOpen(!open)}
-        className="flex min-h-14 items-center gap-2 rounded-card bg-surface-1 px-4 py-4 text-left text-body"
+        className="flex min-h-14 items-center gap-2 rounded-card border border-hairline bg-surface-1 px-4 py-4 text-left text-body"
       >
         <ScrollText aria-hidden="true" className="size-5 shrink-0" strokeWidth={1.75} />
         <span className="min-w-0 flex-1 truncate">

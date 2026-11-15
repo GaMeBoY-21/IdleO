@@ -269,7 +269,7 @@ function TicketRecord({ id }: { id: string }) {
                 {messages.map((message) => (
                   <li
                     key={`${message.createdAt}${message.author}`}
-                    className={`flex flex-col gap-1 rounded-control p-4 ${message.author === "admin" ? "bg-canvas" : "bg-surface-1"}`}
+                    className={`flex flex-col gap-1 rounded-control p-4 ${message.author === "admin" ? "bg-canvas" : "border border-hairline bg-surface-1"}`}
                   >
                     <p className="text-caption text-ink-subtle">
                       {message.author === "admin" ? "We wrote" : "They wrote"},{" "}
