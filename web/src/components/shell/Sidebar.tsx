@@ -5,6 +5,7 @@ import { BrandMark, Wordmark } from "@/brand/Wordmark";
 import { AppLink } from "@/components/ui/AppLink";
 import { cn } from "@/lib/cn";
 import { nav } from "@site/site";
+import { AccountLink } from "./AccountLink";
 import { toggleSidebar, useSidebarCollapsed } from "./sidebar-state";
 
 /**
@@ -54,6 +55,7 @@ export function Sidebar() {
         })}
       </nav>
       <span className="flex-1" />
+      <AccountLink collapsed={collapsed} />
       <button
         type="button"
         onClick={toggleSidebar}

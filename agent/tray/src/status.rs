@@ -9,11 +9,11 @@ use time::{OffsetDateTime, UtcOffset};
 pub enum Colour {
     /// Available or earning: volt, #C8FF3D.
     Volt,
-    /// Paused: grey, #A1A1AA.
+    /// Paused: grey, #8A8F98.
     Grey,
-    /// Waiting for approval, or can't reach IdleO: ember, #FF7A2F.
-    Ember,
-    /// A problem: red, #F04438.
+    /// Waiting for approval, or can't reach IdleO: the warning colour, #D9A400.
+    Amber,
+    /// A problem: red, #E5484D.
     Red,
 }
 
@@ -23,9 +23,9 @@ impl Colour {
     pub fn rgb(self) -> [u8; 3] {
         match self {
             Self::Volt => [0xC8, 0xFF, 0x3D],
-            Self::Grey => [0xA1, 0xA1, 0xAA],
-            Self::Ember => [0xFF, 0x7A, 0x2F],
-            Self::Red => [0xF0, 0x44, 0x38],
+            Self::Grey => [0x8A, 0x8F, 0x98],
+            Self::Amber => [0xD9, 0xA4, 0x00],
+            Self::Red => [0xE5, 0x48, 0x4D],
         }
     }
 }
@@ -106,17 +106,17 @@ pub fn tooltip(status: Option<&Status>, offset: UtcOffset) -> String {
 /// The icon's colour for a status.
 #[must_use]
 pub fn colour(status: Option<&Status>) -> Colour {
-    let Some(status) = status else { return Colour::Ember };
+    let Some(status) = status else { return Colour::Amber };
     match status.link_state {
         LinkState::Removed | LinkState::Suspended => return Colour::Red,
-        LinkState::PendingApproval if !status.session_running => return Colour::Ember,
+        LinkState::PendingApproval if !status.session_running => return Colour::Amber,
         _ => {}
     }
     if status.session_running {
         return Colour::Volt;
     }
     if !status.server_reachable {
-        return Colour::Ember;
+        return Colour::Amber;
     }
     match status.state {
         State::Available => Colour::Volt,
@@ -255,9 +255,9 @@ pub(crate) mod tests {
             (
                 Status { link_state: LinkState::PendingApproval, ..ready() },
                 "Waiting for IdleO to check this laptop",
-                Colour::Ember,
+                Colour::Amber,
             ),
-            (Status { server_reachable: false, ..ready() }, "Can't reach IdleO · trying again", Colour::Ember),
+            (Status { server_reachable: false, ..ready() }, "Can't reach IdleO · trying again", Colour::Amber),
             (
                 Status {
                     prefetch: Some(Prefetch::Downloading {
@@ -301,7 +301,7 @@ pub(crate) mod tests {
             assert_eq!(colour(Some(&status)), expected, "{text}");
         }
         assert_eq!(line(None, IST), "Starting…");
-        assert_eq!(colour(None), Colour::Ember);
+        assert_eq!(colour(None), Colour::Amber);
         let wait = Status {
             state: State::AutoPaused,
             reason: Some(Reason::KeyboardMouse),

@@ -163,7 +163,6 @@ class Statements {
                 var out = new ByteArrayOutputStream()) {
             var regular = PdfStyle.font(pdf, "Inter-Regular.ttf");
             var bold = PdfStyle.font(pdf, "Inter-Bold.ttf");
-            var display = PdfStyle.font(pdf, "Archivo-Display.ttf");
             var info = pdf.getDocumentInformation();
             info.setTitle("IdleO payout statement " + statement.year().name());
             info.setProducer("IdleO");
@@ -172,8 +171,8 @@ class Statements {
             var stream = new PDPageContentStream(pdf, page);
             float y = page.getMediaBox().getHeight() - MARGIN;
             try {
-                y = PdfStyle.letterhead(stream, display, y, MARGIN);
-                y = text(stream, display, 18, y, "PAYOUT STATEMENT");
+                y = PdfStyle.letterhead(stream, bold, y, MARGIN);
+                y = text(stream, bold, 18, y, "Payout statement");
                 y = text(
                         stream,
                         regular,
@@ -196,7 +195,7 @@ class Statements {
                 }
                 y = amount(stream, bold, y, "Net paid to your UPI ID", statement.netPaise());
                 y -= 14;
-                stream.setNonStrokingColor(PdfStyle.ACCENT);
+                stream.setNonStrokingColor(PdfStyle.LABEL);
                 y = text(stream, bold, 11, y, "Payouts");
                 stream.setNonStrokingColor(PdfStyle.INK);
                 if (statement.lines().isEmpty()) {

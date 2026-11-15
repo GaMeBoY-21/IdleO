@@ -54,7 +54,7 @@ function DetailsSkeleton() {
         <SkeletonLine size="caption" width="w-full" />
         <SkeletonLine size="caption" width="w-1/2" />
       </div>
-      <div className="min-h-touch w-24 rounded-full bg-surface-2" />
+      <div className="h-control pointer-coarse:h-touch w-24 rounded-control bg-surface-2" />
     </div>
   );
 }

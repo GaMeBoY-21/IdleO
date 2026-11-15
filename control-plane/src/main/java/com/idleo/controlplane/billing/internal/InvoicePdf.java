@@ -20,7 +20,7 @@ import tools.jackson.databind.JsonNode;
 
 /**
  * An invoice, receipt or credit note as a PDF (ADR 0039), made on the server from the document as it was issued, with
- * PDFBox (pinned in the pom) and the web app's own faces, Inter and Archivo, embedded from the jar ({@link PdfStyle}): a
+ * PDFBox (pinned in the pom) and the web app's own face, Inter, embedded from the jar ({@link PdfStyle}): a
  * white page, dark text, colour only for accents. Nothing is fetched while it renders, and the same document always makes
  * the same pages. Amounts are rupees with two decimals ({@link Rupees}).
  */
@@ -36,7 +36,6 @@ class InvoicePdf {
                 var out = new ByteArrayOutputStream()) {
             var regular = PdfStyle.font(pdf, "Inter-Regular.ttf");
             var bold = PdfStyle.font(pdf, "Inter-Bold.ttf");
-            var display = PdfStyle.font(pdf, "Archivo-Display.ttf");
             var page = new PDPage(PDRectangle.A4);
             pdf.addPage(page);
             var info = pdf.getDocumentInformation();
@@ -48,9 +47,9 @@ class InvoicePdf {
             info.setCreationDate(issued);
             info.setModificationDate(issued);
             try (var page1 = new PDPageContentStream(pdf, page)) {
-                var y = PdfStyle.letterhead(page1, display, page.getMediaBox().getHeight() - MARGIN, MARGIN);
+                var y = PdfStyle.letterhead(page1, bold, page.getMediaBox().getHeight() - MARGIN, MARGIN);
                 var writer = new Writer(page1, y);
-                writer.line(display, 18, text(document, "title").toUpperCase(Locale.ENGLISH));
+                writer.line(bold, 18, text(document, "title"));
                 if (document.hasNonNull("notice")) {
                     writer.line(bold, 11, text(document, "notice"));
                 }
@@ -171,9 +170,9 @@ class InvoicePdf {
             y -= points;
         }
 
-        /** A small heading in the accent colour; the text after it is the ink again. */
+        /** A small heading in the quieter ink; the text after it is the ink again. */
         void label(PDType0Font font, float size, String text) throws IOException {
-            stream.setNonStrokingColor(PdfStyle.ACCENT);
+            stream.setNonStrokingColor(PdfStyle.LABEL);
             line(font, size, text);
             stream.setNonStrokingColor(PdfStyle.INK);
         }

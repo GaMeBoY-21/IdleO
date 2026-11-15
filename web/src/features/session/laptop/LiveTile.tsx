@@ -12,7 +12,7 @@ import { StopAction } from "../Actions";
 
 /**
  * A running session's night band on a laptop (approved reference `Session`), across the top: its state, and the epoch
- * when the job's log says one, in volt; the service's name in Archivo; when it started and the live status; and on the
+ * when the job's log says one, in volt; the service's name; when it started and the live status; and on the
  * right the time with "of about N min", the cost so far in volt with what it stops at, and the Stop button. Under the
  * name, the rate, how it is charged and what is held. Money changes in place and never counts up. Moving to another
  * host and saving its outputs keep the band, without Stop.

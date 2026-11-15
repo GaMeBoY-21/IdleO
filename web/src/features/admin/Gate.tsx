@@ -86,7 +86,7 @@ function GateSkeleton() {
       <div role="status" aria-label="Loading the admin console" className="flex flex-col gap-6">
         <Skeleton className="h-8.5 w-48" />
         <Skeleton className="h-control pointer-coarse:h-touch w-full" />
-        <Skeleton className="h-touch w-32" />
+        <Skeleton className="h-control pointer-coarse:h-touch w-32" />
       </div>
     </main>
   );

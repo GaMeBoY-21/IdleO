@@ -104,7 +104,7 @@ fn main() {
     let folder = PathBuf::from(std::env::args().nth(1).expect("usage: save_icons <folder>"));
     std::fs::create_dir_all(&folder).expect("the folder can be made");
     for (name, colour) in
-        [("volt", Colour::Volt), ("grey", Colour::Grey), ("ember", Colour::Ember), ("red", Colour::Red)]
+        [("volt", Colour::Volt), ("grey", Colour::Grey), ("amber", Colour::Amber), ("red", Colour::Red)]
     {
         let big = idleo_brand::icon_rgba(colour.rgb(), 256);
         std::fs::write(folder.join(format!("tray-{name}--256.png")), png(&big, 256, 256)).expect("a picture is saved");

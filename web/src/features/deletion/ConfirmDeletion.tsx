@@ -45,7 +45,7 @@ function ConfirmStep() {
       ) : standing.isPending ? (
         <div className="flex flex-col gap-4" role="status" aria-label="Loading">
           <Skeleton className="h-12 w-full" />
-          <Skeleton className="h-touch w-full" />
+          <Skeleton className="h-10 pointer-coarse:h-touch w-full" />
         </div>
       ) : (
         <div className="flex flex-col gap-4">

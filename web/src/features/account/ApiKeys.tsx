@@ -80,7 +80,10 @@ export function ApiKeys() {
                   <SkeletonLine size="card" width="w-1/2" />
                   <SkeletonLine size="small" width="w-2/3" />
                 </div>
-                <div className="h-touch w-20 rounded-control skeleton" aria-hidden="true" />
+                <div
+                  className="h-control pointer-coarse:h-touch w-20 rounded-control skeleton"
+                  aria-hidden="true"
+                />
               </div>
             ))}
           </div>
