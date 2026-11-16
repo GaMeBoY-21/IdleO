@@ -1,7 +1,10 @@
 package com.idleo.controlplane.billing;
 
+import java.time.Instant;
+import java.time.LocalDate;
 import java.util.Collection;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -36,4 +39,22 @@ public interface HostEarnings {
      * owner's Earnings, for the host's tray (ADR 0034).
      */
     long earnedToday(UUID hostId);
+
+    /** What the host has earned this week, Monday to now in India's calendar, less what was given back. */
+    long earnedThisWeek(UUID hostId);
+
+    /** What the host has earned this month, in India's calendar, less what was given back. */
+    long earnedThisMonth(UUID hostId);
+
+    /**
+     * A payout that took the host's earnings: when it was made up and how much of the host's earnings it took, before any
+     * deductions.
+     */
+    record Payout(Instant sentAt, long amountPaise) {}
+
+    /** The latest payout that took the host's earnings, if any has. */
+    Optional<Payout> lastPayout(UUID hostId);
+
+    /** The date of the next weekly payout in India, while payouts are running; none while they aren't. */
+    Optional<LocalDate> nextPayoutOn();
 }

@@ -5,6 +5,7 @@ import com.idleo.controlplane.hosts.HostWork;
 import com.idleo.controlplane.sessions.SessionCosts;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.springframework.beans.factory.ObjectProvider;
@@ -38,6 +39,29 @@ class HostWorkService implements HostWork {
                             select 1 from sessions.sessions
                             where host_id = :hostId and state in ('MATCHED', 'PROVISIONING', 'RUNNING', 'FINISHING'))
                         """).param("hostId", hostId).query(Boolean.class).single();
+    }
+
+    @Override
+    public List<FinishedSession> recent(UUID hostId, int limit) {
+        return jdbc.sql("""
+                        select s.id, coalesce(a.ended_at, s.state_changed_at) as ended_at, a.running_at
+                        from sessions.sessions s
+                        join sessions.attempts a on a.session_id = s.id and a.attempt = s.attempt
+                        where a.host_id = :hostId and s.state = 'COMPLETED' and a.running_at is not null
+                        order by coalesce(a.ended_at, s.state_changed_at) desc
+                        limit :limit
+                        """)
+                .param("hostId", hostId)
+                .param("limit", limit)
+                .query((rs, n) -> {
+                    var ended = rs.getTimestamp("ended_at").toInstant();
+                    var began = rs.getTimestamp("running_at").toInstant();
+                    return new FinishedSession(
+                            rs.getObject("id", UUID.class),
+                            ended,
+                            Math.max(0, ended.getEpochSecond() - began.getEpochSecond()));
+                })
+                .list();
     }
 
     private record Running(UUID hostId, UUID sessionId, String templateId, java.time.Instant startedAt) {}

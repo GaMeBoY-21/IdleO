@@ -2,6 +2,7 @@ package com.idleo.controlplane.hosts;
 
 import java.time.Instant;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -26,4 +27,16 @@ public interface HostWork {
 
     /** The hosts among {@code hostIds} that are running a session now; the others aren't in the map. */
     Map<UUID, CurrentSession> current(Collection<UUID> hostIds);
+
+    /**
+     * A session the host finished: how long it ran, and when it ended. Nothing of the renter's, and not the service.
+     *
+     * @param sessionId the session, so the ledger can say what it paid the host
+     * @param endedAt when it ended
+     * @param seconds how long it ran, from its first running to its end
+     */
+    record FinishedSession(UUID sessionId, Instant endedAt, long seconds) {}
+
+    /** The host's last few finished sessions, newest first, at most {@code limit}. */
+    List<FinishedSession> recent(UUID hostId, int limit);
 }

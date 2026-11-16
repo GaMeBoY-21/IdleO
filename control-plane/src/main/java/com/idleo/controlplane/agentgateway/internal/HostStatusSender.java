@@ -17,6 +17,8 @@ import gpu.agent.v1.AgentGateway.UpdateAgent;
 import gpu.agent.v1.AgentGateway.UpdateBlocklist;
 import gpu.agent.v1.Host.HostState;
 import gpu.agent.v1.Host.HostStatus;
+import gpu.agent.v1.Host.PayoutSent;
+import gpu.agent.v1.Host.RecentJob;
 import java.util.List;
 import java.util.UUID;
 import org.slf4j.Logger;
@@ -46,6 +48,8 @@ class HostStatusSender {
     static final String HOST_STATUS = "host_status";
     static final String UPDATE_AGENT = "update_agent";
     static final String UPDATE_BLOCKLIST = "update_blocklist";
+    /** How many finished jobs the IdleO window's Earnings tab lists. */
+    static final int RECENT_JOBS = 5;
 
     private final HostAgentRequests hosts;
     private final HostEarnings earnings;
@@ -168,7 +172,30 @@ class HostStatusSender {
         }
         var message = HostStatus.newBuilder()
                 .setState(state(standing.get().state()))
-                .setEarnedTodayPaise(earnings.earnedToday(hostId));
+                .setEarnedTodayPaise(earnings.earnedToday(hostId))
+                .setEarnedWeekPaise(earnings.earnedThisWeek(hostId))
+                .setEarnedMonthPaise(earnings.earnedThisMonth(hostId));
+        // The last few jobs: how long each ran and what it paid the host, nothing of the renter's.
+        var finished = work.recent(hostId, RECENT_JOBS);
+        var paid = earnings.bySession(
+                hostId,
+                finished.stream().map(HostWork.FinishedSession::sessionId).toList());
+        for (var job : finished) {
+            message.addRecentJobs(RecentJob.newBuilder()
+                    .setEndedAt(Timestamp.newBuilder()
+                            .setSeconds(job.endedAt().getEpochSecond())
+                            .setNanos(job.endedAt().getNano()))
+                    .setSeconds((int) Math.min(job.seconds(), Integer.MAX_VALUE))
+                    .setEarnedPaise(paid.getOrDefault(job.sessionId(), HostEarnings.Earned.NONE)
+                            .netPaise()));
+        }
+        earnings.nextPayoutOn().ifPresent(date -> message.setNextPayoutOn(date.toString()));
+        earnings.lastPayout(hostId)
+                .ifPresent(payout -> message.setLastPayout(PayoutSent.newBuilder()
+                        .setSentAt(Timestamp.newBuilder()
+                                .setSeconds(payout.sentAt().getEpochSecond())
+                                .setNanos(payout.sentAt().getNano()))
+                        .setAmountPaise(payout.amountPaise())));
         var running = work.current(List.of(hostId)).get(hostId);
         if (running != null) {
             message.setEarningNowPaise(running.earnedSoFarPaise());

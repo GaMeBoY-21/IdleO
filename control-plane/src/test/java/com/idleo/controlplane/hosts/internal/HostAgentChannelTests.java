@@ -105,6 +105,15 @@ class HostAgentChannelTests {
             var active = awaitStatus(host, HostState.HOST_STATE_ACTIVE);
             assertThat(active.getEarnedTodayPaise()).isZero();
             assertThat(active.hasPausedUntil()).isFalse();
+            // The IdleO window's figures come with it: this week and month (set, though nothing is earned yet), no
+            // jobs, and
+            // no payout while payouts aren't configured.
+            assertThat(active.hasEarnedWeekPaise()).isTrue();
+            assertThat(active.getEarnedWeekPaise()).isZero();
+            assertThat(active.hasEarnedMonthPaise()).isTrue();
+            assertThat(active.getRecentJobsList()).isEmpty();
+            assertThat(active.hasNextPayoutOn()).isFalse();
+            assertThat(active.hasLastPayout()).isFalse();
 
             // A pause from the web app reaches the tray, with its end.
             var until = Instant.now(clock).plus(Duration.ofHours(3)).truncatedTo(java.time.temporal.ChronoUnit.SECONDS);

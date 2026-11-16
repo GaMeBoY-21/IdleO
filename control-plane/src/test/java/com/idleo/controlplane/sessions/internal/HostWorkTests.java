@@ -212,6 +212,34 @@ class HostWorkTests {
         host.disconnect();
     }
 
+    @Test
+    void theHostsLastFinishedSessionsAreListedNewestFirstWithOnlyTheirLength() throws Exception {
+        var host = TestHosts.ready(mvc, grpcPort, jdbc, 2);
+        var renter = bookings.renter();
+        var ids = new java.util.ArrayList<java.util.UUID>();
+        for (int i = 0; i < 3; i++) {
+            var sessionId = java.util.UUID.randomUUID();
+            ids.add(sessionId);
+            seedFinished(
+                    sessionId,
+                    renter.id(),
+                    host.id(),
+                    java.time.Instant.parse("2026-10-01T10:00:00Z").plusSeconds(i * 3_600L));
+        }
+        var work = context.getBean(com.idleo.controlplane.hosts.HostWork.class);
+
+        var recent = work.recent(host.id(), 2);
+        assertThat(recent).hasSize(2);
+        assertThat(recent.get(0).sessionId()).isEqualTo(ids.get(2));
+        assertThat(recent.get(1).sessionId()).isEqualTo(ids.get(1));
+        // Each ran for 30 minutes less 20 seconds, as seeded.
+        assertThat(recent.get(0).seconds()).isEqualTo(30 * 60 - 20);
+        assertThat(recent.get(0).endedAt()).isAfter(recent.get(1).endedAt());
+        assertThat(work.recent(host.id(), 10)).hasSize(3);
+        assertThat(work.recent(java.util.UUID.randomUUID(), 5)).isEmpty();
+        host.disconnect();
+    }
+
     private void seedFinished(
             java.util.UUID sessionId, java.util.UUID renterId, java.util.UUID hostId, java.time.Instant startedAt) {
         var at = java.sql.Timestamp.from(startedAt);
