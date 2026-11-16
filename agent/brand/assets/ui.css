@@ -1,0 +1,139 @@
+/* The Windows app's design (ADR 0060, ADR 0061): the web app's tokens (web/src/design/tokens.ts) and the few components
+   the setup window and the IdleO window share. Near-black canvas, cards a step lighter with hairline borders, Inter, volt
+   used sparingly (the main action, the live state), both of Windows' themes. `data-theme` on <html> overrides what Windows
+   says: "dark", "light", or none to follow it. Nothing is fetched: this and the font are built into the page. */
+@font-face {
+  font-family: "Inter";
+  src: url(data:font/woff2;base64,/*FONT_INTER*/) format("woff2");
+  font-weight: 400 700;
+  font-display: block;
+}
+:root {
+  color-scheme: dark;
+  --ground: #08090a;
+  --fill: #0f1011;
+  --fill-2: #141516;
+  --raised: #0f1011;
+  --raised-hover: #141516;
+  --line: #23252a;
+  --edge: #34343a;
+  --text: #f7f8f8;
+  --text-2: #8a8f98;
+  --muted: #80858e;
+  --primary: #c8ff3d;
+  --primary-hover: #d6ff6e;
+  --primary-pressed: #b3e02f;
+  --primary-fg: #08090a;
+  --accent: #c8ff3d;
+  --accent-fg: #08090a;
+  --warn: #d9a400;
+  --warn-bg: #1a1606;
+  --danger: #e5484d;
+  --danger-fg: #08090a;
+  --danger-bg: #1d0f10;
+  --scrim: rgba(0, 0, 0, 0.6);
+  --radius: 12px;
+  font-family: "Inter", "Segoe UI", sans-serif;
+  color: var(--text);
+}
+:root[data-theme="light"] {
+  color-scheme: light;
+  --ground: #ffffff;
+  --fill: #f7f8f8;
+  --fill-2: #f1f2f3;
+  --raised: #f7f8f8;
+  --raised-hover: #f1f2f3;
+  --line: #e4e5e7;
+  --edge: #d6d8db;
+  --text: #0b0c0e;
+  --text-2: #5f646d;
+  --muted: #666b74;
+  --primary: #c8ff3d;
+  --primary-hover: #d6ff6e;
+  --primary-pressed: #b3e02f;
+  --primary-fg: #08090a;
+  --accent: #4a7300;
+  --accent-fg: #ffffff;
+  --warn: #8a6500;
+  --warn-bg: #fbf3dc;
+  --danger: #c8282d;
+  --danger-fg: #ffffff;
+  --danger-bg: #fdeceb;
+  --scrim: rgba(0, 0, 0, 0.4);
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    color-scheme: light;
+    --ground: #ffffff;
+    --fill: #f7f8f8;
+    --fill-2: #f1f2f3;
+    --raised: #f7f8f8;
+    --raised-hover: #f1f2f3;
+    --line: #e4e5e7;
+    --edge: #d6d8db;
+    --text: #0b0c0e;
+    --text-2: #5f646d;
+    --muted: #666b74;
+    --accent: #4a7300;
+    --accent-fg: #ffffff;
+    --warn: #8a6500;
+    --warn-bg: #fbf3dc;
+    --danger: #c8282d;
+    --danger-fg: #ffffff;
+    --danger-bg: #fdeceb;
+    --scrim: rgba(0, 0, 0, 0.4);
+  }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: var(--ground); overflow: hidden; }
+h1 { font-size: 28px; line-height: 1.2; margin: 0; font-weight: 600; letter-spacing: -0.6px; }
+h2 { font-size: 20px; line-height: 1.4; margin: 0; font-weight: 500; letter-spacing: -0.2px; }
+h3 { font-size: 15px; line-height: 1.4; margin: 0; font-weight: 600; }
+p { margin: 0; font-size: 15px; line-height: 1.5; }
+.muted { color: var(--text-2); }
+.small { font-size: 13px; }
+.num { font-variant-numeric: tabular-nums; }
+.grow { flex: 1; }
+.row { display: flex; gap: 12px; align-items: center; }
+.row.between { justify-content: space-between; }
+.stack { display: flex; flex-direction: column; gap: 8px; }
+.tile { background: var(--fill); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px 20px; }
+.tile.warn { background: var(--warn-bg); border-color: var(--warn); }
+.tile.danger { background: var(--danger-bg); border-color: var(--danger); }
+.wordmark { font-weight: 600; font-size: 22px; line-height: 1; letter-spacing: -0.6px; color: var(--accent); }
+button, select, input { font: inherit; }
+button { font-size: 14px; font-weight: 500; border: 1px solid transparent; border-radius: 8px; padding: 0 14px; min-height: 32px; cursor: pointer; color: var(--text); background: none; }
+button:disabled { opacity: 0.5; cursor: default; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.primary { background: var(--primary); color: var(--primary-fg); }
+.primary:hover:not(:disabled) { background: var(--primary-hover); }
+.primary:active:not(:disabled) { background: var(--primary-pressed); }
+.secondary { background: var(--raised); border-color: var(--edge); }
+.secondary:hover:not(:disabled) { background: var(--raised-hover); }
+.danger { background: var(--danger); color: var(--danger-fg); }
+.quiet { padding: 0 8px; min-height: 28px; text-decoration: underline; text-underline-offset: 4px; }
+.pill { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 500; padding: 2px 10px; border-radius: 999px; border: 1px solid var(--line); background: var(--fill-2); }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-2); display: inline-block; }
+.dot.volt { background: var(--accent); }
+.dot.amber { background: var(--warn); }
+.dot.red { background: var(--danger); }
+/* A switch is a button with role="switch": a track and a knob, never colour alone (the knob moves). */
+.switch { position: relative; width: 44px; min-height: 24px; height: 24px; padding: 0; border-radius: 999px; background: var(--fill-2); border: 1px solid var(--edge); flex: none; }
+.switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; border-radius: 50%; background: var(--text-2); transition: transform 0.15s ease; }
+.switch[aria-checked="true"] { background: var(--primary); border-color: var(--primary); }
+.switch[aria-checked="true"]::after { transform: translateX(20px); background: var(--primary-fg); }
+.field { display: flex; flex-direction: column; gap: 4px; }
+.field label, .label { font-size: 13px; color: var(--text-2); }
+select, input[type="time"] { background: var(--raised); color: var(--text); border: 1px solid var(--edge); border-radius: 8px; min-height: 32px; padding: 0 8px; }
+input[type="range"] { width: 100%; accent-color: var(--accent); }
+.spinner { width: 20px; height: 20px; flex: none; border-radius: 50%; border: 2px solid var(--line); border-top-color: var(--accent); animation: spin 0.9s linear infinite; }
+.bar { height: 6px; border-radius: 999px; background: var(--fill-2); border: 1px solid var(--line); overflow: hidden; }
+.bar > span { display: block; height: 100%; background: var(--accent); }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+@keyframes spin { to { transform: rotate(360deg); } }
+/* Windows' "Show animations" off reaches the page as reduced motion: nothing moves. */
+@media (prefers-reduced-motion: reduce) {
+  .spinner { animation: none; border-top-color: var(--muted); }
+  .switch::after { transition: none; }
+  * { scroll-behavior: auto !important; }
+}

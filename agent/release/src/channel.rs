@@ -15,8 +15,13 @@ use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 use tokio::io::{AsyncBufRead, AsyncBufReadExt, AsyncWrite, AsyncWriteExt};
 
+use crate::settings::HostSettings;
+
 /// The protocol's version, on every line.
 pub const VERSION: u32 = 1;
+/// What `idleo-hostd` exits with when its owner chose Quit IdleO: the launcher stops everything and doesn't start it again
+/// until the next sign-in.
+pub const QUIT_BY_OWNER_EXIT_CODE: u8 = 11;
 /// The longest line accepted, so a broken peer can't fill memory.
 pub const MAX_LINE: usize = 64 * 1024;
 
@@ -86,6 +91,21 @@ pub enum Request {
     PrepareUninstall,
     /// Run the self-test now. Answered by [`Message::SelfTest`].
     SelfTest,
+    /// Change the host's settings (the IdleO window's tabs). Checked and stored by the agent, and applied at once; the new
+    /// settings come back in the next status.
+    SetSettings {
+        /// All of them.
+        settings: HostSettings,
+    },
+    /// Ask the tray to show the IdleO window (the Start menu, a toast, the launcher): the agent hands it on to every
+    /// client as [`Message::OpenWindow`].
+    OpenWindow {
+        /// The tab to open: `now`, `schedule`, `limits`, `earnings` or `settings`; none opens the one last used.
+        tab: Option<String>,
+    },
+    /// Stop IdleO: a running job saves its progress and stops first, then the agent leaves and the launcher doesn't
+    /// start it again until the next sign-in. Answered by [`Message::Done`] just before the agent exits.
+    Quit,
 }
 
 /// The agent's own state, as auto-pause and the owner's pause decide it.
@@ -114,6 +134,14 @@ pub enum Reason {
     GpuBusy,
     /// Running on battery.
     Unplugged,
+    /// Outside the hours the host set.
+    Schedule,
+    /// The GPU is hotter than the host's limit.
+    TooHot,
+    /// The connection is metered and the host said not to use those.
+    Metered,
+    /// The Linux space has reached the disk limit the host set.
+    DiskFull,
 }
 
 /// Where the host stands with IdleO.
@@ -207,9 +235,39 @@ pub struct Status {
     /// The job images being downloaded in the background, if any.
     #[serde(default)]
     pub prefetch: Option<Prefetch>,
+    /// The public website, where Help goes; none from an older install.
+    #[serde(default)]
+    pub site_url: Option<String>,
+    /// Everything the host chose, as the agent stores it.
+    #[serde(default)]
+    pub settings: HostSettings,
+    /// The GPU's heat and use, while a renter's job runs: never anything of the renter's.
+    #[serde(default)]
+    pub live: Option<Live>,
+    /// Earnings from IdleO, as last heard, and when.
+    #[serde(default)]
+    pub earnings: Option<Earnings>,
+    /// A problem that needs the host, if there is one.
+    #[serde(default)]
+    pub problem: Option<Problem>,
+    /// The last time IdleO was heard from, for "last updated" while offline.
+    #[serde(default, with = "time::serde::rfc3339::option")]
+    pub server_seen_at: Option<OffsetDateTime>,
+    /// This agent's version.
+    #[serde(default)]
+    pub version: String,
+    /// The version an update installed lately (within a week), for "Updated to v…".
+    #[serde(default)]
+    pub updated_to: Option<String>,
 }
 
 impl Status {
+    /// Where Help goes: the website's help pages.
+    #[must_use]
+    pub fn help_url(&self) -> Option<String> {
+        self.site_url.as_ref().map(|site| format!("{}/help/", site.trim_end_matches('/')))
+    }
+
     /// Where Open dashboard goes: the host site's home (ADR 0058), or on an older install the renter app's old Hosting
     /// address, which redirects there.
     #[must_use]
@@ -220,6 +278,87 @@ impl Status {
             (None, None) => None,
         }
     }
+}
+
+/// What a running job's laptop is doing: the GPU's heat and use, and how long the job has run. Nothing of the renter's.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Live {
+    /// The hottest GPU, in °C.
+    pub gpu_temp_c: Option<u32>,
+    /// The busiest GPU's use, in percent.
+    pub gpu_util_pct: Option<u32>,
+    /// When the job started running, if the agent knows.
+    #[serde(default, with = "time::serde::rfc3339::option")]
+    pub job_started_at: Option<OffsetDateTime>,
+}
+
+/// One finished job, for the Earnings tab: how long it ran and what it paid the host. No renter, no service.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RecentJob {
+    /// When it ended.
+    #[serde(with = "time::serde::rfc3339")]
+    pub ended_at: OffsetDateTime,
+    /// How long it ran, in seconds.
+    pub seconds: u32,
+    /// What it paid the host, in paise.
+    pub earned_paise: i64,
+}
+
+/// What IdleO says the host has earned (billing's own figures, from the ledger), and the next payout.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Earnings {
+    /// Today, India's calendar day.
+    pub today_paise: i64,
+    /// This week, Monday to now, India's calendar.
+    pub week_paise: Option<i64>,
+    /// This month, India's calendar.
+    pub month_paise: Option<i64>,
+    /// The last few jobs, newest first.
+    #[serde(default)]
+    pub recent: Vec<RecentJob>,
+    /// The next payout's date, `YYYY-MM-DD`, India's calendar; none when IdleO doesn't say.
+    #[serde(default)]
+    pub next_payout_on: Option<String>,
+    /// The latest payout sent to the host.
+    #[serde(default)]
+    pub last_payout: Option<PayoutNote>,
+    /// When IdleO last said, on this laptop's clock.
+    #[serde(with = "time::serde::rfc3339")]
+    pub updated_at: OffsetDateTime,
+}
+
+impl Earnings {
+    /// The same figures with the time they were heard set aside, to tell whether anything changed.
+    #[must_use]
+    pub fn without_age(&self) -> Self {
+        Self { updated_at: OffsetDateTime::UNIX_EPOCH, ..self.clone() }
+    }
+}
+
+/// A payout sent to the host.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PayoutNote {
+    /// When it was sent.
+    #[serde(with = "time::serde::rfc3339")]
+    pub sent_at: OffsetDateTime,
+    /// How much, in paise.
+    pub amount_paise: i64,
+}
+
+/// A problem that needs the host to do something.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Problem {
+    /// The NVIDIA driver is older than the job runner needs.
+    DriverTooOld,
+    /// The laptop's disk is nearly full.
+    DiskNearlyFull,
+    /// The GPU is hotter than the host's limit.
+    TooHot,
+    /// Offline for more than an hour while it should be available.
+    OfflineTooLong,
+    /// The agent keeps crashing; sending diagnostics helps.
+    Crashing,
 }
 
 /// One self-test check, for the tray.
@@ -250,6 +389,8 @@ pub enum UninstallStep {
 /// What the agent sends.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
+// A status is pushed a few times a minute and held by one reader; boxing it would only cost every pattern that reads it.
+#[allow(clippy::large_enum_variant)]
 pub enum Message {
     /// The status, on connecting and on every change.
     Status(Status),
@@ -280,6 +421,11 @@ pub enum Message {
         id: u64,
         /// Where it has got to.
         step: UninstallStep,
+    },
+    /// Somebody asked to show the IdleO window ([`Request::OpenWindow`]); the tray does.
+    OpenWindow {
+        /// The tab to open, if one was named.
+        tab: Option<String>,
     },
 }
 
@@ -489,6 +635,14 @@ mod tests {
             app_url: Some("http://192.168.1.20:3000".to_owned()),
             host_url: None,
             prefetch: None,
+            site_url: Some("https://idleo.in".to_owned()),
+            settings: HostSettings::default(),
+            live: None,
+            earnings: None,
+            problem: None,
+            server_seen_at: None,
+            version: "0.1.0".to_owned(),
+            updated_to: None,
         }
     }
 
@@ -498,6 +652,8 @@ mod tests {
         assert_eq!(host.dashboard_url().as_deref(), Some("https://host.idleo.in/"));
         assert_eq!(status().dashboard_url().as_deref(), Some("http://192.168.1.20:3000/hosting/"));
         assert_eq!(Status { app_url: None, ..status() }.dashboard_url(), None);
+        assert_eq!(status().help_url().as_deref(), Some("https://idleo.in/help/"));
+        assert_eq!(Status { site_url: None, ..status() }.help_url(), None);
         // An older agent's status has no host_url, and still reads.
         let older = serde_json::to_string(&status()).unwrap().replace(",\"host_url\":null", "");
         assert!(!older.contains("host_url"));
@@ -514,6 +670,10 @@ mod tests {
             Request::SetAutoPause { settings: AutoPause { start_again_after_minutes: 30, ..AutoPause::default() } },
             Request::PrepareUninstall,
             Request::SelfTest,
+            Request::SetSettings { settings: HostSettings::default() },
+            Request::OpenWindow { tab: Some("earnings".to_owned()) },
+            Request::OpenWindow { tab: None },
+            Request::Quit,
         ];
         for (id, request) in (1..).zip(requests) {
             let line = encode_request(id, &request).unwrap();
@@ -531,12 +691,50 @@ mod tests {
                 checks: vec![Check { name: "disk".into(), passed: true, detail: "120 GB".into() }],
             },
             Message::Uninstall { id: 6, step: UninstallStep::Unreachable },
+            Message::OpenWindow { tab: Some("now".to_owned()) },
         ];
         for message in messages {
             let line = encode_message(&message).unwrap();
             assert_eq!(decode_message(line.trim_end()).unwrap(), message);
         }
         assert!(encode_message(&Message::Status(status())).unwrap().contains("\"reason\":\"keyboard_mouse\""));
+    }
+
+    #[test]
+    fn a_status_from_an_older_agent_reads_with_the_new_fields_empty() {
+        let full = serde_json::to_value(status()).unwrap();
+        let mut older = full.as_object().unwrap().clone();
+        for key in ["site_url", "settings", "live", "earnings", "problem", "server_seen_at", "version", "updated_to"] {
+            older.remove(key);
+        }
+        let read: Status = serde_json::from_value(older.into()).unwrap();
+        assert_eq!(read.settings, HostSettings::default());
+        assert!(read.live.is_none() && read.earnings.is_none() && read.problem.is_none());
+        assert_eq!(read.version, "");
+    }
+
+    #[test]
+    fn live_earnings_and_problems_travel_on_the_status() {
+        let at = OffsetDateTime::from_unix_timestamp(1_760_000_000).unwrap();
+        let rich = Status {
+            live: Some(Live { gpu_temp_c: Some(71), gpu_util_pct: Some(98), job_started_at: Some(at) }),
+            earnings: Some(Earnings {
+                today_paise: 1240,
+                week_paise: Some(9_900),
+                month_paise: None,
+                recent: vec![RecentJob { ended_at: at, seconds: 1_380, earned_paise: 420 }],
+                next_payout_on: Some("2026-11-23".to_owned()),
+                last_payout: Some(PayoutNote { sent_at: at, amount_paise: 12_500 }),
+                updated_at: at,
+            }),
+            problem: Some(Problem::DiskNearlyFull),
+            server_seen_at: Some(at),
+            updated_to: Some("0.2.0".to_owned()),
+            ..status()
+        };
+        let line = encode_message(&Message::Status(rich.clone())).unwrap();
+        assert!(line.contains("\"problem\":\"disk_nearly_full\""), "{line}");
+        assert_eq!(decode_message(line.trim_end()).unwrap(), Message::Status(rich));
     }
 
     #[test]

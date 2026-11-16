@@ -151,6 +151,24 @@ impl Layout {
         self.data.join("update-state.json")
     }
 
+    /// The version an update installed lately, for the window's "Updated to".
+    #[must_use]
+    pub fn updated_note(&self) -> PathBuf {
+        self.data.join("updated.json")
+    }
+
+    /// The earnings history kept for the window while IdleO can't be reached; the uninstaller asks before removing it.
+    #[must_use]
+    pub fn earnings(&self) -> PathBuf {
+        self.data.join("earnings")
+    }
+
+    /// Where the crash loop watch writes what it saw (the launcher's), for the tray's "problem" state.
+    #[must_use]
+    pub fn crash_report(&self) -> PathBuf {
+        self.data.join("crash-loop.json")
+    }
+
     /// The programs' log files.
     #[must_use]
     pub fn logs(&self) -> PathBuf {

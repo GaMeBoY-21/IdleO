@@ -6,8 +6,8 @@ use std::io;
 
 use windows::Win32::Foundation::{ERROR_FILE_NOT_FOUND, ERROR_SUCCESS, WIN32_ERROR};
 use windows::Win32::System::Registry::{
-    HKEY, HKEY_CURRENT_USER, KEY_SET_VALUE, REG_DWORD, REG_OPTION_NON_VOLATILE, REG_SZ, RRF_RT_REG_SZ, RegCloseKey,
-    RegCreateKeyExW, RegDeleteKeyValueW, RegDeleteTreeW, RegGetValueW, RegSetValueExW,
+    HKEY, HKEY_CURRENT_USER, KEY_SET_VALUE, REG_DWORD, REG_OPTION_NON_VOLATILE, REG_SZ, RRF_RT_REG_DWORD,
+    RRF_RT_REG_SZ, RegCloseKey, RegCreateKeyExW, RegDeleteKeyValueW, RegDeleteTreeW, RegGetValueW, RegSetValueExW,
 };
 use windows::core::PCWSTR;
 
@@ -124,6 +124,34 @@ pub fn get_string(path: &str, name: &str) -> io::Result<Option<String>> {
     check(status)?;
     let length = buffer.iter().position(|unit| *unit == 0).unwrap_or(buffer.len());
     Ok(Some(String::from_utf16_lossy(&buffer[..length])))
+}
+
+/// Reads a `REG_DWORD` value; `None` if it, or its key, isn't there.
+///
+/// # Errors
+/// If it exists and can't be read.
+pub fn get_dword(path: &str, name: &str) -> io::Result<Option<u32>> {
+    let path = wide(path);
+    let name = wide(name);
+    let mut data = 0u32;
+    let mut size = u32::try_from(size_of::<u32>()).map_err(io::Error::other)?;
+    // SAFETY: `data` is a writable u32 and `size` is its size in bytes; the names are NUL-terminated UTF-16.
+    let status = unsafe {
+        RegGetValueW(
+            HKEY_CURRENT_USER,
+            PCWSTR(path.as_ptr()),
+            PCWSTR(name.as_ptr()),
+            RRF_RT_REG_DWORD,
+            None,
+            Some((&raw mut data).cast::<c_void>()),
+            Some(&raw mut size),
+        )
+    };
+    if status == ERROR_FILE_NOT_FOUND {
+        return Ok(None);
+    }
+    check(status)?;
+    Ok(Some(data))
 }
 
 /// Deletes a value; nothing if it, or its key, isn't there.

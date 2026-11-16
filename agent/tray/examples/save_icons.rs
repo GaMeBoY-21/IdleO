@@ -1,4 +1,4 @@
-//! Saves the tray's four icons as pictures, for the product owner to review (`pnpm screenshots tray` runs this): each state
+//! Saves the tray's seven icons as pictures, for the product owner to review (`pnpm screenshots tray` runs this): each state
 //! at 256 pixels on a clear ground, and as the taskbar shows it (32 pixels, magnified eight times, pixel for pixel) on
 //! Windows' dark and light taskbars.
 //!
@@ -9,11 +9,11 @@
 use std::path::PathBuf;
 
 use idleo_tray::icon;
-use idleo_tray::status::Colour;
+use idleo_tray::status::TrayState;
 
 /// The taskbars the icon sits on: Windows 11 dark and light.
 const TASKBARS: [(&str, [u8; 3]); 2] = [("dark", [0x20, 0x20, 0x20]), ("light", [0xF3, 0xF3, 0xF3])];
-/// How much the taskbar's 32-pixel icon is magnified, and the margin around it, in pictures of it.
+/// How much the taskbar's icon is magnified, and the margin around it, in pictures of it.
 const ZOOM: usize = 8;
 const MARGIN: usize = 32;
 
@@ -73,17 +73,18 @@ fn png(rgba: &[u8], width: usize, height: usize) -> Vec<u8> {
     out
 }
 
-/// The 32-pixel icon magnified on a taskbar's colour, the way it is blended there.
-fn on_taskbar(colour: Colour, taskbar: [u8; 3]) -> (Vec<u8>, usize) {
-    let side = usize::try_from(icon::SIZE).expect("a size") * ZOOM + 2 * MARGIN;
-    let small = icon::rgba(colour);
+/// The icon at `pixels_wide` pixels (16 at 100%, 20 at 125%, 24 at 150%, 32 at 200%) magnified on a taskbar's colour, the way it
+/// is blended there.
+fn on_taskbar(state: TrayState, pixels_wide: u32, taskbar: [u8; 3]) -> (Vec<u8>, usize) {
+    let width = usize::try_from(pixels_wide).expect("a size");
+    let side = width * ZOOM + 2 * MARGIN;
+    let small = icon::rgba(state, pixels_wide);
     let mut out = Vec::with_capacity(side * side * 4);
     for y in 0..side {
         for x in 0..side {
             let inside = |value: usize| value >= MARGIN && value < side - MARGIN;
             let alpha = if inside(x) && inside(y) {
-                let at =
-                    (((y - MARGIN) / ZOOM) * usize::try_from(icon::SIZE).expect("a size") + (x - MARGIN) / ZOOM) * 4;
+                let at = (((y - MARGIN) / ZOOM) * width + (x - MARGIN) / ZOOM) * 4;
                 Some((&small[at..at + 3], u32::from(small[at + 3])))
             } else {
                 None
@@ -103,15 +104,19 @@ fn on_taskbar(colour: Colour, taskbar: [u8; 3]) -> (Vec<u8>, usize) {
 fn main() {
     let folder = PathBuf::from(std::env::args().nth(1).expect("usage: save_icons <folder>"));
     std::fs::create_dir_all(&folder).expect("the folder can be made");
-    for (name, colour) in
-        [("volt", Colour::Volt), ("grey", Colour::Grey), ("amber", Colour::Amber), ("red", Colour::Red)]
-    {
-        let big = idleo_brand::icon_rgba(colour.rgb(), 256);
+    for state in TrayState::ALL {
+        let name = state.name();
+        let big = idleo_brand::glyph_icon_rgba(state.colour().rgb(), state.glyph(), 256);
         std::fs::write(folder.join(format!("tray-{name}--256.png")), png(&big, 256, 256)).expect("a picture is saved");
         for (taskbar, rgb) in TASKBARS {
-            let (pixels, side) = on_taskbar(colour, rgb);
-            std::fs::write(folder.join(format!("tray-{name}--taskbar-{taskbar}.png")), png(&pixels, side, side))
+            for (scale, size) in [(100, 16), (125, 20), (150, 24), (200, 32)] {
+                let (pixels, side) = on_taskbar(state, size, rgb);
+                std::fs::write(
+                    folder.join(format!("tray-{name}--taskbar-{taskbar}-{scale}.png")),
+                    png(&pixels, side, side),
+                )
                 .expect("a picture is saved");
+            }
         }
     }
 }

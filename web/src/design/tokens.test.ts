@@ -97,7 +97,7 @@ describe("the fonts", () => {
   });
 
   it("are the same files the Windows setup window embeds, and nothing there is Plus Jakarta Sans", () => {
-    const setup = new URL("../../../agent/setup/assets/fonts/", import.meta.url);
+    const setup = new URL("../../../agent/brand/assets/fonts/", import.meta.url);
     for (const file of [fonts.sans.file]) {
       expect(readFileSync(new URL(file, setup)).equals(readFileSync(new URL(file, publicFonts))), file).toBe(
         true,

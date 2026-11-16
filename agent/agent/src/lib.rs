@@ -19,6 +19,7 @@ pub mod enrol;
 pub mod facts;
 pub mod fair_use;
 pub mod host;
+pub mod limits;
 pub mod link;
 pub mod local;
 pub mod offers;

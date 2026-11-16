@@ -543,7 +543,12 @@ impl Manager {
                         };
                         let updating = self.options.host.update_phase() == idleo_release::channel::UpdatePhase::Installing;
                         let owner_active = self.owner_active();
-                        let facts = |vram_needed_mb, expired| OfferFacts {
+                        let limits = self.options.host.settings().limits;
+                        // The host's own heat limit counts when it is lower than the control plane's.
+                        let temp_cap_c = policy.gpu_temp_cap_c.min(i32::try_from(limits.max_gpu_temp_c).unwrap_or(i32::MAX));
+                        let memory_cap_mb = crate::system::total_memory_mb()
+                            .map(|total| i32::try_from(limits.memory_to_offer_mb(total)).unwrap_or(i32::MAX));
+                        let facts = |vram_needed_mb, memory_needed_mb, expired| OfferFacts {
                             expired,
                             shutting_down: *shutdown.borrow() || updating,
                             can_run,
@@ -552,9 +557,11 @@ impl Manager {
                             max_concurrent_sessions: policy.max_concurrent_sessions,
                             owner_active,
                             hottest_gpu_c: self.readings.hottest_latest_c(),
-                            gpu_temp_cap_c: policy.gpu_temp_cap_c,
+                            gpu_temp_cap_c: temp_cap_c,
                             largest_gpu_vram_mb,
                             vram_needed_mb,
+                            memory_cap_mb,
+                            memory_needed_mb,
                         };
                         if let Some(reply) = self.answer(offer, received_at, facts) {
                             if let Some(AgentBody::OfferReply(answer)) = &reply.body {
@@ -774,7 +781,7 @@ impl Manager {
         &self,
         offer: Offer,
         received_at: Duration,
-        facts: impl Fn(i32, bool) -> OfferFacts,
+        facts: impl Fn(i32, i32, bool) -> OfferFacts,
     ) -> Option<OpenStreamRequest> {
         let expires_in =
             offer.expires_in.and_then(|value| Duration::try_from(value).ok()).filter(|value| !value.is_zero());
@@ -788,7 +795,7 @@ impl Manager {
         }
         // A reply needs time to arrive: one sent with less than this left counts as too late.
         let expired = self.options.lease_clock.now() + REPLY_MARGIN >= received_at + expires_in;
-        let decision = offers::decide(&facts(spec.vram_needed_mb, expired));
+        let decision = offers::decide(&facts(spec.vram_needed_mb, spec.memory_mb, expired));
         let declined = decision.err();
         match declined {
             None => tracing::info!(offer_id = %offer.offer_id, image = %spec.image, "accepted an offer"),
@@ -1044,7 +1051,10 @@ async fn sample(source: Arc<dyn GpuSource>, readings: Arc<Readings>, host: Arc<H
             Ok(Ok(round)) => {
                 failing = false;
                 readings.record(&round);
-                host.set_gpu_util(round.iter().map(|reading| u32::try_from(reading.util_pct).unwrap_or(0)).max());
+                host.set_gpu_reading(
+                    round.iter().map(|reading| u32::try_from(reading.util_pct).unwrap_or(0)).max(),
+                    round.iter().filter_map(|reading| u32::try_from(reading.temp_c).ok()).max(),
+                );
             }
             Ok(Err(e)) if !failing => {
                 failing = true;

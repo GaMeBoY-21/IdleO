@@ -337,6 +337,12 @@ impl Updater {
     }
 
     fn after_confirmed(&self, state: &UpdateState) {
+        // "Updated to v…" in the window and a toast: kept apart from the trial's file, which goes once reported.
+        let note = update_state::UpdateNote { version: state.trial.clone(), at: time::OffsetDateTime::now_utc() };
+        if let Err(e) = note.save(&self.layout.updated_note()) {
+            tracing::debug!(error = %e, "the update's note couldn't be kept");
+        }
+        self.host.set_updated_to(Some(state.trial.clone()));
         if let Some(switch) = &state.distro
             && !switch.previous.is_empty()
             && switch.previous != switch.trial

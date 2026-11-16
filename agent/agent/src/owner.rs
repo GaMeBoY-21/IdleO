@@ -16,11 +16,14 @@ pub struct Sample {
     pub fullscreen: bool,
     /// Running on battery.
     pub on_battery: bool,
+    /// The connection is metered, for the host's "not on metered connections". When Windows can't say, it isn't: hosting
+    /// doesn't stop on a guess (a download does wait on one, see [`crate::care::Metered`]).
+    pub metered: bool,
 }
 
 impl Sample {
     /// Nobody at the machine.
-    pub const QUIET: Self = Self { idle: Duration::MAX, fullscreen: false, on_battery: false };
+    pub const QUIET: Self = Self { idle: Duration::MAX, fullscreen: false, on_battery: false, metered: false };
 }
 
 /// Samples the owner's side of the machine.
@@ -29,10 +32,32 @@ pub trait MachineInputs: Send + Sync {
     fn sample(&self) -> Sample;
 }
 
-/// The operating system's view.
-#[derive(Debug, Default, Clone, Copy)]
-pub struct SystemOwner;
+/// How long a reading of the connection's cost is kept: it changes when someone flips a switch, not every second.
+#[cfg(windows)]
+const METERED_FOR: Duration = Duration::from_secs(5);
 
+/// The operating system's view.
+#[derive(Debug, Default)]
+pub struct SystemOwner {
+    #[cfg(windows)]
+    metered: std::sync::Mutex<Option<(std::time::Instant, bool)>>,
+}
+
+#[cfg(windows)]
+impl SystemOwner {
+    /// Whether the connection is metered, read at most every [`METERED_FOR`].
+    fn metered(&self) -> bool {
+        let mut cached = self.metered.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        if let Some((at, answer)) = *cached
+            && at.elapsed() < METERED_FOR
+        {
+            return answer;
+        }
+        let answer = agent_windows::connection_is_metered().unwrap_or(false);
+        *cached = Some((std::time::Instant::now(), answer));
+        answer
+    }
+}
 impl MachineInputs for SystemOwner {
     #[cfg(windows)]
     fn sample(&self) -> Sample {
@@ -42,7 +67,7 @@ impl MachineInputs for SystemOwner {
         });
         let fullscreen = agent_windows::user_notification_state().is_ok_and(is_fullscreen);
         let on_battery = agent_windows::ac_line_status().is_ok_and(is_on_battery);
-        Sample { idle, fullscreen, on_battery }
+        Sample { idle, fullscreen, on_battery, metered: self.metered() }
     }
 
     #[cfg(not(windows))]
@@ -86,7 +111,7 @@ mod tests {
     #[test]
     fn linux_and_macos_see_nobody() {
         if !cfg!(windows) {
-            assert_eq!(SystemOwner.sample(), Sample::QUIET);
+            assert_eq!(SystemOwner::default().sample(), Sample::QUIET);
         }
     }
 }

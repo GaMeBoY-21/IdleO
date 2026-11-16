@@ -396,7 +396,7 @@ async fn enrol_command(config: &Config, code: &str, force: bool) -> ExitCode {
 /// The hub for `run`, watching the signed-in owner. The GPU's use counts for auto-pause only with real GPUs on Windows.
 fn owner_host(config: &Config, runner_installed: bool, fake: bool) -> Arc<Host> {
     let host = Host::with_web_urls(
-        Arc::new(SystemOwner),
+        Arc::new(SystemOwner::default()),
         config.data_dir.clone(),
         runner_installed,
         config.app_url.clone(),
@@ -405,7 +405,51 @@ fn owner_host(config: &Config, runner_installed: bool, fake: bool) -> Arc<Host> 
     if fake || !cfg!(windows) {
         host.ignore_gpu_use();
     }
-    host
+    // On Windows the earnings kept for the window, "Updated to" and "Start with Windows" live in the app's own folders; a
+    // development stack with several agents on one Mac keeps each agent's earnings beside its own settings.
+    let machine = if cfg!(windows) {
+        let layout = Layout::for_user();
+        crate::host::Machine {
+            earnings_dir: layout.earnings(),
+            autostart: autostart(),
+            updated_to: idleo_release::update_state::UpdateNote::recent(
+                &layout.updated_note(),
+                time::OffsetDateTime::now_utc(),
+                crate::host::UPDATED_FOR,
+            ),
+            site_url: config.site_url.clone(),
+        }
+    } else {
+        crate::host::Machine {
+            earnings_dir: config.data_dir.join("earnings"),
+            autostart: autostart(),
+            updated_to: None,
+            site_url: config.site_url.clone(),
+        }
+    };
+    host.with_machine(machine)
+}
+
+/// What turns "Start with Windows" on and off: the Run entry.
+#[cfg(windows)]
+struct RunEntry;
+
+#[cfg(windows)]
+impl crate::host::Autostart for RunEntry {
+    fn set(&self, on: bool) -> Result<(), String> {
+        idleo_release::install::set_start_with_windows(&idleo_release::install::SystemMachine::new(), on)
+            .map_err(|e| e.to_string())
+    }
+}
+
+#[cfg(windows)]
+fn autostart() -> Arc<dyn crate::host::Autostart> {
+    Arc::new(RunEntry)
+}
+
+#[cfg(not(windows))]
+fn autostart() -> Arc<dyn crate::host::Autostart> {
+    Arc::new(crate::host::NoAutostart)
 }
 
 #[allow(clippy::too_many_lines)] // The agent's start-up wiring, in the order things must come up.
@@ -459,7 +503,7 @@ async fn run_command(
             Err(e) => return fail(exit::GPU, &e),
         },
     };
-    let disk: Arc<dyn FreeDisk> = match fake_free_disk_mb {
+    let real_disk: Arc<dyn FreeDisk> = match fake_free_disk_mb {
         Some(mb) => {
             tracing::warn!(mb, "reporting fake free disk space, as asked by --fake-free-disk-mb");
             Arc::new(FixedDisk(mb))
@@ -483,6 +527,40 @@ async fn run_command(
     let fake = fake_gpu_given;
     // A container runner counts as installed once it has answered with the sandbox's rules loaded, not before.
     let host = owner_host(&config, runner.is_some() && containers.is_none(), fake);
+    // The host's disk limit counts on Windows, where the Linux space has a disk of its own; elsewhere, and with a fake disk,
+    // the scheduler hears the real or the invented free space as it always has.
+    let disk: Arc<dyn FreeDisk> = if cfg!(windows) && fake_free_disk_mb.is_none() {
+        let used: Arc<dyn crate::limits::UsedSpace> =
+            Arc::new(crate::limits::FolderUsed::new(Layout::for_user().data().join("wsl")));
+        tokio::spawn(crate::limits::watch(
+            Arc::clone(&host),
+            Arc::clone(&real_disk),
+            Arc::clone(&used),
+            Duration::from_secs(30),
+        ));
+        Arc::new(crate::limits::LimitedDisk::new(Arc::clone(&real_disk), used, Arc::clone(&host)))
+    } else {
+        real_disk
+    };
+    // A driver older than the job runner needs is the host's to fix: the window says so.
+    if !fake
+        && cfg!(windows)
+        && let Ok(list) = gpus.gpus()
+    {
+        host.set_driver_ok(list.iter().any(|gpu| idleo_release::drivers::is_supported(&gpu.driver_version)));
+    }
+    // Quit IdleO, chosen in the tray: the agent shuts down as for a stop request, and exits with its own code.
+    let quitting = host.quit_requests();
+    {
+        let mut asked = host.quit_requests();
+        let stopping = stop.clone();
+        tokio::spawn(async move {
+            if asked.wait_for(|quit| *quit).await.is_ok() {
+                tracing::info!("the owner chose Quit IdleO: stopping");
+                let _ = stopping.send(true);
+            }
+        });
+    }
     if let Some(containers) = containers.clone() {
         let host = Arc::clone(&host);
         tokio::spawn(async move {
@@ -585,6 +663,7 @@ async fn run_command(
     let restarting = updater.map(|updater| updater.restarting());
     match connection::run(options, shutdown).await {
         Ok(()) if restarting.is_some_and(|flag| *flag.borrow()) => ExitCode::from(updater::RESTART_FOR_UPDATE),
+        Ok(()) if *quitting.borrow() => ExitCode::from(idleo_release::channel::QUIT_BY_OWNER_EXIT_CODE),
         Ok(()) => ExitCode::SUCCESS,
         Err(e) => fail(e.exit_code(), &e),
     }
@@ -634,21 +713,16 @@ fn init_logging(format: LogFormat, log_file: Option<&std::path::Path>) {
         });
     let registry = tracing_subscriber::registry().with(filter);
     if let Some(path) = log_file {
-        if let Some(parent) = path.parent() {
-            let _ = std::fs::create_dir_all(parent);
+        // A log file rotates at a megabyte (three kept) and never names the person or the machine (ADR 0061).
+        let who = idleo_release::scrub::Identity::from_environment();
+        let log = Arc::new(idleo_release::logs::RotatingLog::standard(path, move |text| {
+            idleo_release::scrub::scrub(text, &who)
+        }));
+        let result = registry.with(tracing_subscriber::fmt::layer().with_ansi(false).with_writer(log)).try_init();
+        if let Err(e) = result {
+            eprintln!("idleo-agent: logging couldn't start: {e}");
         }
-        match std::fs::OpenOptions::new().create(true).append(true).open(path) {
-            Ok(file) => {
-                let file = std::sync::Mutex::new(file);
-                let result =
-                    registry.with(tracing_subscriber::fmt::layer().with_ansi(false).with_writer(file)).try_init();
-                if let Err(e) = result {
-                    eprintln!("idleo-agent: logging couldn't start: {e}");
-                }
-                return;
-            }
-            Err(e) => eprintln!("idleo-agent: {}: {e}; logging to stderr", path.display()),
-        }
+        return;
     }
     let result = match format {
         LogFormat::Json => {

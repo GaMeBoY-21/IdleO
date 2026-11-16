@@ -107,9 +107,55 @@ impl UpdateState {
     }
 }
 
+/// What the IdleO window shows as "Updated to v…": the version an update installed and when, kept after the trial's own
+/// file is deleted (`updated.json`).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct UpdateNote {
+    /// The version installed.
+    pub version: String,
+    /// When its trial was confirmed.
+    #[serde(with = "time::serde::rfc3339")]
+    pub at: OffsetDateTime,
+}
+
+impl UpdateNote {
+    /// Keeps the note: a temporary file, then a rename.
+    ///
+    /// # Errors
+    /// If it can't be written.
+    pub fn save(&self, path: &Path) -> io::Result<()> {
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        let temporary = path.with_extension("json.tmp");
+        fs::write(&temporary, serde_json::to_vec(self).map_err(io::Error::other)?)?;
+        fs::rename(&temporary, path)
+    }
+
+    /// The version updated to within `within` of `now`, if there is a note and it is that recent.
+    #[must_use]
+    pub fn recent(path: &Path, now: OffsetDateTime, within: Duration) -> Option<String> {
+        let note: Self = serde_json::from_slice(&fs::read(path).ok()?).ok()?;
+        (now - note.at < within && now >= note.at).then_some(note.version)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn an_update_is_remembered_for_a_week() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("updated.json");
+        let at = OffsetDateTime::from_unix_timestamp(1_760_000_000).unwrap();
+        assert_eq!(UpdateNote::recent(&path, at, Duration::from_hours(168)), None, "nothing yet");
+        UpdateNote { version: "0.2.0".into(), at }.save(&path).unwrap();
+        let day = |n: u64| at + Duration::from_hours(24 * n);
+        assert_eq!(UpdateNote::recent(&path, day(1), Duration::from_hours(168)).as_deref(), Some("0.2.0"));
+        assert_eq!(UpdateNote::recent(&path, day(6), Duration::from_hours(168)).as_deref(), Some("0.2.0"));
+        assert_eq!(UpdateNote::recent(&path, day(8), Duration::from_hours(168)), None, "a week is enough");
+    }
 
     #[test]
     fn a_trial_round_trips_and_times_out() {

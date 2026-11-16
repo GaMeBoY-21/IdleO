@@ -5,7 +5,11 @@
 //! - `status`: the status now. Every client also gets it on connecting and on every change.
 //! - `set_hosting` / `pause` / `resume`: a `SetPause` for the control plane, the same pause as the web app's. The tray
 //!   sees the result when `HostStatus` comes back.
-//! - `set_auto_pause`: saved to `settings.toml` and applied at once.
+//! - `set_auto_pause` (older trays) and `set_settings` (the IdleO window): checked, saved to `settings.toml` and applied at
+//!   once.
+//! - `open_window`: handed to every client as `Message::OpenWindow`, which the tray answers by showing its window.
+//! - `quit`: a running job saves its progress and stops, then the agent shuts down and exits (`QUIT_BY_OWNER_EXIT_CODE`),
+//!   which tells the launcher not to start it again.
 //! - `self_test`: runs the full self-test, sends its report to the control plane, and answers with it.
 //! - `prepare_uninstall`: stops a running job after its checkpoint (the owner-return stop), waits for it, then sends
 //!   `Leave` and waits up to 15 seconds for the control plane to remove the host.
@@ -65,6 +69,7 @@ where
     let first = status.borrow_and_update().clone();
     send(&mut writer, &Message::Status(first)).await?;
     let (answers, mut answered) = tokio::sync::mpsc::unbounded_channel::<Message>();
+    let mut windows = context.host.window_requests();
     loop {
         tokio::select! {
             line = read_line(&mut reader) => {
@@ -84,6 +89,12 @@ where
                 send(&mut writer, &Message::Status(now)).await?;
             }
             Some(message) = answered.recv() => send(&mut writer, &message).await?,
+            asked = windows.recv() => match asked {
+                Ok(tab) => send(&mut writer, &Message::OpenWindow { tab }).await?,
+                // Behind by a few requests: the window is shown once either way.
+                Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => {}
+                Err(tokio::sync::broadcast::error::RecvError::Closed) => return Ok(()),
+            },
         }
     }
 }
@@ -121,6 +132,24 @@ async fn handle(context: &Context, id: u64, request: Request, answers: &tokio::s
             Ok(()) => answer(done),
             Err(message) => answer(Message::Failed { id, message }),
         },
+        Request::SetSettings { settings } => match context.host.set_settings(settings) {
+            Ok(()) => answer(done),
+            Err(message) => answer(Message::Failed { id, message }),
+        },
+        Request::OpenWindow { tab } => {
+            context.host.open_window(tab.filter(|tab| KNOWN_TABS.contains(&tab.as_str())));
+            answer(done);
+        }
+        Request::Quit => {
+            stop_running_job(context).await;
+            answer(done);
+            // The answer goes out first; then the agent shuts down.
+            let host = Arc::clone(&context.host);
+            tokio::spawn(async move {
+                tokio::time::sleep(QUIT_AFTER_ANSWER).await;
+                host.request_quit();
+            });
+        }
         Request::SelfTest => {
             let report = (context.self_test)(false).await;
             context.host.queue(AgentBody::SelfTestReport(report.to_message()), Kind::SelfTest);
@@ -158,12 +187,16 @@ fn pause(host: &Host, until: Option<OffsetDateTime>, resume: bool) {
     );
 }
 
-/// Stops a running job after its checkpoint, then says goodbye. Returns the steps it went through.
-async fn prepare_uninstall(context: &Context) -> Vec<UninstallStep> {
-    let mut steps = Vec::new();
+/// The tabs of the IdleO window a request may name.
+pub const KNOWN_TABS: [&str; 5] = ["now", "schedule", "limits", "earnings", "settings"];
+/// How long Quit waits after answering, so the answer reaches the tray before the agent goes.
+const QUIT_AFTER_ANSWER: Duration = Duration::from_millis(300);
+
+/// Stops a running job after its checkpoint, the way it stops when the owner comes back, and waits for it. Returns whether
+/// there was one.
+async fn stop_running_job(context: &Context) -> bool {
     let running = !context.sessions.lock().running().is_empty();
     if running {
-        steps.push(UninstallStep::StoppingSession);
         context.sessions.lock().owner_stop(OWNER_STOP_GRACE);
         let waited = tokio::time::timeout(OWNER_STOP_GRACE + Duration::from_secs(30), async {
             while !context.sessions.lock().running().is_empty() {
@@ -174,6 +207,15 @@ async fn prepare_uninstall(context: &Context) -> Vec<UninstallStep> {
         if waited.is_err() {
             tracing::warn!("a job was still running after its grace; leaving anyway");
         }
+    }
+    running
+}
+
+/// Stops a running job after its checkpoint, then says goodbye. Returns the steps it went through.
+async fn prepare_uninstall(context: &Context) -> Vec<UninstallStep> {
+    let mut steps = Vec::new();
+    if stop_running_job(context).await {
+        steps.push(UninstallStep::StoppingSession);
     }
     steps.push(UninstallStep::Leaving);
     if context.host.leaving() != Leaving::Done {
@@ -232,6 +274,7 @@ pub async fn serve_pipe(_context: Context) {
 }
 
 #[cfg(test)]
+#[allow(clippy::field_reassign_with_default, reason = "a test changes the one setting it is about")]
 mod tests {
     use idleo_release::channel::{Client, LinkState, State};
     use tokio::io::BufReader;
@@ -253,7 +296,7 @@ mod tests {
             BufReader<tokio::io::ReadHalf<tokio::io::DuplexStream>>,
             tokio::io::WriteHalf<tokio::io::DuplexStream>,
         >,
-        _dir: tempfile::TempDir,
+        dir: tempfile::TempDir,
     }
 
     fn fixture() -> Fixture {
@@ -291,7 +334,7 @@ mod tests {
         let (agent_read, agent_write) = tokio::io::split(agent_side);
         tokio::spawn(serve(context, BufReader::new(agent_read), agent_write));
         let (client_read, client_write) = tokio::io::split(client_side);
-        Fixture { host, client: Client::new(BufReader::new(client_read), client_write), _dir: dir }
+        Fixture { host, client: Client::new(BufReader::new(client_read), client_write), dir }
     }
 
     async fn answer(client: &mut Fixture, id: u64) -> Message {
@@ -304,7 +347,7 @@ mod tests {
                         | Message::Failed { id: got, .. }
                         | Message::SelfTest { id: got, .. }
                         | Message::Uninstall { id: got, .. } => *got == id,
-                        Message::Status(_) => false,
+                        Message::Status(_) | Message::OpenWindow { .. } => false,
                     };
                     if mine {
                         return other;
@@ -428,5 +471,62 @@ mod tests {
             prepare_uninstall(&context).await
         };
         assert_eq!(context_steps, [UninstallStep::Leaving, UninstallStep::Unreachable]);
+    }
+
+    #[tokio::test]
+    async fn the_windows_settings_are_checked_saved_applied_and_come_back_in_the_status() {
+        let mut fixture = fixture();
+        let mut settings = fixture.host.settings();
+        settings.limits.max_gpu_temp_c = 78;
+        settings.not_on_metered = false;
+        settings.schedule.mode = idleo_release::settings::ScheduleMode::Always;
+        let id = fixture.client.send(&Request::SetSettings { settings }).await.unwrap();
+        assert_eq!(answer(&mut fixture, id).await, Message::Done { id });
+        let status = fixture.host.status();
+        assert_eq!(status.settings.limits.max_gpu_temp_c, 78);
+        assert!(!status.settings.not_on_metered);
+        assert!(!status.auto_pause.keyboard_mouse, "the mode and the owner-activity trigger stay in step");
+        assert_eq!(crate::settings::load(fixture.dir.path()), status.settings, "stored by the agent");
+
+        let mut bad = settings;
+        bad.limits.max_gpu_temp_c = 200;
+        let refused = fixture.client.send(&Request::SetSettings { settings: bad }).await.unwrap();
+        assert!(matches!(answer(&mut fixture, refused).await, Message::Failed { .. }));
+        assert_eq!(fixture.host.status().settings.limits.max_gpu_temp_c, 78, "a refused change changes nothing");
+    }
+
+    #[tokio::test]
+    async fn a_request_to_open_the_window_reaches_every_client_with_a_known_tab_only() {
+        let mut fixture = fixture();
+        let id = fixture.client.send(&Request::OpenWindow { tab: Some("earnings".to_owned()) }).await.unwrap();
+        assert_eq!(answer(&mut fixture, id).await, Message::Done { id });
+        loop {
+            match fixture.client.next().await.unwrap() {
+                Message::OpenWindow { tab } => {
+                    assert_eq!(tab.as_deref(), Some("earnings"));
+                    break;
+                }
+                Message::Status(_) | Message::Done { .. } => {}
+                other => panic!("{other:?}"),
+            }
+        }
+        let id = fixture.client.send(&Request::OpenWindow { tab: Some("<script>".to_owned()) }).await.unwrap();
+        assert_eq!(answer(&mut fixture, id).await, Message::Done { id });
+        loop {
+            if let Message::OpenWindow { tab } = fixture.client.next().await.unwrap() {
+                assert_eq!(tab, None, "a tab the window doesn't have opens the one it last showed");
+                break;
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn quit_answers_first_and_then_the_agent_is_asked_to_shut_down() {
+        let mut fixture = fixture();
+        let mut quitting = fixture.host.quit_requests();
+        assert!(!*quitting.borrow());
+        let id = fixture.client.send(&Request::Quit).await.unwrap();
+        assert_eq!(answer(&mut fixture, id).await, Message::Done { id });
+        tokio::time::timeout(Duration::from_secs(5), quitting.wait_for(|quit| *quit)).await.unwrap().unwrap();
     }
 }

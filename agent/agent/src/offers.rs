@@ -26,6 +26,9 @@ pub struct OfferFacts {
     /// The largest GPU's memory, and what the offer needs.
     pub largest_gpu_vram_mb: i32,
     pub vram_needed_mb: i32,
+    /// The most memory the host lets a job have, in MB, when the laptop's is known; and what the offer's container needs.
+    pub memory_cap_mb: Option<i32>,
+    pub memory_needed_mb: i32,
 }
 
 /// Accept, or the reason to decline, checked in this order.
@@ -57,6 +60,9 @@ pub fn decide(facts: &OfferFacts) -> Result<(), OfferDeclineReason> {
     if facts.largest_gpu_vram_mb < facts.vram_needed_mb {
         return Err(OfferDeclineReason::InsufficientResources);
     }
+    if facts.memory_cap_mb.is_some_and(|cap| facts.memory_needed_mb > cap) {
+        return Err(OfferDeclineReason::InsufficientResources);
+    }
     Ok(())
 }
 
@@ -76,6 +82,8 @@ mod tests {
         gpu_temp_cap_c: 85,
         largest_gpu_vram_mb: 12_282,
         vram_needed_mb: 1024,
+        memory_cap_mb: Some(8_192),
+        memory_needed_mb: 2_048,
     };
 
     #[test]
@@ -95,10 +103,17 @@ mod tests {
             (OfferFacts { owner_active: true, ..FITS }, OfferDeclineReason::OwnerActive),
             (OfferFacts { hottest_gpu_c: Some(85), ..FITS }, OfferDeclineReason::TooHot),
             (OfferFacts { vram_needed_mb: 16_384, ..FITS }, OfferDeclineReason::InsufficientResources),
+            (OfferFacts { memory_needed_mb: 8_193, ..FITS }, OfferDeclineReason::InsufficientResources),
         ];
         for (facts, reason) in cases {
             assert_eq!(decide(&facts), Err(reason), "{facts:?}");
         }
+    }
+
+    #[test]
+    fn a_job_that_fits_the_hosts_memory_limit_is_taken_and_no_known_limit_means_no_limit() {
+        assert_eq!(decide(&OfferFacts { memory_needed_mb: 8_192, ..FITS }), Ok(()), "exactly the cap");
+        assert_eq!(decide(&OfferFacts { memory_cap_mb: None, memory_needed_mb: 1 << 20, ..FITS }), Ok(()));
     }
 
     #[test]

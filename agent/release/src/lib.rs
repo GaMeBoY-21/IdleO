@@ -15,19 +15,29 @@
 //! - [`wsl`]: the `wsl.exe` wrapper, and only our own distributions.
 //! - [`channel`]: the local channel between `idleo-hostd`, the tray and the launcher.
 //! - [`drivers`]: the NVIDIA driver the distro's CUDA needs.
+//! - [`settings`]: what the host chooses in the IdleO window, and the rules that need only those.
+//! - [`crash`]: telling a crash loop from a crash.
+//! - [`logs`]: rotating, scrubbing log files.
+//! - [`diagnostics`]: the scrubbed zip a host sends to support.
+//! - [`scrub`]: taking the person and the machine out of anything that is sent or saved for support.
 #![forbid(unsafe_code)]
 
 pub mod apps;
 pub mod blocklist;
 pub mod browser;
 pub mod channel;
+pub mod crash;
+pub mod diagnostics;
 pub mod download;
 pub mod drivers;
 pub mod install;
 pub mod keys;
+pub mod logs;
 pub mod manifest;
 pub mod paths;
 pub mod registry;
+pub mod scrub;
+pub mod settings;
 pub mod update_state;
 pub mod version;
 pub mod wsl;

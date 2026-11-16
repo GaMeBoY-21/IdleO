@@ -220,6 +220,14 @@ mod tests {
             auto_pause: AutoPause::default(),
             app_url: None,
             host_url: None,
+            site_url: None,
+            settings: idleo_release::settings::HostSettings::default(),
+            live: None,
+            earnings: None,
+            problem: None,
+            server_seen_at: None,
+            version: String::new(),
+            updated_to: None,
             prefetch: None,
         }
     }

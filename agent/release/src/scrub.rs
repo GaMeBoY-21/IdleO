@@ -17,6 +17,15 @@ pub struct Identity {
     pub machine: String,
 }
 
+impl Identity {
+    /// Who is signed in and what the computer is called, from Windows' own variables (empty elsewhere).
+    #[must_use]
+    pub fn from_environment() -> Self {
+        let var = |name: &str| std::env::var(name).unwrap_or_default();
+        Self { profile: var("USERPROFILE"), user: var("USERNAME"), machine: var("COMPUTERNAME") }
+    }
+}
+
 /// `text` with the person and the machine taken out, trimmed, and cut to [`MAX_DETAIL`] characters.
 #[must_use]
 pub fn detail(text: &str, who: &Identity) -> String {

@@ -4178,14 +4178,19 @@ dependencies = [
 name = "tray"
 version = "0.1.0"
 dependencies = [
+ "agent-windows",
  "brand",
  "release",
+ "serde",
  "serde_json",
  "tao",
+ "tempfile",
  "time",
  "tokio",
  "tracing",
+ "tracing-subscriber",
  "tray-icon",
+ "wry",
 ]
 
 [[package]]

@@ -3,7 +3,8 @@
 //! **Ready.** The control plane's Welcome lists the job images worth having ([`crate::host::Host::prefetch_images`]).
 //! Once the laptop is listed and idle (available, not auto-paused or paused, no session running), the agent asks the
 //! runner to download, one at a time, each that fits its largest GPU and isn't here yet, so a renter's first job doesn't
-//! wait for several gigabytes. **Never on a metered connection** (the tray says it's waiting for an unmetered one), and
+//! wait for several gigabytes. **Never on a metered connection**, unless the host allowed it in the window (the tray says
+//! it's waiting for an unmetered one), and
 //! **never while a session runs**: a session starting, the owner coming back or the connection turning metered stops the
 //! download at once, and the next one carries on from the layers already there. What's been fetched is remembered for the
 //! distribution's version, so a laptop that has everything never wakes its distribution to look.
@@ -158,7 +159,7 @@ impl Care {
             let pending = self.pending(&host, &done);
             let mut downloading = false;
             if !pending.is_empty() && ready_for_work(&host) && retry_at.is_none_or(|at| Instant::now() >= at) {
-                if self.metered.is_metered() {
+                if self.holds_off_metered(&host) {
                     host.set_prefetch(Some(Prefetch::WaitingForUnmetered));
                 } else {
                     downloading = true;
@@ -196,6 +197,11 @@ impl Care {
     }
 
     /// The images still to download: the Welcome's, those that fit the GPU, not here yet.
+    /// Whether a download waits because the connection is metered and the host said not to use those.
+    fn holds_off_metered(&self, host: &Host) -> bool {
+        host.settings().not_on_metered && self.metered.is_metered()
+    }
+
     fn pending(&self, host: &Host, done: &BTreeSet<String>) -> Vec<String> {
         host.prefetch_images()
             .into_iter()
@@ -230,7 +236,7 @@ impl Care {
                     Err(why) => Fetched::Failed(why),
                 },
                 _ = watch.tick() => {
-                    if !sessions.lock().running().is_empty() || !ready_for_work(host) || self.metered.is_metered() {
+                    if !sessions.lock().running().is_empty() || !ready_for_work(host) || self.holds_off_metered(host) {
                         self.distribution.cancel_pulls();
                         let _ = (&mut pulling).await;
                         return Fetched::Stopped;

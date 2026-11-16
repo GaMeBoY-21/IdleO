@@ -31,6 +31,8 @@ pub struct Config {
     pub app_url: Option<String>,
     /// The host site, where the tray's Open dashboard goes (for example `https://host.idleo.in`, ADR 0058).
     pub host_url: Option<String>,
+    /// The public website, where the tray's Help goes (for example `https://idleo.in`).
+    pub site_url: Option<String>,
     /// The least upload, in kbit/s, a job may use whatever the line measures (ADR 0038): half of the measured upload, never
     /// under this. Enough to keep checkpoints moving.
     pub min_upload_kbps: u32,
@@ -68,6 +70,7 @@ struct File {
     api_url: Option<String>,
     app_url: Option<String>,
     host_url: Option<String>,
+    site_url: Option<String>,
     min_upload_kbps: Option<u32>,
 }
 
@@ -150,6 +153,7 @@ impl Config {
         for (url, what) in [
             (&file.app_url, "app_url must start with http:// or https://"),
             (&file.host_url, "host_url must start with http:// or https://"),
+            (&file.site_url, "site_url must start with http:// or https://"),
         ] {
             if let Some(url) = url
                 && !(url.starts_with("http://") || url.starts_with("https://"))
@@ -172,6 +176,7 @@ impl Config {
             api_url: file.api_url,
             app_url: file.app_url,
             host_url: file.host_url,
+            site_url: file.site_url,
             min_upload_kbps,
         })
     }

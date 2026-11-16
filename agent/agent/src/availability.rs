@@ -10,7 +10,10 @@
 //! mirror the owner's pause from the control plane (`HostStatus`).
 //!
 //! **Rules**: any enabled trigger auto-pauses at once. Leaving an auto-pause needs every trigger clear **and** no input
-//! for the "start again after" time. The owner's pause wins over everything. `owner_active`, in heartbeats and offer
+//! for the "start again after" time, except for the host's own limits (ADR 0061): outside the schedule's hours, a metered
+//! connection the host said not to use, a GPU hotter than the host's limit (it carries on once five degrees cooler) and
+//! the Linux space's disk limit. Those clear the moment their cause does, because nothing about the owner's being at the
+//! machine is in them; only the owner's last input still has to be old enough. The owner's pause wins over everything. `owner_active`, in heartbeats and offer
 //! replies, is true only while the owner is at the machine ([`State::AutoPaused`]). The owner's pause is not part of
 //! it: the control plane keeps that in its database, where a pause and a resume count at once, and never offers a paused
 //! host a session. Said again here, it lagged a resume by up to 5 s (until the agent heard `HostStatus` and sent its next
@@ -18,8 +21,9 @@
 
 use std::time::Duration;
 
-use idleo_release::channel::{AutoPause, Reason};
-use time::OffsetDateTime;
+use idleo_release::channel::Reason;
+use idleo_release::settings::{HostSettings, Moment};
+use time::{OffsetDateTime, UtcOffset};
 
 /// Input within this long of a sample counts as the owner using the machine now.
 pub const INPUT_NOW: Duration = Duration::from_secs(2);
@@ -42,12 +46,29 @@ pub struct Inputs {
     pub gpu_util_pct: Option<u32>,
     /// A session of ours is running, so the GPU's use is ours.
     pub session_running: bool,
+    /// The hottest GPU's temperature, in °C, if it could be read.
+    pub gpu_temp_c: Option<u32>,
+    /// The connection is metered.
+    pub metered: bool,
+    /// The Linux space has used the disk the host allowed it.
+    pub disk_full: bool,
+    /// The host's local time zone, for the schedule.
+    pub utc_offset: UtcOffset,
 }
 
 impl Inputs {
     /// A machine nobody is using: what Linux and macOS always report.
-    pub const QUIET: Self =
-        Self { idle: Duration::MAX, fullscreen: false, on_battery: false, gpu_util_pct: None, session_running: false };
+    pub const QUIET: Self = Self {
+        idle: Duration::MAX,
+        fullscreen: false,
+        on_battery: false,
+        gpu_util_pct: None,
+        session_running: false,
+        gpu_temp_c: None,
+        metered: false,
+        disk_full: false,
+        utc_offset: UtcOffset::UTC,
+    };
 }
 
 /// The owner's pause, as the control plane last said.
@@ -87,20 +108,29 @@ pub enum State {
 /// The state machine.
 #[derive(Debug, Clone)]
 pub struct Availability {
-    settings: AutoPause,
+    settings: HostSettings,
     pause: OwnerPause,
     state: State,
     /// When the GPU went over the busy line with no session of ours, on the monotonic clock.
     gpu_busy_since: Option<Duration>,
-    /// The last sample's time and its time since input, for `resumes_at`.
-    last: Option<(Duration, Inputs)>,
+    /// The GPU is over the host's temperature limit, and stays so until it has cooled a little.
+    hot: bool,
+    /// The last sample's time, wall time and inputs, for `resumes_at`.
+    last: Option<(Duration, OffsetDateTime, Inputs)>,
 }
 
 impl Availability {
     /// Starts available, with these settings.
     #[must_use]
-    pub fn new(settings: AutoPause) -> Self {
-        Self { settings, pause: OwnerPause::None, state: State::Available, gpu_busy_since: None, last: None }
+    pub fn new(settings: HostSettings) -> Self {
+        Self {
+            settings: settings.normalized(),
+            pause: OwnerPause::None,
+            state: State::Available,
+            gpu_busy_since: None,
+            hot: false,
+            last: None,
+        }
     }
 
     /// The state after the last step.
@@ -111,13 +141,19 @@ impl Availability {
 
     /// The settings.
     #[must_use]
-    pub fn settings(&self) -> AutoPause {
+    pub fn settings(&self) -> HostSettings {
         self.settings
     }
 
     /// Changes the settings; the next step applies them.
-    pub fn set_settings(&mut self, settings: AutoPause) {
-        self.settings = settings;
+    pub fn set_settings(&mut self, settings: HostSettings) {
+        self.settings = settings.normalized();
+    }
+
+    /// Whether the GPU is held over the host's temperature limit now.
+    #[must_use]
+    pub fn too_hot(&self) -> bool {
+        self.hot
     }
 
     /// The owner's pause changed at the control plane.
@@ -135,7 +171,8 @@ impl Availability {
     /// Applies one sample taken at `now` (monotonic) and `wall` (UTC). Returns the state before and after.
     pub fn step(&mut self, now: Duration, wall: OffsetDateTime, inputs: &Inputs) -> (State, State) {
         let before = self.state;
-        self.last = Some((now, *inputs));
+        self.last = Some((now, wall, *inputs));
+        self.hot = self.settings.limits.too_hot(inputs.gpu_temp_c, self.hot);
         let gpu_busy = !inputs.session_running && inputs.gpu_util_pct.is_some_and(|pct| pct > GPU_BUSY_PERCENT);
         if gpu_busy {
             self.gpu_busy_since.get_or_insert(now);
@@ -145,14 +182,29 @@ impl Availability {
         self.state = match self.pause {
             OwnerPause::Indefinite => State::HostingOff,
             OwnerPause::Until(until) if wall < until => State::Paused { until },
-            OwnerPause::Until(_) | OwnerPause::None => self.auto(now, inputs),
+            OwnerPause::Until(_) | OwnerPause::None => self.auto(now, wall, inputs),
         };
         (before, self.state)
     }
 
-    /// A trigger other than input that holds an auto-pause while it lasts.
+    /// A limit the host set that closes hosting while it holds, and lets go the moment it doesn't.
+    fn closed_by(&self, wall: OffsetDateTime, inputs: &Inputs) -> Option<Reason> {
+        if !self.settings.schedule.open_at(Moment::of(wall, inputs.utc_offset)) {
+            Some(Reason::Schedule)
+        } else if self.settings.not_on_metered && inputs.metered {
+            Some(Reason::Metered)
+        } else if self.hot {
+            Some(Reason::TooHot)
+        } else if inputs.disk_full {
+            Some(Reason::DiskFull)
+        } else {
+            None
+        }
+    }
+
+    /// A trigger other than input that holds an auto-pause while it lasts, and then waits out the quiet time.
     fn held_by(&self, now: Duration, inputs: &Inputs) -> Option<Reason> {
-        let settings = self.settings;
+        let settings = self.settings.auto_pause;
         if settings.games && inputs.fullscreen {
             Some(Reason::Game)
         } else if settings.games && self.gpu_busy_since.is_some_and(|since| now.saturating_sub(since) >= GPU_BUSY_FOR) {
@@ -164,11 +216,14 @@ impl Availability {
         }
     }
 
-    fn auto(&self, now: Duration, inputs: &Inputs) -> State {
+    fn auto(&self, now: Duration, wall: OffsetDateTime, inputs: &Inputs) -> State {
+        if let Some(reason) = self.closed_by(wall, inputs) {
+            return State::AutoPaused { reason, quiet_since: None };
+        }
         if let Some(reason) = self.held_by(now, inputs) {
             return State::AutoPaused { reason, quiet_since: None };
         }
-        if self.settings.keyboard_mouse && inputs.idle < INPUT_NOW {
+        if self.settings.auto_pause.keyboard_mouse && inputs.idle < INPUT_NOW {
             // The wait runs from the input itself: "starts again 10 min after you stop".
             return State::AutoPaused {
                 reason: Reason::KeyboardMouse,
@@ -178,6 +233,16 @@ impl Availability {
         let State::AutoPaused { reason, quiet_since } = self.state else {
             return State::Available;
         };
+        if reason.clears_at_once() {
+            // The host's own limit let go. Nothing about the owner needs waiting out, except that they mustn't have been at
+            // the machine within the quiet time (the schedule opening on someone still typing).
+            let quiet = self.settings.auto_pause.keyboard_mouse && inputs.idle < self.wait();
+            return if quiet {
+                State::AutoPaused { reason: Reason::KeyboardMouse, quiet_since: Some(now.saturating_sub(inputs.idle)) }
+            } else {
+                State::Available
+            };
+        }
         let quiet_since = quiet_since.unwrap_or(now);
         if now.saturating_sub(self.quiet_from(quiet_since, now, inputs)) >= self.wait() {
             State::Available
@@ -188,26 +253,53 @@ impl Availability {
 
     /// The later of when the triggers cleared and the last input (when input counts).
     fn quiet_from(&self, quiet_since: Duration, now: Duration, inputs: &Inputs) -> Duration {
-        if self.settings.keyboard_mouse { quiet_since.max(now.saturating_sub(inputs.idle)) } else { quiet_since }
+        if self.settings.auto_pause.keyboard_mouse {
+            quiet_since.max(now.saturating_sub(inputs.idle))
+        } else {
+            quiet_since
+        }
     }
 
     fn wait(&self) -> Duration {
-        Duration::from_secs(u64::from(self.settings.start_again_after_minutes) * 60)
+        Duration::from_secs(u64::from(self.settings.auto_pause.start_again_after_minutes) * 60)
     }
 
     /// When an auto-pause will end if nothing more happens; `None` while a game, the GPU or the battery still holds it,
-    /// or when not auto-paused.
+    /// or when not auto-paused. Outside the schedule's hours it is when they next open.
     #[must_use]
     pub fn resumes_at(&self, wall: OffsetDateTime) -> Option<OffsetDateTime> {
-        let State::AutoPaused { quiet_since: Some(quiet_since), .. } = self.state else { return None };
-        let (now, inputs) = self.last?;
+        let State::AutoPaused { reason, quiet_since } = self.state else { return None };
+        let (now, sampled, inputs) = self.last?;
+        if reason == Reason::Schedule {
+            let minutes = self.settings.schedule.opens_in_minutes(Moment::of(sampled, inputs.utc_offset))?;
+            let opens = sampled + Duration::from_secs(u64::from(minutes) * 60);
+            // The minute it opens, rounded down to the start of it.
+            return Some((opens - Duration::from_secs(u64::from(sampled.second()))).max(wall));
+        }
+        let quiet_since = quiet_since?;
         let ends = self.quiet_from(quiet_since, now, &inputs) + self.wait();
         Some(wall + ends.saturating_sub(now))
     }
 }
 
+/// What a [`Reason`] needs to end.
+trait ClearsAtOnce {
+    /// The reason is one of the host's own limits, which ends the moment its cause does.
+    fn clears_at_once(self) -> bool;
+}
+
+impl ClearsAtOnce for Reason {
+    fn clears_at_once(self) -> bool {
+        matches!(self, Self::Schedule | Self::Metered | Self::TooHot | Self::DiskFull)
+    }
+}
+
 #[cfg(test)]
+#[allow(clippy::field_reassign_with_default, reason = "a test changes the one setting it is about")]
 mod tests {
+    use idleo_release::channel::AutoPause;
+    use idleo_release::settings::{DayHours, Schedule, ScheduleMode};
+
     use super::*;
 
     const SECOND: Duration = Duration::from_secs(1);
@@ -228,7 +320,7 @@ mod tests {
     impl Fake {
         fn new() -> Self {
             Self {
-                machine: Availability::new(AutoPause::default()),
+                machine: Availability::new(HostSettings::default()),
                 now: Duration::from_hours(1),
                 last_input: None,
                 inputs: Inputs::QUIET,
@@ -328,12 +420,12 @@ mod tests {
     #[test]
     fn a_trigger_turned_off_doesnt_pause() {
         let mut fake = Fake::new();
-        fake.machine.set_settings(AutoPause {
+        fake.machine.set_settings(HostSettings::default().with_auto_pause(AutoPause {
             keyboard_mouse: false,
             games: false,
             unplugged: false,
             start_again_after_minutes: 5,
-        });
+        }));
         fake.inputs.fullscreen = true;
         fake.inputs.on_battery = true;
         fake.inputs.gpu_util_pct = Some(100);
@@ -342,11 +434,11 @@ mod tests {
 
         // With input not counted, the wait runs from the moment the game closed, whatever the mouse does.
         let mut games = Fake::new();
-        games.machine.set_settings(AutoPause {
+        games.machine.set_settings(HostSettings::default().with_auto_pause(AutoPause {
             keyboard_mouse: false,
             start_again_after_minutes: 5,
             ..AutoPause::default()
-        });
+        }));
         games.inputs.fullscreen = true;
         games.step();
         games.inputs.fullscreen = false;
@@ -391,10 +483,139 @@ mod tests {
 
     #[test]
     fn linux_and_macos_never_pause() {
-        let mut machine = Availability::new(AutoPause::default());
+        let mut machine = Availability::new(HostSettings::default());
         for second in 0..600 {
             machine.step(Duration::from_secs(second), wall(Duration::from_secs(second)), &Inputs::QUIET);
             assert_eq!(machine.state(), State::Available);
         }
+    }
+
+    /// A machine for the host's own limits, in UTC. Its clock starts at Thursday 2025-10-09 09:53:20 UTC.
+    fn in_utc() -> Fake {
+        let mut fake = Fake::new();
+        fake.inputs.utc_offset = UtcOffset::UTC;
+        fake
+    }
+
+    fn open_only(from_h: u16, to_h: u16) -> HostSettings {
+        let mut settings = HostSettings::default();
+        settings.schedule =
+            Schedule { mode: ScheduleMode::Hours, days: [DayHours { on: true, from: from_h * 60, to: to_h * 60 }; 7] };
+        settings
+    }
+
+    #[test]
+    fn outside_the_hours_it_pauses_and_inside_them_it_carries_on_at_once() {
+        // The fake's wall clock is 09:53 UTC on its first step.
+        let mut fake = in_utc();
+        fake.machine.set_settings(open_only(22, 7));
+        assert!(paused(fake.step(), Reason::Schedule), "09:53 is outside 22:00-07:00");
+        assert!(fake.machine.owner_active(), "not for renters now");
+        let resumes = fake.machine.resumes_at(wall(fake.now)).unwrap();
+        // The window opens at 22:00 UTC, on the minute.
+        assert_eq!((resumes.hour(), resumes.minute(), resumes.second()), (22, 0, 0));
+        // 13 hours later the hours are open: no quiet time to wait out.
+        let state = fake.wait(13 * 60 * MINUTE);
+        assert_eq!(state, State::Available, "{state:?}");
+    }
+
+    #[test]
+    fn the_schedule_uses_the_hosts_own_time_zone() {
+        let mut fake = in_utc();
+        // 09:53 UTC is 15:23 in India, so 14:00-16:00 is open there and closed in UTC.
+        fake.machine.set_settings(open_only(14, 16));
+        fake.inputs.utc_offset = UtcOffset::from_hms(5, 30, 0).unwrap();
+        assert_eq!(fake.step(), State::Available, "15:23 in India");
+        fake.inputs.utc_offset = UtcOffset::UTC;
+        assert!(paused(fake.step(), Reason::Schedule), "09:53 in UTC");
+    }
+
+    #[test]
+    fn the_schedule_opening_on_an_owner_still_typing_waits_out_the_quiet_time() {
+        let mut fake = in_utc();
+        // Closed now (09:53), opens at 10:00 UTC.
+        fake.machine.set_settings(open_only(10, 11));
+        assert!(paused(fake.step(), Reason::Schedule));
+        fake.wait(6 * MINUTE + 30 * SECOND);
+        fake.touch();
+        let at_open = fake.wait(MINUTE);
+        assert!(paused(at_open, Reason::KeyboardMouse), "the owner typed a minute ago: {at_open:?}");
+        assert_eq!(fake.wait(10 * MINUTE), State::Available, "ten quiet minutes after the last key");
+    }
+
+    #[test]
+    fn always_ignores_the_owner_and_the_clock() {
+        let mut fake = in_utc();
+        let mut settings = open_only(22, 7);
+        settings.schedule.mode = ScheduleMode::Always;
+        fake.machine.set_settings(settings);
+        assert_eq!(fake.touch(), State::Available, "at the keyboard, outside the hours: still available");
+    }
+
+    #[test]
+    fn heat_pauses_above_the_limit_and_carries_on_five_degrees_cooler_with_no_quiet_time() {
+        let mut fake = in_utc();
+        fake.inputs.gpu_temp_c = Some(83);
+        assert_eq!(fake.step(), State::Available, "at the limit");
+        fake.inputs.gpu_temp_c = Some(84);
+        assert!(paused(fake.step(), Reason::TooHot));
+        fake.inputs.gpu_temp_c = Some(80);
+        assert!(paused(fake.wait(SECOND), Reason::TooHot), "still hot enough to stay held");
+        fake.inputs.gpu_temp_c = Some(78);
+        assert_eq!(fake.wait(SECOND), State::Available, "cooled: back at once, not 10 minutes later");
+        assert!(!fake.machine.too_hot());
+    }
+
+    #[test]
+    fn a_lower_limit_from_the_host_applies_at_once() {
+        let mut fake = in_utc();
+        fake.inputs.gpu_temp_c = Some(75);
+        assert_eq!(fake.step(), State::Available);
+        let mut settings = HostSettings::default();
+        settings.limits.max_gpu_temp_c = 70;
+        fake.machine.set_settings(settings);
+        assert!(paused(fake.step(), Reason::TooHot));
+    }
+
+    #[test]
+    fn a_metered_connection_pauses_only_if_the_host_said_not_to_use_those() {
+        let mut fake = in_utc();
+        fake.inputs.metered = true;
+        assert!(paused(fake.step(), Reason::Metered), "on by default");
+        fake.inputs.metered = false;
+        assert_eq!(fake.wait(SECOND), State::Available, "back the moment it isn't");
+        let mut allowed = in_utc();
+        let mut settings = HostSettings::default();
+        settings.not_on_metered = false;
+        allowed.machine.set_settings(settings);
+        allowed.inputs.metered = true;
+        assert_eq!(allowed.step(), State::Available);
+    }
+
+    #[test]
+    fn a_full_disk_limit_pauses_and_clears_when_there_is_room() {
+        let mut fake = in_utc();
+        fake.inputs.disk_full = true;
+        assert!(paused(fake.step(), Reason::DiskFull));
+        fake.inputs.disk_full = false;
+        assert_eq!(fake.wait(SECOND), State::Available);
+    }
+
+    #[test]
+    fn plugging_in_still_waits_but_the_hosts_limits_never_do_and_the_first_reason_shown_is_the_hosts() {
+        let mut fake = in_utc();
+        fake.inputs.on_battery = true;
+        fake.inputs.gpu_temp_c = Some(95);
+        assert!(paused(fake.step(), Reason::TooHot), "the host's own limit is named before the battery");
+        fake.inputs.gpu_temp_c = Some(50);
+        assert!(paused(fake.wait(SECOND), Reason::Unplugged));
+    }
+
+    #[test]
+    fn the_owners_pause_still_wins_over_the_limits() {
+        let mut fake = in_utc();
+        fake.inputs.gpu_temp_c = Some(99);
+        fake.machine.set_pause(OwnerPause::Indefinite);
+        assert_eq!(fake.step(), State::HostingOff);
     }
 }

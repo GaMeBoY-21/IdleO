@@ -905,8 +905,12 @@ impl<S: System> Engine<'_, S> {
         std::fs::write(dir.join("ca-root.pem"), &self.config.ca_root_pem)?;
         let text = format!(
             "# Written by IdleO's setup. The agent's own settings are in settings.toml.\n\
-             api_url = \"{}\"\nhost_url = \"{}\"\nca_root = \"ca-root.pem\"\ndata_dir = \".\"\n\n[control_plane]\nhost = \"{}\"\nport = {}\n",
-            self.config.api_url, self.config.host_url, self.config.control_plane_host, self.config.control_plane_port
+             api_url = \"{}\"\nhost_url = \"{}\"\nsite_url = \"{}\"\nca_root = \"ca-root.pem\"\ndata_dir = \".\"\n\n[control_plane]\nhost = \"{}\"\nport = {}\n",
+            self.config.api_url,
+            self.config.host_url,
+            self.config.site_url,
+            self.config.control_plane_host,
+            self.config.control_plane_port
         );
         std::fs::write(dir.join("agent.toml"), text)
     }

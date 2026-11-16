@@ -16,8 +16,8 @@ use windows::Win32::Storage::FileSystem::{
     CREATE_NEW, CreateFileW, FILE_ATTRIBUTE_NORMAL, FILE_GENERIC_WRITE, FILE_SHARE_NONE, GetDiskFreeSpaceExW,
 };
 use windows::Win32::System::Performance::{QueryPerformanceCounter, QueryPerformanceFrequency};
-use windows::Win32::System::Registry::{HKEY_LOCAL_MACHINE, RRF_RT_REG_SZ, RegGetValueW};
-use windows::Win32::System::SystemInformation::GetTickCount;
+use windows::Win32::System::Registry::{HKEY_LOCAL_MACHINE, RRF_RT_REG_DWORD, RRF_RT_REG_SZ, RegGetValueW};
+use windows::Win32::System::SystemInformation::{GetTickCount, GlobalMemoryStatusEx, MEMORYSTATUSEX};
 use windows::Win32::UI::Input::KeyboardAndMouse::{GetLastInputInfo, LASTINPUTINFO};
 use windows::core::{PCWSTR, PWSTR};
 
@@ -104,6 +104,56 @@ pub fn windows_build() -> io::Result<u32> {
 /// If the registry value can't be read.
 pub fn system_manufacturer() -> io::Result<String> {
     machine_string(r"HARDWARE\DESCRIPTION\System\BIOS", "SystemManufacturer").map(|text| text.trim().to_owned())
+}
+
+/// The laptop's memory, in MB.
+///
+/// # Errors
+/// If Windows can't say.
+pub fn total_memory_mb() -> io::Result<u64> {
+    let mut status =
+        MEMORYSTATUSEX { dwLength: u32::try_from(size_of::<MEMORYSTATUSEX>()).unwrap_or(64), ..Default::default() };
+    // SAFETY: `status` is a valid, writable MEMORYSTATUSEX with dwLength set, as the API requires.
+    unsafe { GlobalMemoryStatusEx(&raw mut status) }.map_err(io::Error::from)?;
+    Ok(status.ullTotalPhys / (1024 * 1024))
+}
+
+/// Whether this PC's processor is ARM, which the setup app doesn't support yet: the machine's own `PROCESSOR_ARCHITECTURE`
+/// (`ARM64`, `AMD64` or `x86`), which is what it is even for a program running under emulation.
+#[must_use]
+pub fn is_arm() -> bool {
+    machine_string(r"SYSTEM\CurrentControlSet\Control\Session Manager\Environment", "PROCESSOR_ARCHITECTURE")
+        .is_ok_and(|architecture| architecture.trim().to_ascii_uppercase().starts_with("ARM"))
+}
+
+/// Whether Windows runs in S mode, which only lets Microsoft Store apps run: its code-integrity policy asks for it.
+#[must_use]
+pub fn is_s_mode() -> bool {
+    machine_dword(r"SYSTEM\CurrentControlSet\Control\CI\Policy", "SkuPolicyRequired").is_ok_and(|value| value == 1)
+}
+
+/// A number under `HKEY_LOCAL_MACHINE`, read only.
+fn machine_dword(key: &str, value: &str) -> io::Result<u32> {
+    let key = wide(key);
+    let value = wide(value);
+    let mut data = 0u32;
+    let mut size = u32::try_from(size_of::<u32>()).unwrap_or(4);
+    // SAFETY: the key and value names are NUL-terminated UTF-16; `data` is a writable u32 and `size` its size in bytes.
+    let status = unsafe {
+        RegGetValueW(
+            HKEY_LOCAL_MACHINE,
+            PCWSTR(key.as_ptr()),
+            PCWSTR(value.as_ptr()),
+            RRF_RT_REG_DWORD,
+            None,
+            Some((&raw mut data).cast::<c_void>()),
+            Some(&raw mut size),
+        )
+    };
+    if status != ERROR_SUCCESS {
+        return Err(io::Error::from_raw_os_error(i32::try_from(status.0).unwrap_or(i32::MAX)));
+    }
+    Ok(data)
 }
 
 /// A text value under `HKEY_LOCAL_MACHINE`, read only.

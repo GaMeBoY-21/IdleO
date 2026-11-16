@@ -1,0 +1,25 @@
+<main class="shell">
+  <header class="top">
+    <span class="wordmark" aria-hidden="true">idleo</span>
+    <span id="conn" class="pill" hidden>Not connected</span>
+  </header>
+  <div class="tabs" role="tablist" aria-label="IdleO">
+    <button type="button" role="tab" id="tab-now" aria-controls="panel" data-tab="now">Now</button>
+    <button type="button" role="tab" id="tab-schedule" aria-controls="panel" data-tab="schedule">Schedule</button>
+    <button type="button" role="tab" id="tab-limits" aria-controls="panel" data-tab="limits">Limits</button>
+    <button type="button" role="tab" id="tab-earnings" aria-controls="panel" data-tab="earnings">Earnings</button>
+    <button type="button" role="tab" id="tab-settings" aria-controls="panel" data-tab="settings">Settings</button>
+  </div>
+  <section id="panel" role="tabpanel" tabindex="-1" class="panel"></section>
+  <div id="announce" class="sr-only" role="status" aria-live="polite"></div>
+</main>
+<div id="confirm" class="overlay" hidden>
+  <section class="tile sheet" role="alertdialog" aria-modal="true" aria-labelledby="confirm-title" aria-describedby="confirm-text">
+    <h2 id="confirm-title">Remove IdleO?</h2>
+    <p id="confirm-text" class="muted">This stops hosting and removes IdleO, its Linux space and its files from this laptop. You'll be asked about your earnings history.</p>
+    <div class="row end">
+      <button type="button" class="secondary" data-action="cancel_remove">Keep IdleO</button>
+      <button type="button" class="danger" data-action="confirm_remove">Remove IdleO</button>
+    </div>
+  </section>
+</div>

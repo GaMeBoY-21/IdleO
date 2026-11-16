@@ -1,17 +1,14 @@
-//! The tray's menu as data (ADR 0033), built from the agent's status, and what each item asks the agent. The native
-//! menu is drawn from this, so what it holds and what a click sends are tested without a desktop.
+//! The tray's right-click menu as data (ADR 0033, ADR 0061), built from the agent's status, and what each item does. The
+//! native menu is drawn from this, so what it holds and what a click does are tested without a desktop.
 //!
-//! - Status (disabled), "Earned today ₹12.40" (disabled), where an update stands while one is under way (disabled), a
-//!   separator.
-//! - **Hosting** (a check item).
-//! - **Pause** ▸ For 1 hour · Until this evening (6 pm) · Until tomorrow morning (9 am): hidden while hosting is off.
-//! - **Resume now**: only while paused by the owner.
-//! - **Auto-pause** ▸ three check items, then **Start again after** ▸ 5 · 10 · 20 · 30 · 60 min.
-//! - **Open dashboard**.
+//! - The state, in words (disabled), and a separator.
+//! - **Pause** (until the host resumes) and **Pause for 1 hour**; or, while paused by the host, **Resume**.
+//! - **Open IdleO** (the window), **Host site**, **Help**.
+//! - **Quit IdleO**: stops it, and asks first when a renter's job is running.
 //!
-//! Nothing else: there's no Quit. Turning hosting off is how a host stops.
+//! A left click opens the window instead of the menu.
 
-use idleo_release::channel::{AutoPause, Request, State, Status};
+use idleo_release::channel::{Request, State, Status};
 use time::{Duration, OffsetDateTime, Time, UtcOffset};
 
 use crate::status;
@@ -21,8 +18,14 @@ use crate::status;
 pub enum Action {
     /// Ask the agent.
     Send(Request),
-    /// Open the web app's Hosting page.
-    OpenDashboard,
+    /// Show the IdleO window, on a tab if one is named.
+    OpenWindow(Option<&'static str>),
+    /// Open the host site.
+    OpenHostSite,
+    /// Open the help pages.
+    OpenHelp,
+    /// Quit IdleO: the tray asks first if a job is running, then stops the agent and itself.
+    Quit,
 }
 
 /// One item of the menu.
@@ -39,219 +42,209 @@ pub enum Item {
         /// What a click does.
         action: Action,
     },
-    /// An item with a tick.
-    Check {
-        /// Its words.
-        text: String,
-        /// Ticked.
-        checked: bool,
-        /// What a click does.
-        action: Action,
-    },
-    /// A submenu.
-    Submenu {
-        /// Its words.
-        text: String,
-        /// What's in it.
-        items: Vec<Item>,
-    },
 }
 
-/// The pause choices at `now`, local time: an hour from now; this evening at 6 pm, while it's still before 6; and
-/// tomorrow at 9 am. Every one is within the control plane's 7 days.
-#[must_use]
-pub fn pause_choices(now: OffsetDateTime, offset: UtcOffset) -> Vec<(String, OffsetDateTime)> {
-    let local = now.to_offset(offset);
-    let mut choices = vec![("For 1 hour".to_owned(), (now + Duration::hours(1)).replace_nanosecond(0).unwrap_or(now))];
-    let evening = local.replace_time(Time::from_hms(18, 0, 0).unwrap_or(Time::MIDNIGHT));
-    if local < evening {
-        choices.push(("Until this evening (6 pm)".to_owned(), evening.to_offset(UtcOffset::UTC)));
+/// How long a pause may be, as the window offers it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PauseFor {
+    /// An hour from now.
+    Hour,
+    /// Until 9 am tomorrow.
+    Tomorrow,
+    /// Until the host resumes.
+    UntilResumed,
+}
+
+impl PauseFor {
+    /// What the window's page calls it.
+    #[must_use]
+    pub fn id(self) -> &'static str {
+        match self {
+            Self::Hour => "hour",
+            Self::Tomorrow => "tomorrow",
+            Self::UntilResumed => "until_resumed",
+        }
     }
-    let morning = (local + Duration::days(1)).replace_time(Time::from_hms(9, 0, 0).unwrap_or(Time::MIDNIGHT));
-    choices.push(("Until tomorrow morning (9 am)".to_owned(), morning.to_offset(UtcOffset::UTC)));
-    choices
+
+    /// The choice the page named.
+    #[must_use]
+    pub fn from_id(id: &str) -> Option<Self> {
+        [Self::Hour, Self::Tomorrow, Self::UntilResumed].into_iter().find(|choice| choice.id() == id)
+    }
+
+    /// Its words.
+    #[must_use]
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Hour => "For 1 hour",
+            Self::Tomorrow => "Until tomorrow, 9 am",
+            Self::UntilResumed => "Until I resume",
+        }
+    }
+
+    /// What it asks the agent at `now`, local time `offset`. Every pause with an end is within the control plane's 7 days.
+    #[must_use]
+    pub fn request(self, now: OffsetDateTime, offset: UtcOffset) -> Request {
+        match self {
+            Self::Hour => Request::Pause { until: (now + Duration::hours(1)).replace_nanosecond(0).unwrap_or(now) },
+            Self::Tomorrow => {
+                let local = now.to_offset(offset);
+                let morning =
+                    (local + Duration::days(1)).replace_time(Time::from_hms(9, 0, 0).unwrap_or(Time::MIDNIGHT));
+                Request::Pause { until: morning.to_offset(UtcOffset::UTC) }
+            }
+            Self::UntilResumed => Request::SetHosting { on: false },
+        }
+    }
 }
 
-/// The menu for `status` at `now`. With no status (the agent is starting, or the channel dropped), only the line and
-/// Open dashboard.
+/// Whether the host has paused hosting, for good or until a time: the switch in the window and Resume in the menu.
 #[must_use]
-pub fn build(status: Option<&Status>, now: OffsetDateTime, offset: UtcOffset) -> Vec<Item> {
-    let mut items = vec![Item::Label(status::line(status, offset))];
-    let Some(status) = status else {
+pub fn paused_by_host(status: &Status) -> bool {
+    matches!(status.state, State::HostingOff | State::Paused)
+}
+
+/// The menu for `status` at `now`. With no status (the agent is starting, or the channel dropped) there is nothing to pause or
+/// open a site for, only the words, the window and Quit.
+#[must_use]
+pub fn build(status: Option<&Status>, now: OffsetDateTime, offset: UtcOffset, crashing: bool) -> Vec<Item> {
+    let mut items = vec![Item::Label(status::headline(status, now, offset, crashing)), Item::Separator];
+    if let Some(status) = status {
+        if paused_by_host(status) {
+            items.push(Item::Button { text: "Resume".to_owned(), action: Action::Send(Request::Resume) });
+        } else {
+            items.push(Item::Button {
+                text: "Pause".to_owned(),
+                action: Action::Send(PauseFor::UntilResumed.request(now, offset)),
+            });
+            items.push(Item::Button {
+                text: "Pause for 1 hour".to_owned(),
+                action: Action::Send(PauseFor::Hour.request(now, offset)),
+            });
+        }
         items.push(Item::Separator);
-        items.push(Item::Button { text: "Open dashboard".to_owned(), action: Action::OpenDashboard });
-        return items;
-    };
-    if let Some(earned) = status::earned_today(Some(status)) {
-        items.push(Item::Label(earned));
     }
-    if let Some(update) = status::update_line(Some(status)) {
-        items.push(Item::Label(update));
+    items.push(Item::Button { text: "Open IdleO".to_owned(), action: Action::OpenWindow(None) });
+    if status.is_some_and(|status| status.dashboard_url().is_some()) {
+        items.push(Item::Button { text: "Host site".to_owned(), action: Action::OpenHostSite });
+    }
+    if status.is_some_and(|status| status.help_url().is_some()) {
+        items.push(Item::Button { text: "Help".to_owned(), action: Action::OpenHelp });
     }
     items.push(Item::Separator);
-    let hosting = status.state != State::HostingOff;
-    items.push(Item::Check {
-        text: "Hosting".to_owned(),
-        checked: hosting,
-        action: Action::Send(Request::SetHosting { on: !hosting }),
-    });
-    if hosting {
-        items.push(Item::Submenu {
-            text: "Pause".to_owned(),
-            items: pause_choices(now, offset)
-                .into_iter()
-                .map(|(text, until)| Item::Button { text, action: Action::Send(Request::Pause { until }) })
-                .collect(),
-        });
-    }
-    if status.state == State::Paused {
-        items.push(Item::Button { text: "Resume now".to_owned(), action: Action::Send(Request::Resume) });
-    }
-    items.push(auto_pause(status.auto_pause));
-    items.push(Item::Separator);
-    items.push(Item::Button { text: "Open dashboard".to_owned(), action: Action::OpenDashboard });
+    items.push(Item::Button { text: "Quit IdleO".to_owned(), action: Action::Quit });
     items
 }
 
-fn auto_pause(settings: AutoPause) -> Item {
-    let set = |settings: AutoPause| Action::Send(Request::SetAutoPause { settings });
-    Item::Submenu {
-        text: "Auto-pause".to_owned(),
-        items: vec![
-            Item::Check {
-                text: "When I use the keyboard or mouse".to_owned(),
-                checked: settings.keyboard_mouse,
-                action: set(AutoPause { keyboard_mouse: !settings.keyboard_mouse, ..settings }),
-            },
-            Item::Check {
-                text: "When a game or full-screen app is open".to_owned(),
-                checked: settings.games,
-                action: set(AutoPause { games: !settings.games, ..settings }),
-            },
-            Item::Check {
-                text: "When unplugged".to_owned(),
-                checked: settings.unplugged,
-                action: set(AutoPause { unplugged: !settings.unplugged, ..settings }),
-            },
-            Item::Separator,
-            Item::Submenu {
-                text: "Start again after".to_owned(),
-                items: AutoPause::START_AGAIN_CHOICES
-                    .iter()
-                    .map(|minutes| Item::Check {
-                        text: format!("{minutes} min"),
-                        checked: settings.start_again_after_minutes == *minutes,
-                        action: set(AutoPause { start_again_after_minutes: *minutes, ..settings }),
-                    })
-                    .collect(),
-            },
-        ],
-    }
-}
-
 #[cfg(test)]
+#[allow(
+    clippy::assert_is_empty,
+    clippy::field_reassign_with_default,
+    clippy::duration_suboptimal_units,
+    reason = "tests state the empty case and a settings change as plainly as they can"
+)]
 mod tests {
-    use idleo_release::channel::Reason;
-
     use super::*;
-    use crate::status::tests::ready;
-
-    const IST: UtcOffset = match UtcOffset::from_hms(5, 30, 0) {
-        Ok(offset) => offset,
-        Err(_) => UtcOffset::UTC,
-    };
-
-    /// 2026-10-18 at the given IST time.
-    fn at(hour: u8, minute: u8) -> OffsetDateTime {
-        OffsetDateTime::new_in_offset(
-            time::Date::from_calendar_date(2026, time::Month::October, 18).unwrap(),
-            Time::from_hms(hour, minute, 0).unwrap(),
-            IST,
-        )
-    }
+    use crate::status::tests::{at, ready};
 
     fn texts(items: &[Item]) -> Vec<String> {
         items
             .iter()
             .map(|item| match item {
-                Item::Label(text)
-                | Item::Button { text, .. }
-                | Item::Check { text, .. }
-                | Item::Submenu { text, .. } => text.clone(),
-                Item::Separator => "—".to_owned(),
+                Item::Label(text) => format!("· {text}"),
+                Item::Separator => "---".to_owned(),
+                Item::Button { text, .. } => text.clone(),
             })
             .collect()
     }
 
-    fn find<'a>(items: &'a [Item], wanted: &str) -> &'a Item {
-        items
-            .iter()
-            .find(|item| texts(std::slice::from_ref(*item))[0] == wanted)
-            .unwrap_or_else(|| panic!("no {wanted}"))
-    }
-
     #[test]
-    fn the_menu_has_what_the_tray_promises_and_nothing_else() {
-        let items = build(Some(&ready()), at(14, 0), IST);
+    fn a_ready_laptop_offers_the_pauses_the_window_the_sites_and_quit() {
+        let items = build(Some(&ready()), at(), UtcOffset::UTC, false);
         assert_eq!(
             texts(&items),
-            ["Ready for renters", "Earned today ₹12.40", "—", "Hosting", "Pause", "Auto-pause", "—", "Open dashboard"]
+            [
+                "· Ready for renters",
+                "---",
+                "Pause",
+                "Pause for 1 hour",
+                "---",
+                "Open IdleO",
+                "Host site",
+                "Help",
+                "---",
+                "Quit IdleO"
+            ]
         );
-        assert!(!texts(&items).iter().any(|text| text.contains("Quit")));
-        let Item::Submenu { items: pause, .. } = find(&items, "Pause") else { panic!() };
-        assert_eq!(texts(pause), ["For 1 hour", "Until this evening (6 pm)", "Until tomorrow morning (9 am)"]);
     }
 
     #[test]
-    fn hosting_off_hides_pause_and_turning_it_on_resumes() {
-        let off = Status { state: State::HostingOff, ..ready() };
-        let items = build(Some(&off), at(14, 0), IST);
-        assert!(!texts(&items).contains(&"Pause".to_owned()));
-        match find(&items, "Hosting") {
-            Item::Check { checked, action, .. } => {
-                assert!(!checked);
-                assert_eq!(action, &Action::Send(Request::SetHosting { on: true }));
-            }
-            other => panic!("{other:?}"),
+    fn a_host_pause_offers_resume_and_nothing_to_pause_again() {
+        for state in [State::HostingOff, State::Paused] {
+            let items = build(Some(&Status { state, ..ready() }), at(), UtcOffset::UTC, false);
+            let words = texts(&items);
+            assert_eq!(words[2], "Resume");
+            assert!(!words.iter().any(|word| word.starts_with("Pause")), "{words:?}");
+            assert!(items.contains(&Item::Button { text: "Resume".to_owned(), action: Action::Send(Request::Resume) }));
         }
+        // An auto-pause is not the host's: the host can still pause for longer.
+        let auto =
+            Status { state: State::AutoPaused, reason: Some(idleo_release::channel::Reason::Schedule), ..ready() };
+        assert_eq!(texts(&build(Some(&auto), at(), UtcOffset::UTC, false))[2], "Pause");
     }
 
     #[test]
-    fn resume_shows_only_while_paused_by_the_owner() {
-        let paused = Status { state: State::Paused, paused_until: Some(at(18, 0)), ..ready() };
-        assert!(texts(&build(Some(&paused), at(14, 0), IST)).contains(&"Resume now".to_owned()));
-        let auto = Status { state: State::AutoPaused, reason: Some(Reason::Game), ..ready() };
-        assert!(!texts(&build(Some(&auto), at(14, 0), IST)).contains(&"Resume now".to_owned()));
+    fn each_pause_asks_the_agent_for_the_right_time() {
+        let items = build(Some(&ready()), at(), UtcOffset::UTC, false);
+        let sent: Vec<&Request> = items
+            .iter()
+            .filter_map(|item| match item {
+                Item::Button { action: Action::Send(request), .. } => Some(request),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(sent[0], &Request::SetHosting { on: false });
+        assert_eq!(sent[1], &Request::Pause { until: at() + Duration::hours(1) });
     }
 
     #[test]
-    fn pause_times_are_local_and_this_evening_goes_after_six() {
-        let choices = pause_choices(at(14, 10), IST);
-        assert_eq!(choices[0].1, at(15, 10));
-        assert_eq!(choices[1].1, at(18, 0));
-        assert_eq!(choices[2].1, at(9, 0) + Duration::days(1));
-        let late = pause_choices(at(19, 0), IST);
-        assert_eq!(late.len(), 2, "no 'this evening' after 6 pm");
-        assert!(late.iter().all(|(_, until)| *until - at(19, 0) <= Duration::days(7)));
+    fn tomorrow_is_nine_in_the_morning_where_the_host_is_and_within_seven_days() {
+        let ist = UtcOffset::from_hms(5, 30, 0).unwrap();
+        // 2025-10-09 14:23 in India: tomorrow 9 am there is 2025-10-10 03:30 UTC.
+        let Request::Pause { until } = PauseFor::Tomorrow.request(at(), ist) else { panic!() };
+        assert_eq!(until, time::macros::datetime!(2025-10-10 03:30 UTC));
+        assert!(until - at() < Duration::days(7));
+        // Just after midnight: tomorrow is still the next calendar day.
+        let late = time::macros::datetime!(2025-10-09 20:00 UTC); // 01:30 on the 10th in India
+        let Request::Pause { until } = PauseFor::Tomorrow.request(late, ist) else { panic!() };
+        assert_eq!(until, time::macros::datetime!(2025-10-11 03:30 UTC));
     }
 
     #[test]
-    fn auto_pause_items_toggle_one_setting_each() {
-        let items = build(Some(&ready()), at(14, 0), IST);
-        let Item::Submenu { items: auto, .. } = find(&items, "Auto-pause") else { panic!() };
-        match find(auto, "When unplugged") {
-            Item::Check { checked: true, action: Action::Send(Request::SetAutoPause { settings }), .. } => {
-                assert_eq!(*settings, AutoPause { unplugged: false, ..AutoPause::default() });
-            }
-            other => panic!("{other:?}"),
+    fn the_choices_have_names_the_page_can_send_back() {
+        for choice in [PauseFor::Hour, PauseFor::Tomorrow, PauseFor::UntilResumed] {
+            assert_eq!(PauseFor::from_id(choice.id()), Some(choice));
+            assert!(!choice.label().is_empty());
         }
-        let Item::Submenu { items: waits, .. } = find(auto, "Start again after") else { panic!() };
-        assert_eq!(texts(waits), ["5 min", "10 min", "20 min", "30 min", "60 min"]);
-        assert!(matches!(find(waits, "10 min"), Item::Check { checked: true, .. }));
+        assert_eq!(PauseFor::from_id("forever"), None);
     }
 
     #[test]
-    fn without_the_agent_only_the_line_and_the_dashboard() {
-        assert_eq!(texts(&build(None, at(14, 0), IST)), ["Starting…", "—", "Open dashboard"]);
+    fn with_no_agent_there_is_the_window_and_quit_and_nothing_to_pause() {
+        let items = build(None, at(), UtcOffset::UTC, false);
+        assert_eq!(texts(&items), ["· Starting…", "---", "Open IdleO", "---", "Quit IdleO"]);
+        assert!(items.contains(&Item::Button { text: "Quit IdleO".to_owned(), action: Action::Quit }));
+    }
+
+    #[test]
+    fn a_site_that_isnt_known_has_no_link() {
+        let status = Status { host_url: None, app_url: None, site_url: None, ..ready() };
+        let words = texts(&build(Some(&status), at(), UtcOffset::UTC, false));
+        assert!(!words.contains(&"Host site".to_owned()) && !words.contains(&"Help".to_owned()), "{words:?}");
+    }
+
+    #[test]
+    fn a_crash_loop_says_so_in_the_first_line() {
+        assert_eq!(texts(&build(None, at(), UtcOffset::UTC, true))[0], "· IdleO keeps stopping");
     }
 }

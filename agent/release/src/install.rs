@@ -4,7 +4,9 @@
 //! - `HKCU\…\Run\IdleO`: `"…\idleo-launcher.exe" start`, so it starts at sign-in.
 //! - `HKCU\…\RunOnce\IdleO Setup`: `"…\IdleO-Setup.exe" --resume`, only across the one restart WSL may need.
 //! - `HKCU\…\Uninstall\IdleO`: what Settings → Apps shows, and its `UninstallString`.
-//! - The Start-menu shortcut "IdleO", with our AppUserModelID.
+//! - The Start-menu shortcut "IdleO", with our AppUserModelID (which is also what groups our toasts).
+//! - `HKCU\Software\Classes\idleo`: the `idleo:` address a toast opens, which the launcher turns into the right tab of
+//!   the IdleO window.
 //! - Our WSL distributions (`IdleO-…`), the data folder and the programs folder.
 //!
 //! The owner's own distributions, `.wslconfig` and anything else of theirs are never touched.
@@ -27,6 +29,8 @@ pub const RUNONCE_KEY: &str = r"Software\Microsoft\Windows\CurrentVersion\RunOnc
 pub const RUNONCE_VALUE: &str = "IdleO Setup";
 /// The Uninstall entry, per user.
 pub const UNINSTALL_KEY: &str = r"Software\Microsoft\Windows\CurrentVersion\Uninstall\IdleO";
+/// The `idleo:` address's registration, per user: a toast's click opens `idleo:open/earnings` and the launcher answers.
+pub const PROTOCOL_KEY: &str = r"Software\Classes\idleo";
 /// Groups the shortcut, the tray and notifications under one app in Windows.
 pub const APP_USER_MODEL_ID: &str = "IdleO.Host";
 /// The Uninstall entry's publisher.
@@ -93,7 +97,52 @@ pub fn register(machine: &dyn Machine, version: &str, size_kb: u32) -> io::Resul
     ] {
         registry.set(UNINSTALL_KEY, name, &value)?;
     }
+    for (key, name, value) in [
+        (PROTOCOL_KEY, "", "URL:IdleO".to_owned()),
+        (PROTOCOL_KEY, "URL Protocol", String::new()),
+        (&format!(r"{PROTOCOL_KEY}\shell\open\command"), "", format!("\"{}\" open \"%1\"", launcher.display())),
+    ] {
+        registry.set(key, name, &Value::Text(value))?;
+    }
     Ok(())
+}
+
+/// Turns "Start with Windows" on or off: the Run entry that starts the launcher at sign-in.
+///
+/// # Errors
+/// If the entry can't be written or deleted.
+pub fn set_start_with_windows(machine: &dyn Machine, on: bool) -> io::Result<()> {
+    if on { enable_at_sign_in(machine) } else { machine.registry().delete_value(RUN_KEY, RUN_VALUE) }
+}
+
+/// Whether the Run entry that starts IdleO at sign-in is there.
+#[must_use]
+pub fn starts_with_windows(machine: &dyn Machine) -> bool {
+    machine.registry().get(RUN_KEY, RUN_VALUE).is_some()
+}
+
+/// Everything an uninstall removes, in plain words, for the person to read before it happens. `keep_earnings` leaves the
+/// earnings history kept on this laptop (the uninstaller asks first).
+#[must_use]
+pub fn inventory(machine: &dyn Machine, keep_earnings: bool) -> Vec<String> {
+    let mut list = vec![
+        "IdleO's programs".to_owned(),
+        "The tray icon, the IdleO window and the Start-menu item".to_owned(),
+        "What starts IdleO when Windows starts".to_owned(),
+        "The idleo: address Windows opens from a notification".to_owned(),
+        "Your IdleO settings and this laptop's link to your account".to_owned(),
+        "The log files".to_owned(),
+        "Downloads and setup's own files".to_owned(),
+    ];
+    if let Ok(ours) = Wsl::new(machine.wsl_runner()).ours() {
+        for name in ours {
+            list.push(format!("The Linux space {name}, with its disk"));
+        }
+    }
+    if !keep_earnings {
+        list.push("The earnings history kept on this laptop".to_owned());
+    }
+    list
 }
 
 /// Updates the Uninstall entry's version after an update.
@@ -129,6 +178,8 @@ pub enum Keep {
     Nothing,
     /// The data folder's `logs`, so a development build's failed setup can be read afterwards.
     Logs,
+    /// The data folder's `earnings`, the history shown in the window: the uninstaller asks whether to keep it.
+    Earnings,
 }
 
 /// Removes everything of ours: our distributions, the registry entries, the shortcut, the data folder and the
@@ -162,6 +213,7 @@ pub fn remove_all_keeping(machine: &dyn Machine, running: Option<&Path>, keep: K
         registry.delete_value(RUN_KEY, RUN_VALUE),
         registry.delete_value(RUNONCE_KEY, RUNONCE_VALUE),
         registry.delete_key(UNINSTALL_KEY),
+        registry.delete_key(PROTOCOL_KEY),
     ] {
         if let Err(e) = result {
             removal.problems.push(format!("a registry entry: {e}"));
@@ -174,6 +226,7 @@ pub fn remove_all_keeping(machine: &dyn Machine, running: Option<&Path>, keep: K
     let data_result = match keep {
         Keep::Nothing => remove_dir(layout.data()),
         Keep::Logs => remove_all_but(layout.data(), &layout.logs()),
+        Keep::Earnings => remove_all_but(layout.data(), &layout.earnings()),
     };
     if let Err(e) = data_result {
         removal.problems.push(format!("{}: {e}", layout.data().display()));
@@ -222,6 +275,9 @@ pub fn leftovers(machine: &dyn Machine) -> Vec<String> {
     }
     if registry.get(UNINSTALL_KEY, "UninstallString").is_some() {
         left.push("the Uninstall entry".to_owned());
+    }
+    if registry.get(PROTOCOL_KEY, "URL Protocol").is_some() {
+        left.push("the idleo: address".to_owned());
     }
     if machine.shortcut_path().exists() {
         left.push("the Start-menu shortcut".to_owned());
@@ -443,6 +499,72 @@ mod tests {
         assert!(!machine.layout().data().exists());
         fs::remove_dir_all(machine.layout().programs()).unwrap();
         assert_eq!(leftovers(&machine), Vec::<String>::new());
+    }
+
+    #[test]
+    fn the_idleo_address_opens_the_launcher_and_goes_with_the_uninstall() {
+        let machine = FakeMachine::new();
+        installed(&machine);
+        let command = machine.registry().get(&format!(r"{PROTOCOL_KEY}\shell\open\command"), "").unwrap();
+        assert!(command.ends_with("\" open \"%1\""), "{command}");
+        assert!(command.contains("idleo-launcher"));
+        assert_eq!(machine.registry().get(PROTOCOL_KEY, "URL Protocol").as_deref(), Some(""));
+        assert_eq!(leftovers(&machine).iter().filter(|left| left.contains("idleo: address")).count(), 1);
+        let _ = remove_all(&machine, None);
+        assert!(machine.registry.is_empty(), "{:?}", machine.registry.snapshot());
+    }
+
+    #[test]
+    fn start_with_windows_is_the_run_entry() {
+        let machine = FakeMachine::new();
+        installed(&machine);
+        assert!(starts_with_windows(&machine));
+        set_start_with_windows(&machine, false).unwrap();
+        assert!(!starts_with_windows(&machine));
+        set_start_with_windows(&machine, false).unwrap();
+        set_start_with_windows(&machine, true).unwrap();
+        assert_eq!(machine.registry().get(RUN_KEY, RUN_VALUE).unwrap(), run_command(machine.layout()));
+    }
+
+    /// What an uninstall says it removes is everything setup and the app ever put on the laptop; if a new thing is written
+    /// there it must be listed (and removed) here.
+    #[test]
+    fn the_uninstall_lists_everything_it_removes_and_the_earnings_history_only_when_it_isnt_kept() {
+        let machine = FakeMachine::new();
+        installed(&machine);
+        let all = inventory(&machine, false).join("\n");
+        for expected in [
+            "programs",
+            "tray icon",
+            "Start-menu item",
+            "when Windows starts",
+            "idleo: address",
+            "settings",
+            "log files",
+            "Downloads",
+            "IdleO-0.1.0",
+            "earnings history",
+        ] {
+            assert!(all.contains(expected), "{expected:?} isn't in\n{all}");
+        }
+        assert!(!inventory(&machine, true).join("\n").contains("earnings history"));
+    }
+
+    #[test]
+    fn keeping_the_earnings_history_removes_everything_else() {
+        let machine = FakeMachine::new();
+        installed(&machine);
+        let layout = machine.layout();
+        fs::create_dir_all(layout.earnings()).unwrap();
+        fs::write(layout.earnings().join("history.json"), "{}").unwrap();
+        fs::create_dir_all(layout.logs()).unwrap();
+        fs::write(layout.logs().join("hostd.log"), "x").unwrap();
+        fs::write(layout.agent_dir().join("settings.toml"), "x").unwrap();
+        let removal = remove_all_keeping(&machine, None, Keep::Earnings);
+        assert_eq!(removal.problems, Vec::<String>::new());
+        assert!(layout.earnings().join("history.json").exists());
+        assert!(!layout.logs().exists() && !layout.agent_dir().exists() && !layout.programs().exists());
+        assert!(machine.registry.is_empty());
     }
 
     #[test]

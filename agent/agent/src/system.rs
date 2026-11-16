@@ -17,6 +17,19 @@ pub fn os() -> OperatingSystem {
     }
 }
 
+/// The laptop's memory, in MB, where it can be read (Windows); the host's memory limit counts only then.
+#[must_use]
+pub fn total_memory_mb() -> Option<u64> {
+    #[cfg(windows)]
+    {
+        agent_windows::total_memory_mb().ok().filter(|mb| *mb > 0)
+    }
+    #[cfg(not(windows))]
+    {
+        None
+    }
+}
+
 /// The operating system's name and version, for example `Windows 11 26100` or
 /// `Ubuntu 24.04.1 LTS (kernel 6.8.0-45-generic)`.
 #[must_use]
