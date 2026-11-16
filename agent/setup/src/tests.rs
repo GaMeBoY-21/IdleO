@@ -123,6 +123,32 @@ async fn run_as(
     (ending, screens, summary)
 }
 
+/// [`run`] with answers that depend on what is on the screen: `react` sees every screen and may answer it.
+async fn run_reactive(
+    system: &FakeSystem,
+    first: &[FromPage],
+    react: impl Fn(&ToPage) -> Option<FromPage>,
+) -> (Ending, Vec<ToPage>) {
+    let (send, mut events) = mpsc::unbounded_channel();
+    for answer in first {
+        send.send(answer.clone()).unwrap();
+    }
+    let mut screens = Vec::new();
+    let reply = send.clone();
+    let mut page = |screen: ToPage| {
+        if let Some(answer) = react(&screen) {
+            reply.send(answer).unwrap();
+        }
+        screens.push(screen);
+    };
+    let ending = {
+        let mut engine = Engine::new(system, config(), Some(key().verifying_key().to_bytes()), &mut page, &mut events);
+        engine.run(false).await
+    };
+    drop(send);
+    (ending, screens)
+}
+
 fn measured(system: &FakeSystem) -> Vec<String> {
     system.events.borrow().iter().map(|event| format!("{} {}", event.step, event.outcome)).collect()
 }
@@ -236,7 +262,7 @@ async fn an_old_driver_is_checked_again_every_ten_seconds_and_setup_carries_on_b
     let (ending, screens) = run(&system, &[FromPage::SetUp, FromPage::Fix], false).await;
     assert_eq!(ending, Ending::Done { pending: true });
     assert_eq!(fixes(&screens), [Problem::DriverTooOld]);
-    assert!(screens.iter().any(|s| matches!(s, ToPage::Fix { rechecking: true, text, .. } if text == "Your graphics driver needs an update (2 min).")));
+    assert!(screens.iter().any(|s| matches!(s, ToPage::Fix { rechecking: true, text, .. } if text == "Update it (about 2 minutes) and we'll carry on by ourselves.")));
     assert_eq!(system.opened.borrow()[0], "https://www.nvidia.com/en-us/software/nvidia-app/");
     assert!(measured(&system).contains(&"checks fixed".to_owned()));
 }
@@ -245,32 +271,40 @@ async fn an_old_driver_is_checked_again_every_ten_seconds_and_setup_carries_on_b
 async fn each_other_fix_screen_has_its_text_and_button() {
     let mut off = laptop();
     off.virtualization = false;
-    let (ending, screens) = run(&off, &[FromPage::SetUp, FromPage::Fix, FromPage::ConfirmClose], false).await;
+    let (ending, screens) =
+        run(&off, &[FromPage::SetUp, FromPage::Fix, FromPage::Help, FromPage::ConfirmClose], false).await;
     assert_eq!(ending, Ending::Undo);
     assert_eq!(fixes(&screens), [Problem::VirtualizationOff]);
-    assert_eq!(off.opened.borrow()[0], "http://192.168.1.20:3002/help/virtualization/asus/");
+    assert!(
+        screens.iter().any(|s| matches!(s, ToPage::Fix { button, help: Some(help), .. } if button == "Check again" && help == "Show me how for my laptop"))
+    );
+    assert_eq!(
+        *off.opened.borrow(),
+        ["http://192.168.1.20:3002/help/virtualization/asus/"],
+        "only the link goes anywhere"
+    );
 
     let mut full = laptop();
     full.free_bytes = 37_000_000_000;
     let (_, screens) = run(&full, &[FromPage::SetUp, FromPage::ConfirmClose], false).await;
-    assert!(screens.iter().any(
-        |s| matches!(s, ToPage::Fix { problem: Problem::NotEnoughDisk, text, .. } if text == "Free up 23 GB to host.")
-    ));
+    assert!(screens.iter().any(|s| matches!(s, ToPage::Fix { problem: Problem::NotEnoughDisk, text, .. } if text.contains("needs 60 GB free") && text.contains("there are 37") && text.contains("Free up 23 GB"))));
 
     let mut old_windows = laptop();
     old_windows.windows_build = 19_044;
     let (_, screens) = run(&old_windows, &[FromPage::SetUp, FromPage::ConfirmClose], false).await;
     assert_eq!(fixes(&screens), [Problem::WindowsTooOld]);
+}
 
+#[tokio::test(start_paused = true)]
+async fn on_battery_asks_to_plug_in_and_carries_on_by_itself_once_it_is() {
     let mut unplugged = laptop();
     unplugged.on_battery = true;
+    *unplugged.plugs_in_after.borrow_mut() = Some(3);
     let (ending, screens) = run(&unplugged, &[FromPage::SetUp], false).await;
-    assert_eq!(ending, Ending::Done { pending: true }, "unplugged only warns");
-    assert!(
-        screens
-            .iter()
-            .any(|s| matches!(s, ToPage::Progress { note: Some(note), .. } if note.contains("Plug your laptop in")))
-    );
+    assert_eq!(ending, Ending::Done { pending: true });
+    assert_eq!(fixes(&screens), [Problem::OnBattery]);
+    assert!(screens.iter().any(|s| matches!(s, ToPage::Fix { problem: Problem::OnBattery, title, button, rechecking: true, .. } if title == "Plug in your laptop" && button == "Check again")));
+    assert!(measured(&unplugged).contains(&"checks fixed".to_owned()));
 }
 
 #[tokio::test]
@@ -783,4 +817,301 @@ async fn a_development_build_tells_the_distribution_where_the_development_regist
         !release.machine.wsl.state().calls.iter().any(|call| call.contains("/etc/idleo/development")),
         "a release distribution carries no development marker"
     );
+}
+
+// --- the failures setup can meet, each with a plain screen and one button (ADR 0061) ---------------------------------
+
+use crate::steps::{AUTO_RETRIES, Step, drive_of, looks_like_antivirus, overall_percent, time_left};
+use crate::system::fake::Hang;
+
+fn nothing_left(system: &FakeSystem) {
+    assert_eq!(install::leftovers(system), Vec::<String>::new());
+    assert!(system.machine.registry.is_empty());
+}
+
+#[tokio::test]
+async fn an_arm_laptop_and_windows_in_s_mode_are_told_so_plainly_and_nothing_is_installed() {
+    for (arm, s_mode, problem, reason) in [
+        (true, false, Problem::ArmLaptop, "fix:arm_laptop"),
+        (false, true, Problem::WindowsSMode, "fix:windows_s_mode"),
+    ] {
+        let mut system = laptop();
+        system.arm = arm;
+        system.s_mode = s_mode;
+        let (ending, screens) = run(&system, &[FromPage::SetUp, FromPage::Fix], false).await;
+        assert_eq!(ending, Ending::Undo, "{problem:?}");
+        assert_eq!(fixes(&screens), [problem]);
+        assert!(screens.iter().any(|s| matches!(s, ToPage::Fix { button, rechecking: false, .. } if button == "OK")));
+        assert_eq!(undo(&system, None).problems, Vec::<String>::new());
+        nothing_left(&system);
+        let reasons: Vec<String> = system.events.borrow().iter().filter_map(|e| e.reason.clone()).collect();
+        assert!(reasons.contains(&reason.to_owned()), "{reasons:?}");
+        assert!(system.opened.borrow().is_empty(), "nothing is opened for a laptop that can't host");
+    }
+}
+
+#[tokio::test(start_paused = true)]
+async fn no_nvidia_card_or_driver_goes_to_nvidias_page_and_carries_on_when_one_shows() {
+    let system = laptop();
+    *system.gpus.borrow_mut() = VecDeque::from([vec![], vec![], vec![rtx()]]);
+    let (ending, screens) = run(&system, &[FromPage::SetUp, FromPage::Fix], false).await;
+    assert_eq!(ending, Ending::Done { pending: true });
+    assert_eq!(fixes(&screens), [Problem::NoNvidiaGpu]);
+    assert_eq!(system.opened.borrow()[0], "https://www.nvidia.com/en-us/software/nvidia-app/");
+    assert!(measured(&system).contains(&"checks fixed".to_owned()));
+}
+
+#[tokio::test(start_paused = true)]
+async fn a_lost_connection_is_retried_three_times_by_itself_and_then_the_person_is_asked() {
+    // Two failures: setup says so under the step, waits 2 s then 4 s, and never shows a screen.
+    let system = laptop();
+    *system.latest_fails.borrow_mut() = 2;
+    let (ending, screens) = run(&system, &[FromPage::SetUp], false).await;
+    assert_eq!(ending, Ending::Done { pending: true });
+    assert!(fixes(&screens).is_empty());
+    let details: Vec<&str> = screens
+        .iter()
+        .filter_map(|s| match s {
+            ToPage::Progress { steps, .. } => steps.iter().find_map(|step| step.detail.as_deref()),
+            _ => None,
+        })
+        .filter(|detail| detail.starts_with("Connection lost"))
+        .collect();
+    assert_eq!(details, ["Connection lost · trying again in 2 s", "Connection lost · trying again in 4 s"]);
+
+    // Five failures: three retries (2, 4, 8 s), then "Check your connection"; Try again, and it counts afresh.
+    let stubborn = laptop();
+    *stubborn.latest_fails.borrow_mut() = 5;
+    let tries = |screen: &ToPage| {
+        matches!(screen, ToPage::Fix { problem: Problem::CantReachIdleo, .. }).then_some(FromPage::TryAgain)
+    };
+    let (ending, screens) = run_reactive(&stubborn, &[FromPage::SetUp], tries).await;
+    assert_eq!(ending, Ending::Done { pending: true });
+    assert_eq!(fixes(&screens), [Problem::CantReachIdleo]);
+    assert_eq!(AUTO_RETRIES, 3);
+    assert!(screens.iter().any(|s| matches!(s, ToPage::Fix { title, text, button, .. } if title == "Check your connection" && text.contains("online") && button == "Try again")));
+}
+
+#[tokio::test(start_paused = true)]
+async fn a_proxy_is_named_on_the_connection_screen_and_in_the_measurement() {
+    let mut system = laptop();
+    system.proxy = true;
+    *system.latest_fails.borrow_mut() = 4;
+    let tries = |screen: &ToPage| {
+        matches!(screen, ToPage::Fix { problem: Problem::CantReachIdleo, .. }).then_some(FromPage::TryAgain)
+    };
+    let (_, screens) = run_reactive(&system, &[FromPage::SetUp], tries).await;
+    assert!(
+        screens
+            .iter()
+            .any(|s| matches!(s, ToPage::Fix { problem: Problem::CantReachIdleo, text, .. } if text.contains("proxy")))
+    );
+    let reasons: Vec<String> = system.events.borrow().iter().filter_map(|e| e.reason.clone()).collect();
+    assert!(reasons.contains(&"proxy".to_owned()), "{reasons:?}");
+}
+
+#[tokio::test(start_paused = true)]
+async fn an_antivirus_that_blocks_or_takes_a_file_is_named_and_try_again_carries_on() {
+    let blocked = laptop();
+    *blocked.download_error.borrow_mut() = Some("The operation did not complete successfully (os error 225)".into());
+    let (ending, screens) = run(&blocked, &[FromPage::SetUp, FromPage::Fix], false).await;
+    assert_eq!(ending, Ending::Done { pending: true });
+    assert_eq!(fixes(&screens), [Problem::AntivirusBlocked]);
+    assert!(
+        screens.iter().any(
+            |s| matches!(s, ToPage::Fix { text, button, .. } if text.contains("app-0.2.0.zip") && button == "Try again")
+        ),
+        "names the file"
+    );
+
+    // The antivirus doesn't say a word: the file is simply gone after it was downloaded whole.
+    let quiet = laptop();
+    *quiet.quarantine.borrow_mut() = true;
+    let (ending, screens) = run(&quiet, &[FromPage::SetUp, FromPage::Fix], false).await;
+    assert_eq!(ending, Ending::Done { pending: true });
+    assert_eq!(fixes(&screens), [Problem::AntivirusBlocked]);
+}
+
+#[test]
+fn what_looks_like_an_antivirus_is_what_windows_says_when_one_takes_a_file() {
+    assert!(looks_like_antivirus(
+        "Operation did not complete successfully because the file contains a virus (os error 225)"
+    ));
+    assert!(looks_like_antivirus("The file was deleted (os error 226) by potentially unwanted software"));
+    assert!(!looks_like_antivirus("connection reset by peer"));
+    assert!(!looks_like_antivirus("Access is denied. (os error 5)"));
+}
+
+// --- already installed, and a setup that can be stopped and run again at any moment --------------------------------
+
+#[tokio::test]
+async fn an_installed_idleo_offers_open_or_repair_and_open_changes_nothing() {
+    let system = laptop();
+    let (ending, _) = run(&system, &[FromPage::SetUp], false).await;
+    assert_eq!(ending, Ending::Done { pending: true });
+    let before = state_of(&system);
+
+    let (ending, screens) = run(&system, &[FromPage::OpenIdleo], false).await;
+    assert_eq!(ending, Ending::OpenedExisting);
+    assert!(matches!(screens.first(), Some(ToPage::Welcome { already_set_up: true, demo: false, .. })));
+    assert_eq!(*system.opened_idleo.borrow(), 1);
+    assert_eq!(screens.len(), 1, "no step ran");
+    assert_eq!(state_of(&system), before, "nothing touched");
+}
+
+/// What an install leaves: the registry and every file, with the fake root taken out of the words.
+fn state_of(system: &FakeSystem) -> (Vec<String>, Vec<String>) {
+    let root = system.machine.root.path().display().to_string();
+    let registry = system
+        .machine
+        .registry
+        .snapshot()
+        .into_iter()
+        .flat_map(|(key, values)| values.into_iter().map(move |(name, value)| format!("{key}\\{name} = {value:?}")))
+        .map(|line| line.replace(&root, "<root>"))
+        .collect();
+    let mut files = Vec::new();
+    let mut folders = vec![system.machine.root.path().to_owned()];
+    while let Some(folder) = folders.pop() {
+        for entry in std::fs::read_dir(&folder).into_iter().flatten().filter_map(Result::ok) {
+            let path = entry.path();
+            if path.is_dir() {
+                folders.push(path);
+            } else if !path.to_string_lossy().contains("logs") && !path.to_string_lossy().contains("setup") {
+                files.push(path.strip_prefix(system.machine.root.path()).unwrap().display().to_string());
+            }
+        }
+    }
+    files.sort();
+    (registry, files)
+}
+
+#[tokio::test(start_paused = true)]
+async fn setup_stopped_dead_at_any_step_and_run_again_ends_in_the_same_good_state() {
+    let reference = laptop();
+    let (ending, _) = run(&reference, &[FromPage::SetUp], false).await;
+    assert_eq!(ending, Ending::Done { pending: true });
+    let good = state_of(&reference);
+    assert!(good.0.iter().any(|line| line.contains("UninstallString")), "the reference is a finished install");
+
+    let mut points = vec![Hang::Latest, Hang::Download, Hang::Link, Hang::Listed];
+    points.extend(Step::ALL.iter().map(|step| Hang::After(step.name())));
+    for hang in points {
+        let mut system = laptop();
+        system.hang_at = Some(hang);
+        let first =
+            tokio::time::timeout(std::time::Duration::from_secs(3_600), run(&system, &[FromPage::SetUp], false)).await;
+        assert!(first.is_err(), "{hang:?}: the first run was stopped dead");
+        // The laptop comes back: setup is run again, by hand or by the restart's entry.
+        system.hang_at = None;
+        let (ending, _) = run(&system, &[FromPage::SetUp, FromPage::SetUp], true).await;
+        assert_eq!(ending, Ending::Done { pending: true }, "{hang:?}");
+        assert_eq!(state_of(&system), good, "{hang:?}: not the same good state");
+        assert!(system.linked() && install::is_installed(&system), "{hang:?}");
+        // And once more, with everything done: still the same.
+        let (ending, _) = run(&system, &[FromPage::SetUp, FromPage::SetUp], true).await;
+        assert_eq!(ending, Ending::Done { pending: true }, "{hang:?} again");
+        assert_eq!(state_of(&system), good, "{hang:?} twice");
+    }
+}
+
+#[tokio::test(start_paused = true)]
+async fn running_setup_twice_in_a_row_repairs_and_never_links_a_second_time() {
+    let system = laptop();
+    let (_, _) = run(&system, &[FromPage::SetUp], false).await;
+    let good = state_of(&system);
+    let links_before = system.links.borrow().len();
+    let (ending, screens) = run(&system, &[FromPage::SetUp], false).await;
+    assert_eq!(ending, Ending::Done { pending: true });
+    assert!(matches!(screens.first(), Some(ToPage::Welcome { already_set_up: true, .. })));
+    assert!(!screens.iter().any(|s| matches!(s, ToPage::Approve { .. })), "the link stays");
+    assert_eq!(system.links.borrow().len(), links_before);
+    assert_eq!(state_of(&system), good);
+}
+
+// --- diagnostics ----------------------------------------------------------------------------------------------------
+
+#[tokio::test]
+async fn diagnostics_on_a_failure_saves_a_scrubbed_zip_outside_what_an_undo_removes() {
+    let (latest, files) = release(true, false);
+    let system = FakeSystem::new(latest, files);
+    let (ending, screens) =
+        run(&system, &[FromPage::SetUp, FromPage::Diagnostics, FromPage::ShowDiagnostics, FromPage::Fix], false).await;
+    assert_eq!(ending, Ending::Undo);
+    let saved: Vec<&String> = screens
+        .iter()
+        .filter_map(|s| match s {
+            ToPage::DiagnosticsSaved { path } => Some(path),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(saved.len(), 1);
+    let zip = std::path::PathBuf::from(saved[0]);
+    assert!(zip.starts_with(system.diagnostics_folder()) && zip.exists());
+    assert_eq!(*system.revealed.borrow(), [zip.clone()], "Show in folder reveals the very file");
+    // What the undo removes is the app's folders; the zip is in the Downloads folder beside them, and is still there.
+    let removal = undo(&system, None);
+    assert_eq!(removal.problems, Vec::<String>::new());
+    assert!(zip.exists(), "an undo never takes the host's diagnostics");
+
+    let mut archive = zip::ZipArchive::new(std::fs::File::open(&zip).unwrap()).unwrap();
+    let names: Vec<String> =
+        (0..archive.len()).map(|i| archive.by_index(i).unwrap().name().unwrap().into_owned()).collect();
+    assert!(names.iter().any(|name| name == "system.txt") && names.iter().any(|name| name == "about.txt"));
+    assert!(names.iter().any(|name| name.starts_with("logs/setup-")), "{names:?}");
+    let mut everything = String::new();
+    for i in 0..archive.len() {
+        std::io::Read::read_to_string(&mut archive.by_index(i).unwrap(), &mut everything).unwrap();
+    }
+    for private in ["Asha", "TESTRIG-7", "Asha Rao", "PRIVATE KEY"] {
+        assert!(!everything.contains(private), "{private:?} is in the diagnostics");
+    }
+}
+
+// --- the numbers on the progress screen -----------------------------------------------------------------------------
+
+#[test]
+fn the_time_left_is_told_in_words_once_there_is_enough_to_go_by() {
+    let s = std::time::Duration::from_secs;
+    assert_eq!(time_left(500_000, 300_000_000, s(10)), None, "under a megabyte: no guess");
+    assert_eq!(time_left(100_000_000, 300_000_000, s(2)), None, "under three seconds: no guess");
+    assert_eq!(time_left(100_000_000, 300_000_000, s(10)).as_deref(), Some("less than a minute left"), "20 s");
+    assert_eq!(time_left(100_000_000, 1_000_000_000, s(60)).as_deref(), Some("about 9 min left"), "540 s");
+    assert_eq!(time_left(100_000_000, 1_000_000_000, s(65)).as_deref(), Some("about 10 min left"), "585 s rounds up");
+    assert_eq!(time_left(10_000_000, 1_000_000_000, s(100)).as_deref(), Some("about 2 h 45 min left"));
+    assert_eq!(time_left(300_000_000, 300_000_000, s(10)), None, "done");
+}
+
+#[test]
+fn the_overall_climbs_with_each_step_and_never_passes_one_hundred() {
+    let done = |n: usize| Step::ALL[..n].to_vec();
+    assert_eq!(overall_percent(&done(0), 0), 0);
+    assert_eq!(overall_percent(&done(2), 0), 25);
+    assert_eq!(overall_percent(&done(2), 50), 31, "halfway through the third step of eight");
+    assert_eq!(overall_percent(&done(8), 0), 100);
+    assert_eq!(overall_percent(&done(8), 500), 100);
+}
+
+#[test]
+fn the_drive_is_read_from_the_path_it_installs_to() {
+    assert_eq!(drive_of(r"C:\Users\asha\AppData\Local\IdleO").as_deref(), Some("C:"));
+    assert_eq!(drive_of("d:/stuff").as_deref(), Some("D:"));
+    assert_eq!(drive_of("/mnt/c/Users"), None);
+    assert_eq!(drive_of(""), None);
+}
+
+#[tokio::test(start_paused = true)]
+async fn the_download_screen_carries_its_own_percentage_and_the_overall() {
+    let system = laptop();
+    let (_, screens) = run(&system, &[FromPage::SetUp], false).await;
+    let download = screens.iter().find_map(|s| match s {
+        ToPage::Progress { steps, overall, .. } => steps
+            .iter()
+            .find(|step| step.label == Step::Download.label() && step.state == "current" && step.percent.is_some())
+            .map(|step| (step.detail.clone().unwrap(), step.percent.unwrap(), *overall)),
+        _ => None,
+    });
+    let (detail, percent, overall) = download.expect("a download screen with a percentage");
+    assert!(detail.starts_with("Downloading · ") && detail.contains(" MB"), "{detail}");
+    assert!(percent > 0 && overall >= 25, "{percent} {overall}");
 }

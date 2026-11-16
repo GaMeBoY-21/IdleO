@@ -10,7 +10,7 @@ mod windows_system;
 fn main() -> std::process::ExitCode {
     #[cfg(windows)]
     {
-        ui::run()
+        ui::run(ui::Mode::from_args())
     }
     #[cfg(not(windows))]
     {

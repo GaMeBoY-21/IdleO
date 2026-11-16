@@ -28,9 +28,41 @@ pub const STOP_AND_UNINSTALL: &str = "Stop it and uninstall";
 pub const REMOVED: &str = "IdleO is removed.";
 /// The last screen's text.
 pub const NOTHING_LEFT: &str = "Nothing is left on your laptop. (WSL stays: it's part of Windows.)";
+/// The last screen's text when the earnings history was kept.
+pub const KEPT_EARNINGS: &str =
+    "Only your earnings history is left on this laptop, as you asked. (WSL stays: it's part of Windows.)";
 /// Added when IdleO couldn't be told.
 pub const NOT_TOLD: &str =
     "IdleO couldn't be reached, so this laptop shows offline on the web. You can remove it there.";
+
+/// The question about earnings history kept on this laptop.
+pub const ASK_EARNINGS_HEADING: &str = "Keep your earnings history?";
+/// What it says.
+pub const ASK_EARNINGS_TEXT: &str = "IdleO keeps a copy of your earnings on this laptop, so the IdleO window can show them when you're offline. Nothing else is kept.";
+/// The button that keeps it.
+pub const KEEP_EARNINGS: &str = "Keep it";
+/// The button that removes it with everything else.
+pub const REMOVE_EARNINGS: &str = "Remove it too";
+
+/// Whether there's an earnings history on this laptop to ask about.
+#[must_use]
+pub fn has_earnings_history(machine: &dyn Machine) -> bool {
+    std::fs::read_dir(machine.layout().earnings()).is_ok_and(|mut entries| entries.next().is_some())
+}
+
+/// What an `idleo:` address (from a toast, through Windows' registration) or the Start menu's `open` asks for: the tab of the
+/// IdleO window, if one is named. `idleo:open/earnings` is the earnings tab; `open`, or no argument, no tab in particular; an
+/// address that isn't ours, or names a tab the window doesn't have, is not understood.
+#[must_use]
+pub fn parse_open(argument: Option<&str>) -> Option<Option<String>> {
+    const TABS: [&str; 5] = ["now", "schedule", "limits", "earnings", "settings"];
+    let Some(argument) = argument.map(str::trim).filter(|text| !text.is_empty() && *text != "open") else {
+        return Some(None);
+    };
+    let tab = argument.strip_prefix("idleo:open/").or_else(|| argument.strip_prefix("idleo://open/"))?;
+    let tab = tab.trim_end_matches('/');
+    TABS.contains(&tab).then(|| Some(tab.to_owned()))
+}
 
 /// How long to wait for the agent's first status.
 const STATUS_WAITS: Duration = Duration::from_secs(5);
@@ -126,6 +158,7 @@ pub async fn uninstall<R, W>(
     machine: &dyn Machine,
     agent: Option<&mut Client<R, W>>,
     programs: &dyn Programs,
+    keep_earnings: bool,
     progress: &mut dyn FnMut(Shown),
 ) -> Finished
 where
@@ -137,8 +170,12 @@ where
     progress(shown("Uninstalling IdleO", "Stopping IdleO.", 60));
     programs.stop_all();
     progress(shown("Uninstalling IdleO", "Removing IdleO's Linux space and files.", 75));
-    let removal = install::remove_all(machine, None);
-    let mut text = NOTHING_LEFT.to_owned();
+    let removal = install::remove_all_keeping(
+        machine,
+        None,
+        if keep_earnings { install::Keep::Earnings } else { install::Keep::Nothing },
+    );
+    let mut text = if keep_earnings { KEPT_EARNINGS.to_owned() } else { NOTHING_LEFT.to_owned() };
     if !told {
         text = format!("{text} {NOT_TOLD}");
     }
@@ -298,7 +335,7 @@ mod tests {
     async fn uninstall_with(machine: &FakeMachine, agent: Option<&mut FakeClient>) -> (Finished, Vec<Shown>, u32) {
         let programs = FakePrograms::default();
         let mut screens = Vec::new();
-        let finished = uninstall(machine, agent, &programs, &mut |shown| screens.push(shown)).await;
+        let finished = uninstall(machine, agent, &programs, false, &mut |shown| screens.push(shown)).await;
         let stopped = *programs.0.borrow();
         (finished, screens, stopped)
     }
@@ -365,5 +402,48 @@ mod tests {
             format!("{REMOVED} {NOTHING_LEFT}"),
             "IdleO is removed. Nothing is left on your laptop. (WSL stays: it's part of Windows.)"
         );
+    }
+
+    #[tokio::test]
+    async fn the_earnings_history_stays_only_if_the_owner_said_so() {
+        for keep in [false, true] {
+            let machine = installed(true, false);
+            std::fs::create_dir_all(machine.layout().earnings()).unwrap();
+            std::fs::write(machine.layout().earnings().join("history.json"), "{}").unwrap();
+            assert!(has_earnings_history(&machine));
+            let programs = FakePrograms::default();
+            let finished = uninstall::<BufReader<ReadHalf<DuplexStream>>, WriteHalf<DuplexStream>>(
+                &machine,
+                None,
+                &programs,
+                keep,
+                &mut |_| {},
+            )
+            .await;
+            assert_eq!(finished.problems, Vec::<String>::new());
+            assert_eq!(machine.layout().earnings().join("history.json").exists(), keep, "keep = {keep}");
+            assert!(
+                !machine.layout().programs().exists()
+                    && !machine.layout().logs().exists()
+                    && !machine.layout().agent_dir().exists()
+            );
+            assert!(machine.registry.is_empty());
+            assert_eq!(finished.screen.text.contains("Only your earnings history"), keep);
+        }
+    }
+
+    #[test]
+    fn an_address_from_a_toast_or_the_start_menu_opens_a_known_tab_or_nothing() {
+        assert_eq!(parse_open(None), Some(None));
+        assert_eq!(parse_open(Some("open")), Some(None));
+        assert_eq!(parse_open(Some("")), Some(None));
+        assert_eq!(parse_open(Some("idleo:open/earnings")), Some(Some("earnings".to_owned())));
+        assert_eq!(parse_open(Some("idleo://open/limits/")), Some(Some("limits".to_owned())));
+        assert_eq!(parse_open(Some("idleo:open/now")), Some(Some("now".to_owned())));
+        for refused in
+            ["idleo:open/../../Windows", "idleo:open/format-disk", "https://example.com", "idleo:run/earnings", "--tab"]
+        {
+            assert_eq!(parse_open(Some(refused)), None, "{refused}");
+        }
     }
 }

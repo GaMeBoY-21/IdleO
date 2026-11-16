@@ -23,11 +23,27 @@ pub const CLICK_APPROVE_SEEN: &str = "approve_seen";
 pub const CLICK_RESTART_NOW: &str = "restart_now";
 /// Keep it for troubleshooting (development builds).
 pub const CLICK_KEEP: &str = "keep";
+/// Open IdleO, on the already-installed screen.
+pub const CLICK_OPEN_IDLEO: &str = "open_idleo";
+/// Send diagnostics, on a failure screen.
+pub const CLICK_DIAGNOSTICS: &str = "diagnostics";
+/// The quiet link under a fix's button ("Show me how").
+pub const CLICK_HELP: &str = "help";
 
 /// Plugged-in warning.
 pub const ON_BATTERY: &str = "on_battery";
 /// No NVIDIA RTX GPU with 8 GB.
 pub const NO_RTX_GPU: &str = "no_rtx_gpu";
+/// No NVIDIA GPU is visible: none, or no NVIDIA driver.
+pub const NO_NVIDIA_GPU: &str = "no_nvidia_gpu";
+/// Windows runs in S mode.
+pub const WINDOWS_S_MODE: &str = "windows_s_mode";
+/// An ARM processor.
+pub const ARM_LAPTOP: &str = "arm_laptop";
+/// An antivirus took a file.
+pub const ANTIVIRUS_BLOCKED: &str = "antivirus_blocked";
+/// The proxy the PC is set to use is in the way.
+pub const PROXY: &str = "proxy";
 /// Virtualization is off.
 pub const VIRTUALIZATION_OFF: &str = "virtualization_off";
 /// The manifest didn't verify.
@@ -137,8 +153,16 @@ pub fn examples() -> Vec<String> {
         CLICK_APPROVE_SEEN,
         CLICK_RESTART_NOW,
         CLICK_KEEP,
+        CLICK_OPEN_IDLEO,
+        CLICK_DIAGNOSTICS,
+        CLICK_HELP,
         ON_BATTERY,
         NO_RTX_GPU,
+        NO_NVIDIA_GPU,
+        WINDOWS_S_MODE,
+        ARM_LAPTOP,
+        ANTIVIRUS_BLOCKED,
+        PROXY,
         VIRTUALIZATION_OFF,
         MANIFEST_INVALID,
         UNREACHABLE,
@@ -170,6 +194,12 @@ pub fn examples() -> Vec<String> {
         fix("virtualization_off"),
         fix("no_rtx_gpu"),
         fix("not_enough_disk"),
+        fix("windows_s_mode"),
+        fix("arm_laptop"),
+        fix("no_nvidia_gpu"),
+        fix("on_battery"),
+        fix("antivirus_blocked"),
+        fix("cant_reach_idleo"),
         check("gpu_in_container"),
         check("Lockdown"),
         check("network_lockdown"),

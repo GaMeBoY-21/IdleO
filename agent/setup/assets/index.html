@@ -1,23 +1,12 @@
-<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; font-src data:; img-src data:">
-<title>IdleO setup</title>
-<style>/*STYLE*/</style>
-</head>
-<body>
-<main id="app" aria-live="polite"></main>
+<main id="app" class="shell" aria-live="polite"></main>
+<div id="saved" class="note saved" role="status" hidden></div>
 <div id="confirm" class="overlay" hidden>
-  <section class="tile sheet" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
+  <section class="tile sheet" role="alertdialog" aria-modal="true" aria-labelledby="confirm-title" aria-describedby="confirm-text">
     <h2 id="confirm-title">Stop setting up?</h2>
-    <p class="muted">Nothing will be left on your laptop.</p>
-    <div class="row">
+    <p id="confirm-text" class="muted">Nothing will be left on your laptop.</p>
+    <div class="row end">
       <button type="button" class="secondary" data-action="cancel_close">Keep setting up</button>
       <button type="button" class="primary" data-action="confirm_close">Stop</button>
     </div>
   </section>
 </div>
-<script>/*SCRIPT*/</script>
-</body>
-</html>

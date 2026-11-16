@@ -16,6 +16,8 @@ use time::OffsetDateTime;
 
 const STOP: i32 = 101;
 const CANCEL: i32 = 102;
+const KEEP: i32 = 103;
+const REMOVE: i32 = 104;
 
 pub fn run() -> ExitCode {
     let args: Vec<OsString> = std::env::args_os().collect();
@@ -24,7 +26,7 @@ pub fn run() -> ExitCode {
     init_logging(&supervise::log_file(&layout));
     match command.as_str() {
         "start" => start(&layout, &args),
-        "open" => open(&layout),
+        "open" => open(&layout, &args),
         "uninstall" => uninstall_command(&layout, args.get(2).and_then(|a| a.to_str()) == Some("--from-temp")),
         other => {
             tracing::error!(command = other, "unknown command");
@@ -75,34 +77,44 @@ fn start(layout: &Layout, args: &[OsString]) -> ExitCode {
     loop {
         for event in supervisor.tick(OffsetDateTime::now_utc()) {
             tracing::info!(?event, "supervision");
+            if event == supervise::Event::Quit {
+                // The owner chose Quit IdleO: both programs are stopped, and nothing starts again until the next sign-in.
+                return ExitCode::SUCCESS;
+            }
         }
         std::thread::sleep(Duration::from_secs(1));
     }
 }
 
-fn open(layout: &Layout) -> ExitCode {
+/// `idleo-launcher open [address]` (the Start-menu shortcut, and `idleo:open/<tab>` from a toast): starts the app if it isn't
+/// running, and asks the tray, through the agent, to show the IdleO window, on the tab the address names.
+fn open(layout: &Layout, args: &[OsString]) -> ExitCode {
+    let argument = args.get(2).and_then(|a| a.to_str());
+    let Some(tab) = uninstall::parse_open(argument) else {
+        tracing::warn!(argument, "an address that isn't ours");
+        return ExitCode::from(2);
+    };
     if running_lock(layout).is_some() {
         let _ = std::process::Command::new(layout.launcher()).arg("start").spawn();
     }
     let Ok(runtime) = tokio::runtime::Builder::new_current_thread().enable_all().build() else {
         return ExitCode::FAILURE;
     };
-    let url = runtime.block_on(async {
-        for _ in 0..20 {
+    let asked = runtime.block_on(async {
+        // The app may be starting: try for 20 seconds.
+        for _ in 0..40 {
             if let Ok(mut client) = idleo_release::channel::connect()
-                && let Ok(Ok(idleo_release::channel::Message::Status(status))) =
+                && let Ok(Ok(idleo_release::channel::Message::Status(_))) =
                     tokio::time::timeout(Duration::from_secs(2), client.next()).await
+                && client.send(&idleo_release::channel::Request::OpenWindow { tab: tab.clone() }).await.is_ok()
             {
-                return status.dashboard_url();
+                return true;
             }
             tokio::time::sleep(Duration::from_millis(500)).await;
         }
-        None
+        false
     });
-    if let Some(url) = url {
-        let _ = idleo_release::browser::open(&url);
-    }
-    ExitCode::SUCCESS
+    if asked { ExitCode::SUCCESS } else { ExitCode::FAILURE }
 }
 
 fn uninstall_command(layout: &Layout, from_temp: bool) -> ExitCode {
@@ -147,13 +159,24 @@ fn uninstall_command(layout: &Layout, from_temp: bool) -> ExitCode {
             }
             let _ = decided.send(true);
             let machine = SystemMachine::new();
+            let keep_earnings = uninstall::has_earnings_history(&machine)
+                && matches!(
+                    agent_windows::ask(
+                        "Uninstall IdleO",
+                        uninstall::ASK_EARNINGS_HEADING,
+                        uninstall::ASK_EARNINGS_TEXT,
+                        &[(KEEP, uninstall::KEEP_EARNINGS), (REMOVE, uninstall::REMOVE_EARNINGS)],
+                    ),
+                    Ok(Some(KEEP))
+                );
             let mut show = |shown: Shown| {
                 let mut view = worker_view.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
                 view.heading = shown.heading;
                 view.text = shown.text;
                 view.percent = Some(shown.percent);
             };
-            let finished = uninstall::uninstall(&machine, agent.as_mut(), &SystemPrograms, &mut show).await;
+            let finished =
+                uninstall::uninstall(&machine, agent.as_mut(), &SystemPrograms, keep_earnings, &mut show).await;
             tracing::info!(told = finished.told, problems = ?finished.problems, "uninstalled");
             worker_view.lock().unwrap_or_else(std::sync::PoisonError::into_inner).done = true;
         });

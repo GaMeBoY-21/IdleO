@@ -103,6 +103,43 @@ impl System for WindowsSystem {
         agent_windows::ac_line_status().is_ok_and(|status| status == 0)
     }
 
+    fn is_arm(&self) -> bool {
+        agent_windows::is_arm()
+    }
+
+    fn is_s_mode(&self) -> bool {
+        agent_windows::is_s_mode()
+    }
+
+    fn proxy_configured(&self) -> bool {
+        const KEY: &str = r"Software\Microsoft\Windows\CurrentVersion\Internet Settings";
+        let enabled =
+            agent_windows::registry::get_dword(KEY, "ProxyEnable").ok().flatten().is_some_and(|value| value == 1);
+        let server = agent_windows::registry::get_string(KEY, "ProxyServer")
+            .ok()
+            .flatten()
+            .is_some_and(|text| !text.trim().is_empty());
+        let script = agent_windows::registry::get_string(KEY, "AutoConfigURL")
+            .ok()
+            .flatten()
+            .is_some_and(|text| !text.trim().is_empty());
+        (enabled && server) || script
+    }
+
+    fn open_idleo(&self) {
+        use std::os::windows::process::CommandExt;
+        let _ =
+            std::process::Command::new(self.layout().launcher()).arg("open").creation_flags(CREATE_NO_WINDOW).spawn();
+    }
+
+    fn diagnostics_folder(&self) -> std::path::PathBuf {
+        idleo_release::diagnostics::default_folder()
+    }
+
+    fn reveal(&self, path: &Path) {
+        let _ = std::process::Command::new("explorer").arg(format!("/select,{}", path.display())).spawn();
+    }
+
     fn maker(&self) -> String {
         let maker = agent_windows::system_manufacturer().unwrap_or_default().to_lowercase();
         [

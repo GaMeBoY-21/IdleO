@@ -16,6 +16,11 @@ name = "idleo_setup"
 name = "IdleO-Setup"
 path = "src/main.rs"
 
+# The same program that only ever walks through its screens (`--demo`), for showing people the app: it changes nothing on the PC.
+[[bin]]
+name = "IdleO-Setup-Demo"
+path = "src/demo_main.rs"
+
 [features]
 # A release build: the production release key (agent/release-keys/release.pub) and the production addresses, which
 # must be given at build time.
@@ -23,6 +28,7 @@ prod-keys = ["release/prod-keys"]
 
 [dependencies]
 agent = { path = "../agent", default-features = false }
+brand = { path = "../brand" }
 release = { path = "../release" }
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.151"
@@ -45,6 +51,7 @@ brand = { path = "../brand", features = ["build"] }
 
 [dev-dependencies]
 ed25519-dalek = "3.0.0"
+tray = { path = "../tray" }
 release = { path = "../release", features = ["fakes"] }
 sha2 = "0.11.0"
 tempfile = "3.27.0"

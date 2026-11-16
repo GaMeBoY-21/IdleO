@@ -113,6 +113,24 @@ pub trait System: Machine {
     /// Whether the laptop runs on battery now.
     fn on_battery(&self) -> bool;
 
+    /// Whether the processor is ARM, which IdleO doesn't support yet.
+    fn is_arm(&self) -> bool;
+
+    /// Whether Windows runs in S mode, which only runs apps from the Microsoft Store.
+    fn is_s_mode(&self) -> bool;
+
+    /// Whether the PC is set to go through a proxy.
+    fn proxy_configured(&self) -> bool;
+
+    /// Opens an installed IdleO's window.
+    fn open_idleo(&self);
+
+    /// Where a diagnostics zip is saved: somewhere that survives an undo.
+    fn diagnostics_folder(&self) -> std::path::PathBuf;
+
+    /// Shows a file in Explorer.
+    fn reveal(&self, path: &Path);
+
     /// Who made the laptop, lowercase, for the help page: `asus`, `msi`, `lenovo`, `hp`, `acer`, `dell` or `other`.
     fn maker(&self) -> String;
 
@@ -234,6 +252,21 @@ pub mod fake {
         }
     }
 
+    /// Where a test makes the program stop dead, as if the laptop lost power: the call never returns.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    pub enum Hang {
+        /// Fetching the release, in the first step.
+        Latest,
+        /// Downloading, in the third.
+        Download,
+        /// Linking, in the seventh.
+        Link,
+        /// Waiting for the first status, in the last.
+        Listed,
+        /// Right after this step's work, once its progress is saved and before the next begins.
+        After(&'static str),
+    }
+
     /// How a link attempt goes.
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
     pub enum LinkGoes {
@@ -259,6 +292,26 @@ pub mod fake {
         pub free_bytes: u64,
         /// On battery.
         pub on_battery: bool,
+        /// Where the program stops dead, if a test says so.
+        pub hang_at: Option<Hang>,
+        /// How many times fetching the release fails before it works.
+        pub latest_fails: Shared<u32>,
+        /// What the next download fails with, once.
+        pub download_error: Shared<Option<String>>,
+        /// The next download finishes and the file is taken away, as an antivirus does, once.
+        pub quarantine: Shared<bool>,
+        /// How many checks still say "on battery" before the laptop is plugged in; none: it never is.
+        pub plugs_in_after: Shared<Option<u32>>,
+        /// An ARM processor.
+        pub arm: bool,
+        /// Windows in S mode.
+        pub s_mode: bool,
+        /// A proxy is set.
+        pub proxy: bool,
+        /// How many times the installed IdleO was opened.
+        pub opened_idleo: Shared<usize>,
+        /// Files shown in Explorer.
+        pub revealed: Shared<Vec<PathBuf>>,
         /// The release, or why it can't be had.
         pub latest: Result<Latest, String>,
         /// The files the release's links serve, by link.
@@ -310,6 +363,16 @@ pub mod fake {
                 virtualization: true,
                 free_bytes: 200_000_000_000,
                 on_battery: false,
+                hang_at: None,
+                latest_fails: Shared::new(0),
+                download_error: Shared::new(None),
+                quarantine: Shared::new(false),
+                plugs_in_after: Shared::new(None),
+                arm: false,
+                s_mode: false,
+                proxy: false,
+                opened_idleo: Shared::new(0),
+                revealed: Shared::new(Vec::new()),
                 latest: Ok(latest),
                 files,
                 self_test_passes: true,
@@ -381,7 +444,41 @@ pub mod fake {
         }
 
         fn on_battery(&self) -> bool {
-            self.on_battery
+            if !self.on_battery {
+                return false;
+            }
+            match &mut *self.plugs_in_after.borrow_mut() {
+                Some(0) => false,
+                Some(left) => {
+                    *left -= 1;
+                    true
+                }
+                None => true,
+            }
+        }
+
+        fn is_arm(&self) -> bool {
+            self.arm
+        }
+
+        fn is_s_mode(&self) -> bool {
+            self.s_mode
+        }
+
+        fn proxy_configured(&self) -> bool {
+            self.proxy
+        }
+
+        fn open_idleo(&self) {
+            *self.opened_idleo.borrow_mut() += 1;
+        }
+
+        fn diagnostics_folder(&self) -> PathBuf {
+            self.machine.root.path().join("Downloads")
+        }
+
+        fn reveal(&self, path: &Path) {
+            self.revealed.borrow_mut().push(path.to_owned());
         }
 
         fn maker(&self) -> String {
@@ -389,6 +486,16 @@ pub mod fake {
         }
 
         async fn latest(&self) -> Result<Latest, String> {
+            if self.hang_at == Some(Hang::Latest) {
+                std::future::pending::<()>().await;
+            }
+            {
+                let mut fails = self.latest_fails.borrow_mut();
+                if *fails > 0 {
+                    *fails -= 1;
+                    return Err("no route to host".to_owned());
+                }
+            }
             self.latest.clone()
         }
 
@@ -399,6 +506,12 @@ pub mod fake {
             artifact: &Artifact,
             progress: &mut (dyn FnMut(u64, u64) + Send),
         ) -> Result<(), DownloadError> {
+            if self.hang_at == Some(Hang::Download) {
+                std::future::pending::<()>().await;
+            }
+            if let Some(error) = self.download_error.borrow_mut().take() {
+                return Err(DownloadError::Download(error));
+            }
             let bytes = self
                 .files
                 .iter()
@@ -408,6 +521,10 @@ pub mod fake {
             std::fs::create_dir_all(dest.parent().expect("a folder")).expect("writable");
             std::fs::write(dest, &bytes).expect("writable");
             progress(bytes.len() as u64, artifact.size);
+            if std::mem::take(&mut *self.quarantine.borrow_mut()) {
+                let _ = std::fs::remove_file(dest);
+                return Ok(());
+            }
             let matches = idleo_release::download::matches(dest, artifact).await.unwrap_or(false);
             if matches {
                 Ok(())
@@ -456,6 +573,9 @@ pub mod fake {
             gpus: &[Gpu],
             progress: &mut dyn FnMut(Progress),
         ) -> Result<Linked, LinkError> {
+            if self.hang_at == Some(Hang::Link) {
+                std::future::pending::<()>().await;
+            }
             assert!(!gpus.is_empty(), "the approval page shows the GPU");
             progress(Progress::Asking);
             progress(Progress::ApproveAt {
@@ -488,6 +608,9 @@ pub mod fake {
         }
 
         async fn wait_listed(&self) -> Result<LinkState, String> {
+            if self.hang_at == Some(Hang::Listed) {
+                std::future::pending::<()>().await;
+            }
             Ok(self.listed)
         }
 
@@ -510,6 +633,11 @@ pub mod fake {
         }
 
         async fn send_events(&self, _install_id: Uuid, events: Vec<InstallEvent>) -> Result<(), Rejected> {
+            if let Some(Hang::After(step)) = self.hang_at
+                && events.iter().any(|event| event.step == step && event.outcome == "passed")
+            {
+                std::future::pending::<()>().await;
+            }
             *self.batches_offered.borrow_mut() += 1;
             let wire = serde_json::json!({ "events": events }).to_string();
             self.batch_bytes.borrow_mut().push(wire.len());

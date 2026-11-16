@@ -5,6 +5,10 @@
 //! - restarts one that stopped, waiting longer after each crash (1 second doubling to a minute, reset after a minute
 //!   of health);
 //! - on `idleo-hostd`'s exit code 3 (an update switched `current`), restarts both at once from the new version;
+//! - on exit code 11 from either (the owner chose Quit IdleO), stops both and ends: nothing starts again until the next
+//!   sign-in;
+//! - after 3 crashes of one program in 10 minutes, writes `crash-loop.json` (still restarting it, with backoff), which the tray
+//!   shows as a problem with "Send diagnostics"; once the program has stayed up for 10 minutes the file goes;
 //! - during a trial, counts the new version's crashes, and rolls back after three or after five minutes without the
 //!   new agent confirming: `current` goes back, the trial is marked rolled back with the reason, and the old version
 //!   starts, which reports `ROLLED_BACK` to IdleO.
@@ -16,6 +20,8 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use idleo_release::apps::Apps;
+use idleo_release::channel::QUIT_BY_OWNER_EXIT_CODE;
+use idleo_release::crash::{CrashReport, CrashWatch};
 use idleo_release::paths::{self, Layout};
 use idleo_release::update_state::{self, TRIAL_CRASHES, UpdateState};
 use time::OffsetDateTime;
@@ -78,6 +84,15 @@ pub enum Event {
         /// Why.
         reason: String,
     },
+    /// The owner chose Quit IdleO: both programs are stopped, and the launcher ends.
+    Quit,
+    /// A program keeps crashing: the report the tray shows is written.
+    CrashLoop {
+        /// Which.
+        program: &'static str,
+        /// How many times it crashed in the last ten minutes.
+        crashes: u32,
+    },
     /// A program couldn't be started.
     Failed {
         /// Which.
@@ -92,11 +107,12 @@ struct Watched<C> {
     started_at: Option<OffsetDateTime>,
     failures: u32,
     next_start: OffsetDateTime,
+    crashes: CrashWatch,
 }
 
 impl<C> Watched<C> {
     fn new(now: OffsetDateTime) -> Self {
-        Self { child: None, started_at: None, failures: 0, next_start: now }
+        Self { child: None, started_at: None, failures: 0, next_start: now, crashes: CrashWatch::default() }
     }
 }
 
@@ -141,6 +157,10 @@ impl<P: Processes> Supervisor<P> {
         // The agent first.
         if let Some(code) = exited(&mut self.hostd) {
             events.push(Event::Stopped { program: paths::HOSTD_EXE, code });
+            if code == i32::from(QUIT_BY_OWNER_EXIT_CODE) {
+                self.quit(&mut events);
+                return events;
+            }
             if code == RESTART_FOR_UPDATE {
                 let switched = self.apps.current().unwrap_or_else(|| current.clone());
                 events.push(Event::Switched { version: switched });
@@ -156,14 +176,22 @@ impl<P: Processes> Supervisor<P> {
                 }
                 let _ = state.save(&self.layout.update_state());
                 crashed(&mut self.hostd, now);
+                self.watch_crash(true, now, &mut events);
             } else {
                 crashed(&mut self.hostd, now);
+                self.watch_crash(true, now, &mut events);
             }
         }
         if let Some(code) = exited(&mut self.tray) {
             events.push(Event::Stopped { program: paths::TRAY_EXE, code });
+            if code == i32::from(QUIT_BY_OWNER_EXIT_CODE) {
+                self.quit(&mut events);
+                return events;
+            }
             crashed(&mut self.tray, now);
+            self.watch_crash(false, now, &mut events);
         }
+        self.withdraw_crash_report(now);
         let current = self.apps.current().unwrap_or(current);
         for (program, which) in [(paths::HOSTD_EXE, true), (paths::TRAY_EXE, false)] {
             let path = self.apps.program(&current, program);
@@ -174,6 +202,7 @@ impl<P: Processes> Supervisor<P> {
                     Ok(child) => {
                         watched.child = Some(child);
                         watched.started_at = Some(now);
+                        watched.crashes.started(now);
                         events.push(Event::Started { program, version: current.clone() });
                     }
                     Err(e) => {
@@ -184,6 +213,37 @@ impl<P: Processes> Supervisor<P> {
             }
         }
         events
+    }
+
+    /// The owner chose Quit IdleO: both programs stop, and nothing is restarted.
+    fn quit(&mut self, events: &mut Vec<Event>) {
+        stop(&mut self.hostd);
+        stop(&mut self.tray);
+        // A quit isn't a crash: whatever was reported before no longer stands.
+        let _ = CrashReport::clear(&self.layout.crash_report());
+        events.push(Event::Quit);
+    }
+
+    /// One program crashed: remembers it, and writes the report once it's a loop.
+    fn watch_crash(&mut self, hostd: bool, now: OffsetDateTime, events: &mut Vec<Event>) {
+        let (program, watched) =
+            if hostd { (paths::HOSTD_EXE, &mut self.hostd) } else { (paths::TRAY_EXE, &mut self.tray) };
+        if let Some(crashes) = watched.crashes.crashed(now) {
+            let report = CrashReport { program: program.to_owned(), crashes, last_at: now };
+            if let Err(e) = report.save(&self.layout.crash_report()) {
+                tracing::warn!(error = %e, "the crash report couldn't be written");
+            }
+            events.push(Event::CrashLoop { program, crashes });
+        }
+    }
+
+    /// Withdraws the crash report once the program it names has stayed up long enough.
+    fn withdraw_crash_report(&mut self, now: OffsetDateTime) {
+        let Some(report) = CrashReport::load(&self.layout.crash_report()) else { return };
+        let watched = if report.program == paths::HOSTD_EXE { &self.hostd } else { &self.tray };
+        if watched.child.is_some() && watched.crashes.healthy(now) {
+            let _ = CrashReport::clear(&self.layout.crash_report());
+        }
     }
 
     /// Stops both programs, for an uninstall or Windows signing out.
@@ -487,5 +547,63 @@ mod tests {
         let events = supervisor.tick(at(10 + 400));
         assert!(!events.iter().any(|event| matches!(event, Event::RolledBack { .. })));
         assert_eq!(Apps::new(layout.clone()).current().as_deref(), Some("0.2.0"));
+    }
+
+    #[test]
+    fn three_crashes_in_ten_minutes_write_the_report_the_tray_shows_and_ten_quiet_minutes_withdraw_it() {
+        let (_root, layout, mut supervisor) = installed();
+        supervisor.tick(at(0));
+        assert!(CrashReport::load(&layout.crash_report()).is_none());
+        for (n, second) in [(1_u32, 10_u64), (2, 30), (3, 70)] {
+            supervisor.processes().exit("hostd", 1);
+            let events = supervisor.tick(at(second));
+            // The wait before it starts again is up by the next tick.
+            supervisor.tick(at(second + 61));
+            if n < 3 {
+                assert!(CrashReport::load(&layout.crash_report()).is_none(), "{n} crashes are not a loop");
+            } else {
+                assert!(events.contains(&Event::CrashLoop { program: paths::HOSTD_EXE, crashes: 3 }), "{events:?}");
+            }
+        }
+        let report = CrashReport::load(&layout.crash_report()).expect("a report after three");
+        assert_eq!((report.program.as_str(), report.crashes), (paths::HOSTD_EXE, 3));
+        // It's restarted still, and stays up: ten minutes later the report is withdrawn.
+        supervisor.tick(at(140));
+        assert!(CrashReport::load(&layout.crash_report()).is_some(), "not yet");
+        supervisor.tick(at(140 + 11 * 60));
+        assert!(CrashReport::load(&layout.crash_report()).is_none(), "withdrawn after ten healthy minutes");
+    }
+
+    #[test]
+    fn crashes_spread_over_an_hour_are_never_a_loop() {
+        let (_root, layout, mut supervisor) = installed();
+        supervisor.tick(at(0));
+        for n in 0..6_u64 {
+            supervisor.processes().exit("tray", 1);
+            supervisor.tick(at(n * 900 + 10));
+            supervisor.tick(at(n * 900 + 80));
+        }
+        assert!(CrashReport::load(&layout.crash_report()).is_none());
+    }
+
+    #[test]
+    fn quit_stops_both_programs_for_good_and_a_quit_is_not_a_crash() {
+        for quitter in ["hostd", "tray"] {
+            let (_root, layout, mut supervisor) = installed();
+            supervisor.tick(at(0));
+            started(&mut supervisor);
+            CrashReport { program: "idleo-hostd".into(), crashes: 3, last_at: at(0) }
+                .save(&layout.crash_report())
+                .unwrap();
+            supervisor.processes().exit(quitter, i32::from(QUIT_BY_OWNER_EXIT_CODE));
+            let events = supervisor.tick(at(5));
+            assert!(events.contains(&Event::Quit), "{quitter}: {events:?}");
+            // The launcher ends on `Quit`, so nothing is ever started again by it; both programs are stopped now.
+            assert!(
+                supervisor.processes().running.iter().all(|(_, exit)| exit.lock().unwrap().is_some()),
+                "{quitter}: both stopped"
+            );
+            assert!(CrashReport::load(&layout.crash_report()).is_none(), "a quit clears an old report");
+        }
     }
 }

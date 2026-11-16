@@ -7,8 +7,10 @@
 //! Windows program's.
 #![forbid(unsafe_code)]
 
+pub mod demo;
 pub mod ipc;
 pub mod log;
+pub mod page;
 pub mod reasons;
 pub mod scrub;
 pub mod steps;

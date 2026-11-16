@@ -5,7 +5,8 @@
 //!   stop; runs an update's trial and rolls it back if the new version crashes three times or isn't confirmed in five
 //!   minutes.
 //! - [`self_update`]: replaces itself only by rename, at its next start.
-//! - [`uninstall`]: stops a renter's job after its checkpoint, tells IdleO, and removes everything of ours.
+//! - [`uninstall`]: stops a renter's job after its checkpoint, tells IdleO, and removes everything of ours (asking first about
+//!   the earnings history kept on this laptop), and reads the `idleo:` addresses a toast opens.
 #![forbid(unsafe_code)]
 
 pub mod self_update;

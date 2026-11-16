@@ -14,6 +14,12 @@ pub fn page() -> String {
     idleo_brand::page("IdleO", STYLE, BODY, SCRIPT)
 }
 
+/// The whole page with a preview's script in front of its own, so a fake channel stands in for Rust (`setup/examples/preview.rs`).
+#[must_use]
+pub fn page_with(preview: &str) -> String {
+    idleo_brand::page("IdleO", STYLE, BODY, &format!("{preview}\n{SCRIPT}"))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -30,6 +36,7 @@ mod tests {
         assert!(page.contains("font/woff2;base64,") && page.contains("default-src 'none'"));
         assert!(!page.contains("/*FONT_INTER*/"));
         assert!(!page.contains("http://") && !page.contains("https://"), "the page never reaches out");
+        assert!(!page.contains("__previewScreens"), "the preview's fake channel is never in the program's page");
     }
 
     #[test]

@@ -3415,6 +3415,7 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
+ "tray",
  "uuid",
  "wry",
  "zip",

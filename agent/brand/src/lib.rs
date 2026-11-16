@@ -418,3 +418,7 @@ pub fn page(title: &str, style: &str, body: &str, script: &str) -> String {
         "<!doctype html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; font-src data:; img-src data:\">\n<title>{title}</title>\n<style>{css}</style>\n</head>\n<body>\n{body}\n<script>{script}</script>\n</body>\n</html>\n"
     )
 }
+
+/// The preview's fake channel (`dev/preview-shim.js`): development only, never put in a program's page. The browser preview
+/// (`cargo run -p setup --example preview`) puts it in front of a page's own script.
+pub const PREVIEW_SHIM: &str = include_str!("../dev/preview-shim.js");
