@@ -5,11 +5,8 @@ name: k8s
 # over mutual TLS, a booking to the end, a rolling restart that loses no agent). On changes to what the cluster is
 # made of, and weekly. Not a required check yet.
 on:
-  pull_request:
-    paths: ["deploy/**", ".sops.yaml", "**/Dockerfile", "**/Dockerfile.dockerignore", "scripts/k8s/**", "ops/backup/**",
-      "web/scripts/nginx-config.ts", "scripts/lib/stack.sh", ".github/workflows/images.yml", ".github/workflows/k8s.yml"]
   schedule:
-    - cron: "17 4 * * 1"
+    - cron: "17 19 * * *"
   workflow_dispatch:
 
 concurrency:

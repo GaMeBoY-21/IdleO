@@ -1,16 +1,11 @@
 name: e2e
 
 # The compatibility test (ADR 0013): the real agent against the real control plane, and the web app's
-# journey through them (ADR 0018), on every change to any of them or to the protocol between them, and weekly, so a quiet
-# week still reports a result (ADR 0050).
+# journey through them (ADR 0018), every night and by hand (ADR 0044), so a quiet day still reports a result (ADR 0050).
+# Not on a push or a pull request: it is a long suite, read the next morning.
 on:
   schedule:
-    - cron: "23 6 * * 5"
-  push:
-    branches: [main]
-    paths: ["control-plane/**", "agent/**", "cli/**", "sdk/**", "proto/**", "templates/**", "web/**", "scripts/e2e/**", ".github/workflows/e2e.yml", "scripts/lib/stack.sh", "start.sh"]
-  pull_request:
-    paths: ["control-plane/**", "agent/**", "cli/**", "sdk/**", "proto/**", "templates/**", "web/**", "scripts/e2e/**", ".github/workflows/e2e.yml", "scripts/lib/stack.sh", "start.sh"]
+    - cron: "23 17 * * *"
   workflow_dispatch:
     inputs:
       upload_logs:

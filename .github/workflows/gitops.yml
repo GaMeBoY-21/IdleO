@@ -6,11 +6,8 @@ name: gitops
 # by itself; an agent from the previous release works against both, and an incompatible migration is refused. On
 # changes to the deployment, and weekly. Not a required check: it takes about 40 minutes.
 on:
-  pull_request:
-    paths: ["deploy/**", ".sops.yaml", "scripts/k8s/**", "scripts/deploy/**", "scripts/checks/migrations.sh",
-      ".github/workflows/gitops.yml"]
   schedule:
-    - cron: "43 4 * * 2"
+    - cron: "43 20 * * *"
   workflow_dispatch:
 
 concurrency:

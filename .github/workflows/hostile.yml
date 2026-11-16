@@ -7,8 +7,6 @@ name: hostile
 # must fail, and an attack whose image didn't arrive is a FAIL, never a refusal. On a pull request that touches what they
 # prove, by hand, and weekly. Not a required check: it takes about 15 minutes.
 on:
-  pull_request:
-    paths: ["agent/**", "scanner/**", "scripts/build-distro.sh", "scripts/dev-distro.sh", ".github/workflows/hostile.yml"]
   workflow_dispatch:
   schedule:
     - cron: "0 4 * * 1"

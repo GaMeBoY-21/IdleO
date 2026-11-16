@@ -29,3 +29,5 @@ The long suites aren't required checks (ADR 0044): they take up to an hour, so n
 - Until the `GRAFANA_CLOUD_OTLP_*` secrets exist each run warns and nothing reports, so once the rules are loaded every `*Missing` alert fires. That is correct: nobody is hearing from those suites yet.
 - A report that can't be sent turns the suite's job red, so a broken reporter shows on the run.
 - A suite that always runs out of time is reported as missing, not failing.
+
+**Nightly (2026-11-16, ADR 0044).** The end-to-end, web browser, k8s, gitops, security and failover suites now run every night, so their alerts use a 30-hour window, as the nightly scan's do; the hostile tests and the console's budgets stay weekly (a week and a day). `scripts/checks/ops.sh` still checks each suite's window against its workflow's schedule.

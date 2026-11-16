@@ -7,10 +7,8 @@ name: security
 # tokens and every service account's rights; a Secret on k3s's disk; and Kyverno killed with a control-plane pod. Every
 # attempt must fail. On changes to the deployment, and weekly. Not a required check: it takes about 25 minutes.
 on:
-  pull_request:
-    paths: ["deploy/**", ".sops.yaml", "scripts/k8s/**", "scripts/deploy/**", ".github/workflows/security.yml"]
   schedule:
-    - cron: "29 5 * * 4"
+    - cron: "29 22 * * *"
   workflow_dispatch:
 
 concurrency:

@@ -202,6 +202,14 @@ Then Loki, `{service_name="control-plane"} |= "Invocation of listener"` with the
 
 **Do:** for our own image, update the dependency and let the next build of main deploy it; nothing on our own images is ever accepted. For a vendor's, take its release with the fix (Renovate's weekly pull request may already have it). If no release has it yet, add one entry per finding to `trivyignore.yaml`: the finding's id and the binary it's in (`paths`), the vendor's tracking issue or why it can't affect us, and an expiry no more than 60 days away (the deploy check refuses one further). An expired entry is looked at again, not extended without a reason.
 
+## Nightly scan red for a week
+
+**Means:** every nightly scan for seven days found something it doesn't accept (`NightlyScanRedForAWeek`, a page). `NightlyScanFailing` is a daily digest and `ImageFindingOld` ages only the findings on main's own images, so a vendor's finding, or several, can otherwise stand for weeks with nothing past the digest.
+
+**Check first:** the latest failed `scan` run: which images are `FAIL`, and for each whether it is ours or a vendor's, and whether its fix is a release we can take (Renovate's weekly pull request, a Dependabot docker group) or a rebuild we have to make.
+
+**Do:** the same as "Nightly scan failing", and do it this week: take the releases, rebuild our own images on a newer base, and for a vendor with no release yet add scoped, expiring entries to `trivyignore.yaml` (never for our own). The alert clears the first night the scan is green.
+
 ## Nightly scan missing
 
 **Means:** no nightly scan has reported a result for 30 hours: the workflow didn't run (Actions disabled, a scheduling outage) or ran but couldn't send its result to Grafana Cloud (its `GRAFANA_CLOUD_OTLP_*` secrets).
@@ -236,7 +244,7 @@ Then Loki, `{service_name="control-plane"} |= "Invocation of listener"` with the
 
 ## Long suite missing
 
-**Means:** a long suite hasn't reported a result for 8 days, against a schedule of once a week: `HostileSuiteMissing`, `ConsoleScreensSuiteMissing`, `FailoverSuiteMissing`, `K8sSuiteMissing`, `GitopsSuiteMissing`, `SecuritySuiteMissing`, `E2eSuiteMissing`, `WebBrowserSuiteMissing`. The workflow didn't run (Actions disabled, a billing stop, a scheduling outage), kept being cancelled or running out of time, or couldn't send its result (its `GRAFANA_CLOUD_OTLP_*` secrets).
+**Means:** a long suite hasn't reported a result inside its interval plus a margin. The nightly ones (30 hours: `FailoverSuiteMissing`, `K8sSuiteMissing`, `GitopsSuiteMissing`, `SecuritySuiteMissing`, `E2eSuiteMissing`, `WebBrowserSuiteMissing`) run every night (ADR 0044); the weekly ones (8 days: `HostileSuiteMissing`, `ConsoleScreensSuiteMissing`) once a week. The workflow didn't run (Actions disabled, a billing stop, a scheduling outage), kept being cancelled or running out of time, or couldn't send its result (its `GRAFANA_CLOUD_OTLP_*` secrets).
 
 **Check first:** the workflow's recent runs on GitHub, and their "Report" step.
 

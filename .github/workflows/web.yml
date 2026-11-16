@@ -1,17 +1,17 @@
 name: web
 
-# The web app (ADR 0018): type check, lint, unit tests, both builds and the first-load budget, then every
-# screen and state in a browser against the real stack, with axe, the visual baselines and Lighthouse's budgets.
+# The web app (ADR 0018): type check, lint, unit tests, both builds and the first-load budget on every push to main; then,
+# every night and by hand (ADR 0044), every screen and state in a browser against the real stack, with axe and Lighthouse's
+# budgets.
 on:
   push:
     branches: [main]
     paths: ["web/**", ".github/workflows/web.yml", "scripts/checks/web.sh", "scripts/e2e/agent-online.sh"]
-  # No path filter on pull requests: the ruleset on main requires this workflow's checks, and a check that never starts
-  # would block the merge. Pushes to main still run only for the paths that matter.
+  # A pull request (Dependabot's) gets the quick checks only.
   pull_request:
-  # So a quiet week still reports the browser run's result (ADR 0050).
+  # The browser run, nightly, so a quiet day still reports its result (ADR 0050).
   schedule:
-    - cron: "47 6 * * 6"
+    - cron: "47 18 * * *"
   workflow_dispatch:
     inputs:
       update_screenshots:
@@ -51,42 +51,11 @@ jobs:
         working-directory: .
         run: scripts/checks/web.sh
 
-  # On a pull request the long browser run starts only when something it covers changed (the workflow itself has no
-  # path filter there, so the quick checks above always report).
-  changes:
-    name: web changes
-    runs-on: ubuntu-24.04
-    timeout-minutes: 5
-    permissions:
-      contents: read
-      pull-requests: read
-    outputs:
-      browser: ${{ steps.paths.outputs.browser }}
-    steps:
-      - id: paths
-        env:
-          GH_TOKEN: ${{ github.token }}
-          EVENT: ${{ github.event_name }}
-          PR: ${{ github.event.pull_request.number }}
-        run: |
-          if [[ "$EVENT" != pull_request ]]; then
-            echo "browser=true" >>"$GITHUB_OUTPUT"
-            exit 0
-          fi
-          files="$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR/files" --paginate --jq '.[].filename')"
-          if grep -Eq '^(web/|\.github/workflows/web\.yml$|scripts/checks/web\.sh$|scripts/e2e/agent-online\.sh$)' <<<"$files"; then
-            echo "browser=true" >>"$GITHUB_OUTPUT"
-          else
-            echo "browser=false" >>"$GITHUB_OUTPUT"
-            echo "no file the browser run covers changed"
-          fi
-
   # Parallel jobs, each with its own stack, and one check over them all below: the screens and the journey in four parts,
   # and Lighthouse on a job of its own, so nothing else runs beside its measurements.
   browser:
     name: web browser ${{ matrix.shard }}
-    needs: changes
-    if: ${{ needs.changes.outputs.browser == 'true' }}
+    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -235,9 +204,9 @@ jobs:
 
   browser-result:
     name: web browser
-    needs: [changes, browser]
+    needs: browser
     # A run a newer push cancelled says nothing about the code: it neither passes nor fails.
-    if: ${{ !cancelled() && needs.changes.outputs.browser == 'true' }}
+    if: ${{ !cancelled() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
