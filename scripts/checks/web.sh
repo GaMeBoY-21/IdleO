@@ -7,6 +7,13 @@ set -euo pipefail
 quiet_entry web "$@"
 set -- ${QUIET_ARGS[@]+"${QUIET_ARGS[@]}"}
 cd "$(dirname "$0")/../../web"
+# --fast (scripts/check-changed.sh): types, lint and the unit tests of what changed, no install, audit or build (CI builds).
+if [[ -n "${IDLEO_FAST:-}" ]]; then
+  pnpm typecheck
+  pnpm lint
+  pnpm exec vitest run --changed origin/main --passWithNoTests
+  exit 0
+fi
 pnpm install --frozen-lockfile
 pnpm audit --audit-level high
 pnpm typecheck

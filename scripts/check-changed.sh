@@ -7,8 +7,12 @@
 #   scripts/check-changed.sh --verbose   print each suite's whole output as it runs
 #   scripts/check-changed.sh --no-e2e    leave out the slow end-to-end suites (e2e, web-browser, drill, distro, images,
 #                                        k8s, gitops, security)
+#   scripts/check-changed.sh --fast      what to run before every push to main (ADR 0044): only the quick suites, and in each
+#                                        only types, lint and the unit tests of what changed (no e2e, browser, Lighthouse,
+#                                        k8s, gitops, security, drill, distro, images or ops, no audit, build or licence
+#                                        check); it should finish in a few minutes. CI runs the rest, nightly.
 #
-# During work, run this. The full scripts/check-all.sh is for once, before pushing.
+# Before a push to main, run --fast. The full scripts/check-all.sh is for a doubt only a full local run settles.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
@@ -18,11 +22,13 @@ root="$(pwd)"
 
 list=false
 skip_slow=false
+fast=false
 for arg in "$@"; do
   case "$arg" in
     --list) list=true ;;
     --verbose) export IDLEO_VERBOSE=1 ;;
     --no-e2e) skip_slow=true ;;
+    --fast) fast=true; skip_slow=true ;;
     *) echo "check-changed: unknown option $arg" >&2; exit 2 ;;
   esac
 done
@@ -45,6 +51,9 @@ for suite in "${ALL_SUITES[@]}"; do   # in check-all's order
   if $skip_slow; then
     case "$suite" in e2e | web-browser | drill | distro | images | k8s | gitops | security) continue ;; esac
   fi
+  if $fast; then
+    case "$suite" in ops) continue ;; esac
+  fi
   suites+=("$suite")
 done
 
@@ -55,5 +64,10 @@ fi
 if $list; then
   printf 'check-changed: %s\n' "${suites[*]}"
   exit 0
+fi
+if $fast; then
+  export IDLEO_FAST=1
+  IDLEO_CHANGED_FILES="$changed"
+  export IDLEO_CHANGED_FILES
 fi
 exec "$root/scripts/lib/run-suites.sh" "${suites[@]}"

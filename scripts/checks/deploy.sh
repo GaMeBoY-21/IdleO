@@ -94,6 +94,8 @@ if secrets_check "$work/refused" "$work/refused/deploy" 2>/dev/null; then
   echo "deploy: the Secret check let a plain Secret through" >&2
   exit 1
 fi
+# --fast (scripts/check-changed.sh): no plain Secret, and nothing that needs Docker's tools (the rest is CI's).
+[[ -n "${IDLEO_FAST:-}" ]] && exit 0
 
 # 2. Each cluster as Flux builds it, from a copy (flux build writes beside the kustomization), with the Mac's build
 #    values made up for local's (up.sh --gitops makes the real ones).

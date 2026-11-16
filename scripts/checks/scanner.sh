@@ -8,10 +8,12 @@ cd "$(dirname "$0")/../../scanner"
 # build: format, lint and test; deny: licences and advisories (CI runs it through cargo-deny's action); image: the
 # container it ships in, built and run once, read-only and without capabilities, to print its version; all, the default.
 part="${1:-all}"
+# --fast (scripts/check-changed.sh): format, lint and the unit tests only, no licence check, image or Windows lint.
+[[ -n "${IDLEO_FAST:-}" ]] && part=build
 if [[ "$part" == build || "$part" == all ]]; then
   cargo fmt --all --check
   cargo clippy --all-targets --all-features --locked -- -D warnings
-  cargo test --all-features --locked
+  cargo test --all-features --locked ${IDLEO_FAST:+--lib --bins}
 fi
 if [[ "$part" == deny || "$part" == all ]]; then
   cargo deny --all-features check

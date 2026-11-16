@@ -1,7 +1,7 @@
-# 0044. Repository protections and working through pull requests
+# 0044. Repository protections, and how we push
 
-- **Status:** Accepted
-- **Date:** 2026-10-29
+- **Status:** Accepted. The way of working below ("Direct to main") replaced pull requests on 2026-11-16; the rest stands.
+- **Date:** 2026-10-29 (amended 2026-11-16)
 
 ## Context
 
@@ -39,3 +39,19 @@ The repository is public (all rights reserved, published for transparency), and 
 - Open question: whether the attested exes should one day be built in CI and signed by a signing service, which would make the provenance a build provenance in the full sense.
 
 **Runners (2026-11-06).** Every workflow pins `ubuntu-24.04`, so a change of what `ubuntu-latest` means can't break CI by itself. The weekly `next runner` workflow runs the fast suites on `ubuntu-latest`, and tells us (`NextRunnerSuiteFailing`) while moving the pin isn't safe.
+
+## Direct to main (2026-11-16)
+
+The product owner is the only developer and the product is pre-launch, so a pull request per round, its required checks and a rebase merge cost more than they protect: a stacked set of branches could not even be merged by rebase, and the long suites kept blocking work on a runner's mood. From now on:
+
+1. **No pull requests.** Commit and push straight to main, with the commit rules unchanged. The ruleset on main no longer requires a pull request, a merge method or any check; it still refuses **force pushes and deletion**, and they are never worked round.
+2. **Before each push, only fast checks on what changed:** `scripts/check-changed.sh --fast`: types, lint and the unit tests of the touched modules (`vitest --changed`, a clean compile with its formatting and the tests of the changed classes for the control plane, `cargo fmt`, `clippy` and `cargo test --lib --bins` for the crates, `buf`, the SDK's checks, the plain-Secret check of `deploy/`). No end-to-end, browser, Lighthouse, k8s, gitops, security, restore-drill, distro, images or ops suite, no audit and no build, unless the product owner asks. It runs in about three minutes.
+3. **CI on a push to main runs the fast suites only:** `control-plane verify`, `agent`, `cli`, `scanner`, `proto`, `sdk`, `web checks` (types, lint, unit tests, the builds and the first-load budget), `deploy chart`, CodeQL, gitleaks and the server's images with their scan (which is how staging gets a release). The long suites run **every night** and on demand, staggered through the night (UTC): `e2e` 17:23, `web` (the browser run and Lighthouse) 18:47, `k8s` 19:17, `gitops` 20:43, `scan` 21:37 (already nightly), `security` 22:29, `failover` 23:11. The hostile tests stay weekly (Mondays) as they were, and the console's budgets and the next-runner check weekly. A pull request that still arrives (Dependabot's, Renovate's) gets the fast checks only. Their alerts follow the schedule (ADR 0050): 30 hours for a nightly suite, a week and a day for a weekly one (`scripts/checks/ops.sh` checks the two agree).
+4. **Every session starts with last night's long suites on main** (`scripts/nightly-status.sh`); a red one is fixed first, and the product owner is told.
+5. **Production stays deliberate:** the "Promote staging to production" pull request (`promote.yml`) is kept; so are staging's deploy pull requests that the build of main opens.
+6. **No new tests, harnesses, audits or measurement reports unless asked**, except a unit test with a fix for a bug in money, billing, security or sign-in.
+7. **Escalation for a red scan:** `NightlyScanRedForAWeek` (a page) fires when every nightly scan for seven days found something, because `ImageFindingOld` ages only the findings on main's own images, so a vendor's finding could stand for weeks with only the daily digest.
+
+What was given up, knowingly: nothing now stops a push that fails a check, a secret that slips into a commit is caught after the push by gitleaks and GitHub's push protection rather than before the merge, and a long suite's regression is found the next morning rather than before it lands. The fast suites on every push, the nightly long ones and the first-thing-in-a-session read of them are what stand in for the gate.
+
+**We go back to pull requests with the required checks (the list under "Main" above, restored in the ruleset) at go-live (S5), or when a second developer joins, whichever is first.**

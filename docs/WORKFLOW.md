@@ -4,13 +4,13 @@
 
 - **The product owner:** decides what gets built; owns accounts, real data and deployment. Pastes each prompt into Claude Code and pastes its report back to the architect.
 - **Claude desktop (architect and reviewer):** does not write application code. Writes each step's prompt as a Markdown file in `private/next-prompts/` (git-ignored; used prompts move to `private/prompts-done/`), checks every report against the actual code, and recommends what comes next.
-- **Claude Code in VS Code (builder):** builds, runs the changed suites, commits on a branch, opens the pull request, waits for its checks, merges it and reports back.
+- **Claude Code in VS Code (builder):** builds, runs the fast checks on what changed, commits and pushes straight to main (no pull requests, ADR 0044), reads last night's long suites at the start of a session, and reports back.
 
 ## The loop
 
 1. The architect writes the prompt in `private/next-prompts/`.
 2. The product owner pastes it into Claude Code.
-3. Claude Code builds, tests, commits on a branch, opens a pull request, merges it once its checks are green, and reports (CLAUDE.md, "Pull requests").
+3. Claude Code builds, runs `scripts/check-changed.sh --fast`, commits and pushes to main, and reports (CLAUDE.md, "Pushing to main").
 4. The product owner pastes the report to the architect.
 5. The architect verifies it against the repo: reads the code, reproduces key numbers, looks for gaps.
 6. The architect writes the next prompt.
