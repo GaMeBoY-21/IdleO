@@ -30,7 +30,7 @@ jobs:
         with:
           # The pull request's own commit, which Flux reads from GitHub (not the merge commit, which isn't there).
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
-      - uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
+      - uses: azure/setup-helm@2f5e7bc67f1f9972ab16657bb795f36d8f04de0e # v5.1.0
         with:
           version: v4.3.1
       - name: Install k3d v5.9.0 and sops v3.13.3
