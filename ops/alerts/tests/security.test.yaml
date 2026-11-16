@@ -25,6 +25,24 @@ tests:
       - eval_time: 49h
         alertname: NightlyScanMissing
         exp_alerts: []
+  # Red night after night: the week-old escalation fires on the eighth night, and not while one night in the week was green.
+  - interval: 24h
+    input_series:
+      - series: 'idleo_suite_passed{suite="scan"}'
+        values: '0x8'
+      - series: 'idleo_suite_passed{suite="scan",other="mixed"}'
+        values: '0 0 0 1 0 0 0 0 0'
+    alert_rule_test:
+      - eval_time: 3d
+        alertname: NightlyScanRedForAWeek
+        exp_alerts: []
+      - eval_time: 8d
+        alertname: NightlyScanRedForAWeek
+        exp_alerts:
+          - exp_labels: {env: ci, severity: page, suite: scan}
+            exp_annotations:
+              summary: The nightly scan has been red for a week.
+              runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#nightly-scan-red-for-a-week
   # The scan stops reporting: missing once 30 hours pass with nothing.
   - interval: 1h
     input_series:

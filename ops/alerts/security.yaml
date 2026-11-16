@@ -16,6 +16,17 @@ groups:
         annotations:
           summary: The nightly scan of what is deployed found something to fix.
           runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#nightly-scan-failing
+      - alert: NightlyScanRedForAWeek
+        # Every scan for a week found something it doesn't accept. ImageFindingOld only ages the findings on main's own
+        # images, so a vendor's finding, or a mix, could stand for weeks with nothing past the daily digest: a ticket wasn't
+        # enough once a finding is a week old (ADR 0048).
+        expr: max_over_time(idleo_suite_passed{suite="scan"}[7d]) == 0 and count_over_time(idleo_suite_passed{suite="scan"}[7d]) >= 7
+        labels:
+          severity: page
+          env: ci
+        annotations:
+          summary: The nightly scan has been red for a week.
+          runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#nightly-scan-red-for-a-week
       - alert: NightlyScanMissing
         # No scan has reported for 30 hours: the workflow didn't run, or couldn't send its result.
         expr: absent_over_time(idleo_suite_passed{suite="scan"}[30h])
