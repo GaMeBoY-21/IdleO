@@ -84,13 +84,17 @@ class CreditLotsTests {
 
     /** A session's charge of {@code paise} to {@code renter}, settled as metering settles it. */
     private void charge(UUID renter, UUID session, long paise) {
+        charge(renter, session, UUID.randomUUID(), paise);
+    }
+
+    private void charge(UUID renter, UUID session, UUID host, long paise) {
         tx().executeWithoutResult(status -> {
             assertThat(reservations.reserve(renter, session, Paise.of(paise))).isTrue();
             charges.settle(new SessionCharges.Charge(
                     session,
                     renter,
                     UUID.randomUUID(),
-                    List.of(new SessionCharges.Part(UUID.randomUUID(), Paise.of(paise))),
+                    List.of(new SessionCharges.Part(host, Paise.of(paise))),
                     Paise.ZERO));
             reservations.release(session);
         });
@@ -159,7 +163,9 @@ class CreditLotsTests {
         var expiring = free(renter, 100, Instant.now().plus(Duration.ofSeconds(2)));
         var paid = bought(renter, 400);
         var session = UUID.randomUUID();
-        charge(renter, session, 300);
+        // The refund comes out of the host the session paid: another host would be left owed less than nothing.
+        var host = UUID.randomUUID();
+        charge(renter, session, host, 300);
         assertThat(remaining(expiring)).isZero();
         assertThat(remaining(paid)).isEqualTo(200);
 
@@ -171,7 +177,7 @@ class CreditLotsTests {
                 session,
                 renter,
                 UUID.randomUUID(),
-                List.of(new SessionCharges.RefundPart(UUID.randomUUID(), Paise.of(200), Paise.of(50)))));
+                List.of(new SessionCharges.RefundPart(host, Paise.of(200), Paise.of(50)))));
 
         // 250 back: 200 to the bought lot (spent last, so given back first), 50 to a new free lot, since the free lot
         // it came from has expired.
