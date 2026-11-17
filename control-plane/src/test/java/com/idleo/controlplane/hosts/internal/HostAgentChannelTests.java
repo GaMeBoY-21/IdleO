@@ -27,6 +27,7 @@ import gpu.agent.v1.Host.SetPause;
 import io.grpc.Status;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -106,13 +107,14 @@ class HostAgentChannelTests {
             assertThat(active.getEarnedTodayPaise()).isZero();
             assertThat(active.hasPausedUntil()).isFalse();
             // The IdleO window's figures come with it: this week and month (set, though nothing is earned yet), no
-            // jobs, and
-            // no payout while payouts aren't configured.
+            // jobs, the next payout day (every test runs with the fake RazorpayX, so payouts are on) and no payout
+            // made yet.
             assertThat(active.hasEarnedWeekPaise()).isTrue();
             assertThat(active.getEarnedWeekPaise()).isZero();
             assertThat(active.hasEarnedMonthPaise()).isTrue();
             assertThat(active.getRecentJobsList()).isEmpty();
-            assertThat(active.hasNextPayoutOn()).isFalse();
+            assertThat(active.hasNextPayoutOn()).isTrue();
+            assertThat(LocalDate.parse(active.getNextPayoutOn())).isAfterOrEqualTo(LocalDate.now(clock));
             assertThat(active.hasLastPayout()).isFalse();
 
             // A pause from the web app reaches the tray, with its end.
