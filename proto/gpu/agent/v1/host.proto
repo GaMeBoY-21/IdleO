@@ -149,11 +149,12 @@ message HostStatus {
   // What the session running now has earned the host so far, in paise: the
   // machine page's figure. Absent while no session runs.
   optional int64 earning_now_paise = 4;
-  // What the host has earned this week (Monday to now, India's calendar) and
-  // this month, in paise, from the ledger: the same figures as the web app's
-  // Earnings, for the IdleO window. Absent from a control plane that doesn't
-  // say.
+  // What the host has earned this week (Monday to now, India's calendar), in
+  // paise, from the ledger: the same figure as the web app's Earnings, for the
+  // IdleO window. Absent from a control plane that doesn't say.
   optional int64 earned_week_paise = 5;
+  // What the host has earned this month, in India's calendar, in paise. Absent
+  // from a control plane that doesn't say.
   optional int64 earned_month_paise = 6;
   // The last few finished jobs, newest first, at most 5. How long each ran and
   // what it paid the host, never anything of the renter's.
