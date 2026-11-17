@@ -246,7 +246,8 @@ mod tests {
             std::fs::write(fixture_path(), generated()).unwrap();
         }
         assert_eq!(
-            std::fs::read_to_string(fixture_path()).unwrap(),
+            // A Windows checkout may have turned the file's line endings into CRLF.
+            std::fs::read_to_string(fixture_path()).unwrap().replace("\r\n", "\n"),
             generated(),
             "api/install-reasons.json is out of date; run IDLEO_REASONS_WRITE=1 cargo test -p setup reasons"
         );

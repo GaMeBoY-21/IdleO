@@ -7,3 +7,4 @@ Dockerfile text eol=lf
 *.pdf binary
 mvnw text eol=lf
 *.cmd text eol=crlf
+api/install-reasons.json text eol=lf

@@ -962,13 +962,15 @@ async fn an_installed_idleo_offers_open_or_repair_and_open_changes_nothing() {
 /// What an install leaves: the registry and every file, with the fake root taken out of the words.
 fn state_of(system: &FakeSystem) -> (Vec<String>, Vec<String>) {
     let root = system.machine.root.path().display().to_string();
+    // A value is printed with {:?}, which doubles a Windows path's backslashes.
+    let escaped_root = format!("{root:?}").trim_matches('"').to_owned();
     let registry = system
         .machine
         .registry
         .snapshot()
         .into_iter()
         .flat_map(|(key, values)| values.into_iter().map(move |(name, value)| format!("{key}\\{name} = {value:?}")))
-        .map(|line| line.replace(&root, "<root>"))
+        .map(|line| line.replace(&escaped_root, "<root>").replace(&root, "<root>"))
         .collect();
     let mut files = Vec::new();
     let mut folders = vec![system.machine.root.path().to_owned()];
