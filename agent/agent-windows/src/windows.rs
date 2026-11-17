@@ -338,7 +338,13 @@ mod tests {
         file.write_all(b"secret").unwrap();
         drop(file);
 
-        assert_eq!(file_access_sddl(&path).unwrap(), crate::private_file_sddl(&crate::current_user_sid().unwrap()));
+        let owner = crate::current_user_sid().unwrap();
+        let mut expected = crate::private_file_sddl(&owner);
+        // Windows reads the machine's built-in Administrator (a CI runner's account) back as its alias "LA", not its SID.
+        if owner.starts_with("S-1-5-21-") && owner.ends_with("-500") {
+            expected = expected.replace(&owner, "LA");
+        }
+        assert_eq!(file_access_sddl(&path).unwrap(), expected);
         assert!(create_private_file(&path).is_err(), "an existing file is never replaced");
     }
 }
