@@ -23,102 +23,102 @@ vulnerabilities:
     paths: ["operator/manager_amd64", "operator/manager_arm64"]
     statement: in CloudNativePG 1.30.1's operator, its latest release; taken in the release that fixes it (Renovate)
     expired_at: 2026-12-30
-  # The Barman Cloud plugin v0.15.1 (ghcr.io/cloudnative-pg/plugin-barman-cloud and -sidecar), its latest release
-  # (2026-09-30): the manager in both is built with Go 1.26.6 and x/net 0.58.0; the plugin's UBI 9.8 has pcre2 10.40-6;
+  # The Barman Cloud plugin v0.15.1 (ghcr.io/cloudnative-pg/plugin-barman-cloud and -sidecar), released 2026-09-30 (v0.16.0, 2026-11-09,
+  # is out): the manager in both is built with Go 1.26.6 and x/net 0.58.0; the plugin's UBI 9.8 has pcre2 10.40-6;
   # the sidecar's Debian 13.7 has expat 2.8.3 and OpenSSL 3.5.7-1~deb13u2, and its Python has older certifi, msgpack,
   # pyasn1, setuptools and urllib3. The sidecar talks only to the backup store, over TLS; the plugin only to the
   # operator and the database's instances, inside the cluster.
   - id: CVE-2026-78669
     paths: ["manager"]
-    statement: in the Barman Cloud plugin v0.15.1, its latest release; taken in the release that fixes it (Renovate)
+    statement: in the Barman Cloud plugin v0.15.1 (v0.16.0 is out); taken in the release that fixes it (Renovate)
     expired_at: 2026-12-30
   - id: CVE-2026-111943
     paths: ["manager"]
-    statement: in the Barman Cloud plugin v0.15.1, its latest release; taken in the release that fixes it (Renovate)
+    statement: in the Barman Cloud plugin v0.15.1 (v0.16.0 is out); taken in the release that fixes it (Renovate)
     expired_at: 2026-12-30
   - id: CVE-2026-78667
     paths: ["manager"]
-    statement: in the Barman Cloud plugin v0.15.1, its latest release; taken in the release that fixes it (Renovate)
+    statement: in the Barman Cloud plugin v0.15.1 (v0.16.0 is out); taken in the release that fixes it (Renovate)
     expired_at: 2026-12-30
   - id: CVE-2026-97031
     paths: ["manager"]
-    statement: in the Barman Cloud plugin v0.15.1, its latest release; taken in the release that fixes it (Renovate)
+    statement: in the Barman Cloud plugin v0.15.1 (v0.16.0 is out); taken in the release that fixes it (Renovate)
     expired_at: 2026-12-30
   - id: CVE-2026-103111
     purls: ["pkg:rpm/redhat/pcre2@10.40-6.el9", "pkg:rpm/redhat/pcre2-syntax@10.40-6.el9"]
-    statement: in the Barman Cloud plugin v0.15.1, its latest release; taken in the release that fixes it (Renovate)
+    statement: in the Barman Cloud plugin v0.15.1 (v0.16.0 is out); taken in the release that fixes it (Renovate)
     expired_at: 2026-12-30
   - id: CVE-2026-86145
     purls: ["pkg:rpm/redhat/pcre2@10.40-6.el9", "pkg:rpm/redhat/pcre2-syntax@10.40-6.el9"]
-    statement: in the Barman Cloud plugin v0.15.1, its latest release; taken in the release that fixes it (Renovate)
+    statement: in the Barman Cloud plugin v0.15.1 (v0.16.0 is out); taken in the release that fixes it (Renovate)
     expired_at: 2026-12-30
   - id: CVE-2026-89161
     purls: ["pkg:rpm/redhat/pcre2@10.40-6.el9", "pkg:rpm/redhat/pcre2-syntax@10.40-6.el9"]
-    statement: in the Barman Cloud plugin v0.15.1, its latest release; taken in the release that fixes it (Renovate)
+    statement: in the Barman Cloud plugin v0.15.1 (v0.16.0 is out); taken in the release that fixes it (Renovate)
     expired_at: 2026-12-30
   - id: CVE-2026-66046
     purls: ["pkg:deb/debian/libexpat1@2.8.3-1~deb13u1"]
-    statement: in the Barman Cloud plugin v0.15.1, its latest release; taken in the release that fixes it (Renovate)
+    statement: in the Barman Cloud plugin v0.15.1 (v0.16.0 is out); taken in the release that fixes it (Renovate)
     expired_at: 2026-12-30
   - id: CVE-2026-76956
     purls: ["pkg:deb/debian/libexpat1@2.8.3-1~deb13u1"]
-    statement: in the Barman Cloud plugin v0.15.1, its latest release; taken in the release that fixes it (Renovate)
+    statement: in the Barman Cloud plugin v0.15.1 (v0.16.0 is out); taken in the release that fixes it (Renovate)
     expired_at: 2026-12-30
   - id: CVE-2026-76957
     purls: ["pkg:deb/debian/libexpat1@2.8.3-1~deb13u1"]
-    statement: in the Barman Cloud plugin v0.15.1, its latest release; taken in the release that fixes it (Renovate)
+    statement: in the Barman Cloud plugin v0.15.1 (v0.16.0 is out); taken in the release that fixes it (Renovate)
     expired_at: 2026-12-30
   - id: CVE-2026-77214
     purls: ["pkg:deb/debian/libexpat1@2.8.3-1~deb13u1"]
-    statement: in the Barman Cloud plugin v0.15.1, its latest release; taken in the release that fixes it (Renovate)
+    statement: in the Barman Cloud plugin v0.15.1 (v0.16.0 is out); taken in the release that fixes it (Renovate)
     expired_at: 2026-12-30
   - id: CVE-2026-93990
     purls: ["pkg:deb/debian/libexpat1@2.8.3-1~deb13u1"]
-    statement: in the Barman Cloud plugin v0.15.1, its latest release; taken in the release that fixes it (Renovate)
+    statement: in the Barman Cloud plugin v0.15.1 (v0.16.0 is out); taken in the release that fixes it (Renovate)
     expired_at: 2026-12-30
   - id: CVE-2026-84782
     purls: ["pkg:deb/debian/libssl3t64@3.5.7-1~deb13u2"]
-    statement: in the Barman Cloud plugin v0.15.1, its latest release; taken in the release that fixes it (Renovate)
+    statement: in the Barman Cloud plugin v0.15.1 (v0.16.0 is out); taken in the release that fixes it (Renovate)
     expired_at: 2026-12-30
   - id: GHSA-6q48-6c7w-9gw2
     purls: ["pkg:pypi/certifi@2026.7.22", "pkg:pypi/certifi@2026.6.17"]
-    statement: in the Barman Cloud plugin v0.15.1, its latest release; taken in the release that fixes it (Renovate)
+    statement: in the Barman Cloud plugin v0.15.1 (v0.16.0 is out); taken in the release that fixes it (Renovate)
     expired_at: 2026-12-30
   - id: CVE-2026-114613
     purls: ["pkg:pypi/msgpack@1.1.2"]
-    statement: in the Barman Cloud plugin v0.15.1, its latest release; taken in the release that fixes it (Renovate)
+    statement: in the Barman Cloud plugin v0.15.1 (v0.16.0 is out); taken in the release that fixes it (Renovate)
     expired_at: 2026-12-30
   - id: GHSA-6v7p-g79w-8964
     purls: ["pkg:pypi/msgpack@1.1.2"]
-    statement: in the Barman Cloud plugin v0.15.1, its latest release; taken in the release that fixes it (Renovate)
+    statement: in the Barman Cloud plugin v0.15.1 (v0.16.0 is out); taken in the release that fixes it (Renovate)
     expired_at: 2026-12-30
   - id: CVE-2026-119194
     purls: ["pkg:pypi/pyasn1@0.6.4"]
-    statement: in the Barman Cloud plugin v0.15.1, its latest release; taken in the release that fixes it (Renovate)
+    statement: in the Barman Cloud plugin v0.15.1 (v0.16.0 is out); taken in the release that fixes it (Renovate)
     expired_at: 2026-12-30
   - id: CVE-2026-119195
     purls: ["pkg:pypi/pyasn1@0.6.4"]
-    statement: in the Barman Cloud plugin v0.15.1, its latest release; taken in the release that fixes it (Renovate)
+    statement: in the Barman Cloud plugin v0.15.1 (v0.16.0 is out); taken in the release that fixes it (Renovate)
     expired_at: 2026-12-30
   - id: CVE-2026-119196
     purls: ["pkg:pypi/pyasn1@0.6.4"]
-    statement: in the Barman Cloud plugin v0.15.1, its latest release; taken in the release that fixes it (Renovate)
+    statement: in the Barman Cloud plugin v0.15.1 (v0.16.0 is out); taken in the release that fixes it (Renovate)
     expired_at: 2026-12-30
   - id: CVE-2026-119197
     purls: ["pkg:pypi/pyasn1@0.6.4"]
-    statement: in the Barman Cloud plugin v0.15.1, its latest release; taken in the release that fixes it (Renovate)
+    statement: in the Barman Cloud plugin v0.15.1 (v0.16.0 is out); taken in the release that fixes it (Renovate)
     expired_at: 2026-12-30
   - id: CVE-2025-47273
     purls: ["pkg:pypi/setuptools@70.3.0"]
-    statement: in the Barman Cloud plugin v0.15.1, its latest release; taken in the release that fixes it (Renovate)
+    statement: in the Barman Cloud plugin v0.15.1 (v0.16.0 is out); taken in the release that fixes it (Renovate)
     expired_at: 2026-12-30
   - id: CVE-2026-97687
     purls: ["pkg:pypi/urllib3@2.7.0"]
-    statement: in the Barman Cloud plugin v0.15.1, its latest release; taken in the release that fixes it (Renovate)
+    statement: in the Barman Cloud plugin v0.15.1 (v0.16.0 is out); taken in the release that fixes it (Renovate)
     expired_at: 2026-12-30
   - id: CVE-2026-97689
     purls: ["pkg:pypi/urllib3@2.7.0"]
-    statement: in the Barman Cloud plugin v0.15.1, its latest release; taken in the release that fixes it (Renovate)
+    statement: in the Barman Cloud plugin v0.15.1 (v0.16.0 is out); taken in the release that fixes it (Renovate)
     expired_at: 2026-12-30
   # Flagger 1.45.0 (ghcr.io/fluxcd/flagger), its latest release (2026-09-01): Alpine 3.22.5's OpenSSL 3.5.7, and Go
   # 1.26.7 with older x/crypto, x/mod, x/net, x/text and gRPC. It reads the API server and Prometheus and takes no
@@ -167,16 +167,16 @@ vulnerabilities:
     paths: ["flagger"]
     statement: in Flagger 1.45.0, its latest release; taken in the release that fixes it (Renovate)
     expired_at: 2026-12-30
-  # Kyverno 1.19.2 (ghcr.io/kyverno/kyverno and kyvernopre), its latest release (2026-10-20): go-jose 4.1.4 (a crafted
+  # Kyverno 1.19.2 (ghcr.io/kyverno/kyverno and kyvernopre; 1.20.0, 2026-11-12, is out): go-jose 4.1.4 (a crafted
   # JWK set with RSA keys exhausts the parser) and Go 1.26.9. Kyverno takes traffic only from the API server and fetches
   # no JWK set; it reaches only GHCR and Sigstore, over TLS.
   - id: CVE-2026-116587
     paths: ["ko-app/kyverno", "ko-app/kyverno-init"]
-    statement: in Kyverno 1.19.2, its latest release; taken in the release that fixes it (Renovate)
+    statement: in Kyverno 1.19.2 (1.20.0 is out); taken in the release that fixes it (Renovate)
     expired_at: 2026-12-30
   - id: CVE-2026-111943
     paths: ["ko-app/kyverno", "ko-app/kyverno-init"]
-    statement: in Kyverno 1.19.2, its latest release; taken in the release that fixes it (Renovate)
+    statement: in Kyverno 1.19.2 (1.20.0 is out); taken in the release that fixes it (Renovate)
     expired_at: 2026-12-30
   # cert-manager v1.21.3's controller (quay.io/jetstack/cert-manager-controller), its latest release (2026-10-23):
   # go-jose 4.1.4, for its ACME client, which talks only to the issuer it's given, over TLS, and parses no JWK set.
@@ -208,6 +208,121 @@ vulnerabilities:
   - id: CVE-2026-109518
     purls: ["pkg:deb/debian/libapt-pkg7.0@3.0.3"]
     statement: in Valkey 9.1.3's image, its latest; apt is never run there; taken in the image that fixes it (Renovate)
+    expired_at: 2027-01-03
+  # golang.org/x/net/html: a crafted HTML document is a denial of service (fixed in x/net 0.62.0, Go modules the vendors
+  # haven't yet rebuilt with). Every binary below is a Kubernetes controller or a server that takes calls only from the
+  # API server, Prometheus or another pod in the cluster; none reads untrusted HTML.
+  - id: CVE-2026-78661
+    paths: ["app/cmd/cainjector/cainjector", "app/cmd/controller/controller", "app/cmd/webhook/webhook", "bin/prometheus", "bin/promtool", "flagger", "ko-app/kyverno", "ko-app/kyverno-init", "manager", "operator/manager_amd64", "operator/manager_arm64", "usr/local/bin/helm-controller", "usr/local/bin/kustomize-controller", "usr/local/bin/notification-controller", "usr/local/bin/source-controller"]
+    statement: in the vendors' pinned releases (cert-manager, Prometheus, Flagger, Kyverno, CloudNativePG, the Barman Cloud plugin, Flux); taken in the release that fixes it (Renovate)
+    expired_at: 2027-01-03
+  # The canary's load generator, curl 8.23.0 (docker.io/curlimages/curl), the curl project's latest release (2026-10-14), is
+  # on Alpine 3.24.3 with krb5 1.22.2-r1 (fixed in 1.22.3-r0). The container runs one curl a second at the canary's own
+  # service; it has no KDC, kadmind or Kerberos login, which every one of these is in.
+  - id: CVE-2026-107364
+    purls: ["pkg:apk/alpine/krb5@1.22.2-r1", "pkg:apk/alpine/krb5-libs@1.22.2-r1"]
+    statement: in curl 8.23.0's image, curl's latest release; taken in the release that fixes it (Renovate)
+    expired_at: 2027-01-03
+  - id: CVE-2026-112315
+    purls: ["pkg:apk/alpine/krb5@1.22.2-r1", "pkg:apk/alpine/krb5-libs@1.22.2-r1"]
+    statement: in curl 8.23.0's image, curl's latest release; taken in the release that fixes it (Renovate)
+    expired_at: 2027-01-03
+  - id: CVE-2026-112316
+    purls: ["pkg:apk/alpine/krb5@1.22.2-r1", "pkg:apk/alpine/krb5-libs@1.22.2-r1"]
+    statement: in curl 8.23.0's image, curl's latest release; taken in the release that fixes it (Renovate)
+    expired_at: 2027-01-03
+  - id: CVE-2026-112317
+    purls: ["pkg:apk/alpine/krb5@1.22.2-r1", "pkg:apk/alpine/krb5-libs@1.22.2-r1"]
+    statement: in curl 8.23.0's image, curl's latest release; taken in the release that fixes it (Renovate)
+    expired_at: 2027-01-03
+  - id: CVE-2026-112318
+    purls: ["pkg:apk/alpine/krb5@1.22.2-r1", "pkg:apk/alpine/krb5-libs@1.22.2-r1"]
+    statement: in curl 8.23.0's image, curl's latest release; taken in the release that fixes it (Renovate)
+    expired_at: 2027-01-03
+  - id: CVE-2026-112319
+    purls: ["pkg:apk/alpine/krb5@1.22.2-r1", "pkg:apk/alpine/krb5-libs@1.22.2-r1"]
+    statement: in curl 8.23.0's image, curl's latest release; taken in the release that fixes it (Renovate)
+    expired_at: 2027-01-03
+  - id: CVE-2026-112320
+    purls: ["pkg:apk/alpine/krb5@1.22.2-r1", "pkg:apk/alpine/krb5-libs@1.22.2-r1"]
+    statement: in curl 8.23.0's image, curl's latest release; taken in the release that fixes it (Renovate)
+    expired_at: 2027-01-03
+  - id: CVE-2026-112321
+    purls: ["pkg:apk/alpine/krb5@1.22.2-r1", "pkg:apk/alpine/krb5-libs@1.22.2-r1"]
+    statement: in curl 8.23.0's image, curl's latest release; taken in the release that fixes it (Renovate)
+    expired_at: 2027-01-03
+  - id: CVE-2026-112322
+    purls: ["pkg:apk/alpine/krb5@1.22.2-r1", "pkg:apk/alpine/krb5-libs@1.22.2-r1"]
+    statement: in curl 8.23.0's image, curl's latest release; taken in the release that fixes it (Renovate)
+    expired_at: 2027-01-03
+  - id: CVE-2026-112323
+    purls: ["pkg:apk/alpine/krb5@1.22.2-r1", "pkg:apk/alpine/krb5-libs@1.22.2-r1"]
+    statement: in curl 8.23.0's image, curl's latest release; taken in the release that fixes it (Renovate)
+    expired_at: 2027-01-03
+  - id: CVE-2026-118380
+    purls: ["pkg:apk/alpine/krb5@1.22.2-r1", "pkg:apk/alpine/krb5-libs@1.22.2-r1"]
+    statement: in curl 8.23.0's image, curl's latest release; taken in the release that fixes it (Renovate)
+    expired_at: 2027-01-03
+  - id: CVE-2026-119079
+    purls: ["pkg:apk/alpine/krb5@1.22.2-r1", "pkg:apk/alpine/krb5-libs@1.22.2-r1"]
+    statement: in curl 8.23.0's image, curl's latest release; taken in the release that fixes it (Renovate)
+    expired_at: 2027-01-03
+  - id: CVE-2026-40355
+    purls: ["pkg:apk/alpine/krb5@1.22.2-r1", "pkg:apk/alpine/krb5-libs@1.22.2-r1"]
+    statement: in curl 8.23.0's image, curl's latest release; taken in the release that fixes it (Renovate)
+    expired_at: 2027-01-03
+  - id: CVE-2026-40356
+    purls: ["pkg:apk/alpine/krb5@1.22.2-r1", "pkg:apk/alpine/krb5-libs@1.22.2-r1"]
+    statement: in curl 8.23.0's image, curl's latest release; taken in the release that fixes it (Renovate)
+    expired_at: 2027-01-03
+  - id: CVE-2026-71199
+    purls: ["pkg:apk/alpine/krb5@1.22.2-r1", "pkg:apk/alpine/krb5-libs@1.22.2-r1"]
+    statement: in curl 8.23.0's image, curl's latest release; taken in the release that fixes it (Renovate)
+    expired_at: 2027-01-03
+  - id: CVE-2026-71200
+    purls: ["pkg:apk/alpine/krb5@1.22.2-r1", "pkg:apk/alpine/krb5-libs@1.22.2-r1"]
+    statement: in curl 8.23.0's image, curl's latest release; taken in the release that fixes it (Renovate)
+    expired_at: 2027-01-03
+  # Flux's kustomize-controller v1.10.1 (above) is on Alpine 3.24.3 with git 2.54.0-r0 (fixed in 2.54.1-r0), OpenSSH
+  # 10.3_p1-r1 (fixed in 10.3_p1-r2) and libexpat 2.9.0-r0 (fixed in 2.10.0-r0). The controller reads one repository, ours,
+  # over HTTPS with no submodules, so there is no recursive clone or fast-import, no SSH login or sshd, and no XML.
+  - id: CVE-2026-105437
+    purls: ["pkg:apk/alpine/git@2.54.0-r0", "pkg:apk/alpine/git-init-template@2.54.0-r0"]
+    statement: in Flux's kustomize-controller v1.10.1, its latest release; taken in the release that fixes it (Renovate)
+    expired_at: 2027-01-03
+  - id: CVE-2026-111760
+    purls: ["pkg:apk/alpine/git@2.54.0-r0", "pkg:apk/alpine/git-init-template@2.54.0-r0"]
+    statement: in Flux's kustomize-controller v1.10.1, its latest release; taken in the release that fixes it (Renovate)
+    expired_at: 2027-01-03
+  - id: CVE-2026-114466
+    purls: ["pkg:apk/alpine/git@2.54.0-r0", "pkg:apk/alpine/git-init-template@2.54.0-r0"]
+    statement: in Flux's kustomize-controller v1.10.1, its latest release; taken in the release that fixes it (Renovate)
+    expired_at: 2027-01-03
+  - id: CVE-2026-123158
+    purls: ["pkg:apk/alpine/openssh-client-common@10.3_p1-r1", "pkg:apk/alpine/openssh-client-default@10.3_p1-r1", "pkg:apk/alpine/openssh-keygen@10.3_p1-r1"]
+    statement: in Flux's kustomize-controller v1.10.1, its latest release; taken in the release that fixes it (Renovate)
+    expired_at: 2027-01-03
+  - id: CVE-2026-115506
+    purls: ["pkg:apk/alpine/libexpat@2.9.0-r0"]
+    statement: in Flux's kustomize-controller v1.10.1, its latest release; taken in the release that fixes it (Renovate)
+    expired_at: 2027-01-03
+  # Flagger 1.45.0 (above), on Alpine 3.22.5: musl 1.2.5-r12 (regcomp, fixed in -r13) and zlib 1.3.2-r0 (gzip file
+  # functions, fixed in -r1). Flagger is a Go program that compiles no POSIX regular expressions through musl and reads
+  # no gzip files.
+  - id: CVE-2026-107891
+    purls: ["pkg:apk/alpine/musl@1.2.5-r12", "pkg:apk/alpine/musl-utils@1.2.5-r12"]
+    statement: in Flagger 1.45.0, its latest release; taken in the release that fixes it (Renovate)
+    expired_at: 2027-01-03
+  - id: CVE-2026-85091
+    purls: ["pkg:apk/alpine/zlib@1.3.2-r0"]
+    statement: in Flagger 1.45.0, its latest release; taken in the release that fixes it (Renovate)
+    expired_at: 2027-01-03
+  # zlib1g 1:1.3.dfsg+really1.3.1-1+b1 on Debian 13.7 (gz_vacate, fixed in deb13u1): Valkey 9.1.3 and the Barman Cloud
+  # sidecar v0.15.1. Neither opens a gzip file with zlib's gz functions: Valkey takes only its own protocol, and the
+  # sidecar's backups go over TLS to the store.
+  - id: CVE-2026-85091
+    purls: ["pkg:deb/debian/zlib1g@1.3.dfsg%2Breally1.3.1-1%2Bb1"]
+    statement: in Valkey 9.1.3's image, its latest release, and the Barman Cloud sidecar v0.15.1 (v0.16.0 is out); taken in the release that fixes it (Renovate)
     expired_at: 2027-01-03
 secrets:
   # CloudNativePG's PostgreSQL image (ghcr.io/cloudnative-pg/postgresql) ships Debian's ssl-cert snakeoil key, made when
