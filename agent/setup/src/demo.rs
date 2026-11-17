@@ -48,21 +48,19 @@ fn facts() -> Facts {
     }
 }
 
-fn steps(done: usize, detail: Option<String>, percent: Option<u32>) -> Vec<StepView> {
+fn steps(done: usize, detail: Option<&str>, percent: Option<u32>) -> Vec<StepView> {
     Step::ALL
         .iter()
         .enumerate()
         .map(|(index, step)| StepView {
             label: step.label().to_owned(),
-            state: if index < done {
-                "done"
-            } else if index == done {
-                "current"
-            } else {
-                "waiting"
+            state: match index.cmp(&done) {
+                std::cmp::Ordering::Less => "done",
+                std::cmp::Ordering::Equal => "current",
+                std::cmp::Ordering::Greater => "waiting",
             }
             .to_owned(),
-            detail: (index == done).then(|| detail.clone()).flatten(),
+            detail: (index == done).then(|| detail.map(str::to_owned)).flatten(),
             percent: (index == done).then_some(percent).flatten(),
         })
         .collect()
@@ -111,7 +109,7 @@ impl Tour<'_> {
     async fn progress(&mut self, index: usize, detail: &str) -> bool {
         let completed = &Step::ALL[..index];
         (self.show)(ToPage::Progress {
-            steps: steps(index, Some(detail.to_owned()), None),
+            steps: steps(index, Some(detail), None),
             note: None,
             overall: overall_percent(completed, 0),
         });
@@ -131,7 +129,7 @@ impl Tour<'_> {
                 .unwrap_or_default();
             let percent = u32::try_from(mb * 100 / PRETEND_MB).unwrap_or(100);
             (self.show)(ToPage::Progress {
-                steps: steps(2, Some(format!("Downloading · {mb} of {PRETEND_MB} MB{left}")), Some(percent)),
+                steps: steps(2, Some(&format!("Downloading · {mb} of {PRETEND_MB} MB{left}")), Some(percent)),
                 note: None,
                 overall: overall_percent(completed, percent),
             });
@@ -314,7 +312,7 @@ mod tests {
             })
             .collect();
         for step in Step::ALL {
-            assert!(current.iter().any(|label| label == step.label()), "{:?} never shown", step);
+            assert!(current.iter().any(|label| label == step.label()), "{step:?} never shown");
         }
         // Every problem's screen, with its own words.
         for problem in Problem::ALL {

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Builds the Windows app's five programs on this Mac (ADR 0033), in release mode, with cargo-xwin for
+# Builds the Windows app's five programs, and the demo of setup, on this Mac (ADR 0033), in release mode, with cargo-xwin for
 # x86_64-pc-windows-msvc (the target the Windows CI uses), into dist/windows/, and prints their sizes.
 #
 #   scripts/build-windows.sh                 a development build: the development release key, and the setup program
@@ -35,12 +35,13 @@ started=$SECONDS
 out="$root/dist/windows"
 rm -rf "$out"
 mkdir -p "$out"
-for program in idleo-agent idleo-hostd idleo-tray idleo-launcher IdleO-Setup; do
+# IdleO-Setup-Demo.exe is setup's screens with pretend progress, for showing people the app: it changes nothing on the PC.
+for program in idleo-agent idleo-hostd idleo-tray idleo-launcher IdleO-Setup IdleO-Setup-Demo; do
   cp "agent/target/$target/release/$program.exe" "$out/"
 done
 cp agent/brand/assets/fonts/LICENSE-Inter.txt agent/brand/assets/fonts/LICENSE-Archivo.txt "$out/"
 echo "build-windows: $target, $((SECONDS - started)) s"
-for program in idleo-agent idleo-hostd idleo-tray idleo-launcher IdleO-Setup; do
+for program in idleo-agent idleo-hostd idleo-tray idleo-launcher IdleO-Setup IdleO-Setup-Demo; do
   bytes=$(wc -c <"$out/$program.exe" | tr -d ' ')
   printf '  %-20s %6.1f MB\n' "$program.exe" "$(echo "$bytes / 1000000" | bc -l)"
 done

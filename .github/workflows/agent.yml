@@ -52,6 +52,38 @@ jobs:
         shell: bash
         run: test -z "$(git status --porcelain)" || { git status --porcelain; exit 1; }
 
+  # The Windows app itself (ADR 0061): its four programs and the setup demo are built, the logic that is easy to get wrong is
+  # tested, and the demo is started for a few seconds to prove the window and its page load. Everything else about it needs a
+  # real laptop (docs/windows-laptop-test.md).
+  windows-app:
+    name: windows app
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: agent
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install the pinned toolchain
+        run: rustup toolchain install
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          workspaces: agent
+      - name: Build the four programs, the agent and the setup demo
+        run: cargo build --release --locked -p agent -p tray -p launcher -p setup
+      - name: Unit tests of what is easy to get wrong
+        run: cargo test --locked -p release -p setup -p tray -p launcher -p brand -p agent-windows -p agent --lib
+      - name: The demo opens its window and its page loads
+        shell: pwsh
+        run: |
+          foreach ($name in "IdleO-Setup-Demo.exe", "idleo-tray.exe", "idleo-launcher.exe", "idleo-hostd.exe", "idleo-agent.exe") {
+            if (-not (Test-Path "target/release/$name")) { throw "$name wasn't built" }
+          }
+          $demo = Start-Process -FilePath "target/release/IdleO-Setup-Demo.exe" -ArgumentList "--smoke" -PassThru
+          if (-not $demo.WaitForExit(60000)) { $demo.Kill(); throw "the demo window never closed" }
+          if ($demo.ExitCode -ne 0) { throw "the demo's page didn't load (exit code $($demo.ExitCode))" }
+
   deny:
     name: agent deny
     runs-on: ubuntu-24.04

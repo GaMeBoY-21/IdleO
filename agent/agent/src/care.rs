@@ -66,7 +66,21 @@ pub trait Distribution: Send + Sync {
     fn cancel_pulls(&self);
     /// Stops the distribution: `wsl --terminate`, ours only.
     fn stop(&self);
+    /// Removes the images on the machine that aren't in `keep` (and aren't in use). Returns how many went. Nothing by default.
+    fn prune<'a>(&'a self, _keep: &'a BTreeSet<String>) -> Fut<'a, Result<u32, String>> {
+        Box::pin(async { Ok(0) })
+    }
 }
+
+/// Of the images `listed` on the machine, those to remove: everything not in `keep`. An image is named as the Welcome names it,
+/// `repository@sha256:…`; one that is kept is never in the answer.
+#[must_use]
+pub fn images_to_remove(listed: &[String], keep: &BTreeSet<String>) -> Vec<String> {
+    listed.iter().filter(|image| !image.is_empty() && !keep.contains(*image)).cloned().collect()
+}
+
+/// How long after cleaning up images before the next clean-up may happen.
+pub const PRUNE_EVERY: Duration = Duration::from_hours(1);
 
 /// Intervals.
 #[derive(Debug, Clone, Copy)]
@@ -146,6 +160,7 @@ impl Care {
         host.set_cached_images(&done);
         let mut idle_since: Option<Instant> = None;
         let mut retry_at: Option<Instant> = None;
+        let mut pruned_at: Option<Instant> = None;
         let mut ticks = tokio::time::interval(self.timing.tick);
         ticks.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
         loop {
@@ -185,6 +200,21 @@ impl Care {
             if downloading {
                 idle_since = Some(Instant::now());
                 continue;
+            }
+            // Near the host's disk limit with nothing running: the images the Welcome no longer names go, so the limit is kept.
+            if host.disk_pressure() && pruned_at.is_none_or(|at| at.elapsed() >= PRUNE_EVERY) {
+                pruned_at = Some(Instant::now());
+                let keep: BTreeSet<String> = host.prefetch_images().into_iter().map(|(image, _)| image).collect();
+                match self.distribution.prune(&keep).await {
+                    Ok(0) => {}
+                    Ok(removed) => {
+                        tracing::info!(removed, "old job images removed to keep within the disk limit");
+                        done.retain(|image| keep.contains(image));
+                        save(&self.data_dir, &self.distro_version, &done);
+                        host.set_cached_images(&done);
+                    }
+                    Err(why) => tracing::warn!(%why, "old job images couldn't be removed"),
+                }
             }
             // Light: nothing is running and nothing is being downloaded.
             let since = *idle_since.get_or_insert_with(Instant::now);
@@ -493,5 +523,14 @@ mod tests {
         assert_eq!(load(dir.path(), "0.1.0").len(), 1);
         assert!(load(dir.path(), "0.2.0").is_empty(), "a new distribution has none of them");
         assert!(load(&dir.path().join("missing"), "0.1.0").is_empty());
+    }
+
+    #[test]
+    fn only_images_the_welcome_no_longer_names_are_removed() {
+        let keep: BTreeSet<String> = [image(1), image(2)].into_iter().collect();
+        let listed = vec![image(1), image(3), String::new(), image(2), image(4)];
+        assert_eq!(images_to_remove(&listed, &keep), [image(3), image(4)]);
+        assert_eq!(images_to_remove(&[], &keep), Vec::<String>::new());
+        assert_eq!(images_to_remove(&listed, &listed.iter().cloned().collect()), Vec::<String>::new());
     }
 }

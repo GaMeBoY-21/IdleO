@@ -279,6 +279,7 @@ pub mod fake {
     }
 
     /// The fake machine.
+    #[allow(clippy::struct_excessive_bools)] // Facts about the pretend laptop, each its own.
     pub struct FakeSystem {
         /// The disk, registry and `wsl.exe`.
         pub machine: FakeMachine,

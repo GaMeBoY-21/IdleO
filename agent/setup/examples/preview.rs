@@ -11,6 +11,9 @@
 //! (one program's page each, with the same fake channel, which the screenshots script opens). Nothing is fetched and nothing is
 //! installed; the words in every screen are Rust's.
 
+// A development tool that writes one HTML page: it is plain about it, and is never part of a program.
+#![allow(clippy::format_push_string, clippy::too_many_lines, clippy::needless_pass_by_value)]
+
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 
@@ -33,12 +36,10 @@ fn steps(done: usize, detail: Option<&str>, percent: Option<u32>) -> Vec<StepVie
         .enumerate()
         .map(|(index, step)| StepView {
             label: step.label().to_owned(),
-            state: if index < done {
-                "done"
-            } else if index == done {
-                "current"
-            } else {
-                "waiting"
+            state: match index.cmp(&done) {
+                std::cmp::Ordering::Less => "done",
+                std::cmp::Ordering::Equal => "current",
+                std::cmp::Ordering::Greater => "waiting",
             }
             .to_owned(),
             detail: (index == done).then(|| detail.map(str::to_owned)).flatten(),

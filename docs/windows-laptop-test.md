@@ -60,16 +60,68 @@ If a job fails to start, the session's ending says why in plain words (for insta
 - Leave the laptop alone for 10 minutes. The tray goes green again.
 - Open a game or a full-screen video: grey, "Paused while a game is open". Unplug the charger: "Paused while
   unplugged".
-- The tray's **Auto-pause** menu turns each of these off, and changes the 10 minutes.
+- The IdleO window's **Schedule** tab turns each of these off, and changes the 10 minutes ("Start again after").
 - If a renter's job is running when you come back, it saves its progress and stops; the renter's session carries on
   on another laptop.
 
 ## Pausing, both ways
 
-- In the tray: **Pause** ▸ **For 1 hour**. Within a few seconds the machine on the web (Hosting, on the Mac) says
-  paused, with the time. **Resume now** in the tray: the web says idle.
+- In the tray's menu: **Pause for 1 hour**. Within a few seconds the machine on the web (Hosting, on the Mac) says
+  paused, with the time. **Resume** in the tray: the web says idle.
 - On the web: pause the machine. The tray goes grey, "Paused until …". Resume it on the web: green again.
-- The tray's **Hosting** switch off: "Hosting is off" in the tray and paused on the web.
+- The tray's **Pause** (until you resume): "Paused · until you resume" in the tray and paused on the web.
+
+## The IdleO window, the tray and notifications (ADR 0061)
+
+Each row needs the real laptop; "you should see" is what proves it. Set Windows to dark, then light, and the display to 100%, 150% and 200% (Settings → System → Display) for the first rows.
+
+| Do | You should see |
+| --- | --- |
+| Look at the tray icon on a dark and then a light taskbar, at 100%, 150% and 200% | A crisp round icon at each scale, never blurry. Its shape says the state: a ring when ready, a triangle running a job, two bars paused, a clock waiting for checks, a cross offline, an exclamation mark a problem, an arrow up when an update is ready. |
+| Hover the icon | A tooltip with the state in words, for example "Ready for renters". |
+| Left-click the icon | A 400 × 600 window with a normal title bar opens above the icon, on the Now tab. Click anywhere else: it closes. Click the icon again: it opens again (not a flicker). |
+| Right-click the icon | The menu: the state, **Pause** and **Pause for 1 hour** (or **Resume**), **Open IdleO**, **Host site**, **Help**, **Quit IdleO**. |
+| Start menu → IdleO | The same window opens. With IdleO not running, it starts it first. |
+| Press Tab and Shift+Tab through the window, and use the arrow keys on the tabs; turn on Narrator (Win+Ctrl+Enter) | A visible focus ring everywhere; every control is read with its name and state ("Pause hosting, switch, off"); the tabs are read as tabs. |
+| Windows Settings → Accessibility → Visual effects → Animations off | The window's spinner and switch stop moving. |
+| Now tab: the pause switch, then **For 1 hour**, **Until tomorrow, 9 am**, **Until I resume** | Each pauses (the web shows it, with the time); the switch turns on; turning it off resumes. |
+| Run a real job (above) and watch Now | "Running a job · N min", the GPU's temperature and use, today's and this week's earnings, the next payout date (a Monday), and never anything of the renter's. |
+| Schedule tab: **Set hours**, choose hours that don't include now | Within seconds the tray goes grey: "Paused · outside your hours", and a running job saves its progress and stops. Choose hours that include now: it carries on by itself, with no 10-minute wait. |
+| Schedule tab: **Only on mains power**, then unplug | Within seconds: "Paused · on battery". Plug in: it waits the "start again after" time. |
+| Schedule tab: **Not on metered connections**, then set the Wi-Fi to metered (Settings → Network → the connection → Metered) | "Paused · on a metered connection", and no job image downloads. Switch it back: it carries on at once. |
+| Limits tab: set the temperature to 60 °C while a game or a stress test heats the GPU | Within seconds: "Paused · the GPU is too hot"; once five degrees cooler, it carries on by itself. After 2 minutes hot, a toast says so. |
+| Limits tab: set the disk limit under what the Linux space uses now (check `%LOCALAPPDATA%\IdleO\wsl`) | "Paused · the disk limit is reached". Old job images are removed by themselves before that. |
+| Earnings tab | Today, this week, this month, the last jobs (length and earnings only), and **See everything on the host site**. Turn off Wi-Fi: it still shows them, with "Last updated N min ago". |
+| Settings tab: switch **Start with Windows** off, sign out and in; then on, sign out and in | Off: IdleO doesn't start. On: it starts by itself within seconds of signing in. |
+| Settings tab: switch a notification off, then cause it | No toast for that kind; the others still come. Windows' Focus assist on: toasts wait in the Action Center. |
+| Settings tab: **Theme** Light, Dark, Follow Windows | The window changes at once. |
+| Toasts: first link and approve ("You're live"); the first job; touch the mouse during a job ("IdleO paused a job", once a day at most); an update installing ("IdleO updated"); a payout (after Monday 10:00 India time, with payouts on); unplug the charger for a driver or disk problem | Each toast appears; clicking it opens the window on the right tab (Now, Now, Now, Settings, Earnings, and the problem's tab). |
+| Close the lid (sleep), open it 2 minutes later, on the same Wi-Fi | The tray shows Offline for a moment and "Ready for renters" again within seconds. A job that was running was saved and handed over (the owner-returned path). |
+| Switch Wi-Fi, connect a VPN, turn on a phone hotspot | It reconnects each time within a few seconds, with a longer wait only if the network stays down (check `%LOCALAPPDATA%\IdleO\logs\hostd.log` for the retries: never one a second). |
+| Restart Windows for an update | After signing in, the tray icon and the agent are back by themselves. |
+| End `idleo-hostd.exe` in Task Manager three times within 10 minutes | The launcher restarts it each time (waiting longer each time); after the third the tray shows "IdleO keeps stopping" with **Send diagnostics** in the window (Now and Settings), and a toast. After 10 quiet minutes the problem goes. |
+| **Send diagnostics** (the window's Settings tab, or a failure screen in setup) | A zip in Downloads, shown in Explorer: logs, settings and a few lines about the laptop; no name, no computer name, no keys. Open it and search for your Windows user name: nothing. |
+| `%LOCALAPPDATA%\IdleO\logs` after a few days | Each log a few MB at most (`hostd.log`, `hostd.log.1`, `.2`; the same for `tray.log`). |
+| Right-click the tray icon → **Quit IdleO**, with a job running | "A renter's job is running. It'll save its progress and stop within 2 minutes." Stop it and quit: the tray, the agent and the launcher all end, and nothing comes back until the next sign-in. |
+| Window → Settings → **Remove IdleO**, or Settings → Apps → IdleO → Uninstall | It asks whether to keep the earnings history on this laptop. Afterwards `%LOCALAPPDATA%\Programs\IdleO` and `%LOCALAPPDATA%\IdleO` are gone (or hold only the earnings history, if you kept it), the Start menu item, the Run entry, `HKCU\Software\Classes\idleo` and the `IdleO-…` WSL distribution are gone, and the machine on the web shows as removed. |
+
+### Setup's screens and every way it can fail
+
+`IdleO-Setup-Demo.exe` (made by `scripts/build-windows.sh`) walks through every screen with pretend progress and changes nothing: its title bar says "Demo". The same screens are on the Mac in the browser: `cd agent && cargo run -p setup --example preview`, then open `agent/target/preview/index.html` (Alt+arrows step; the theme and scale are at the top).
+
+| Do | You should see |
+| --- | --- |
+| A laptop with virtualization off in the BIOS | "Virtualization is off", the steps, and **Check again**; **Show me how for my laptop** opens the right page. Turn it on, come back, **Check again**: it carries on. |
+| Less than 60 GB free on C: | "Not enough free space", naming the drive and how much to free; **Open Storage settings**; it carries on by itself when there's room. |
+| On battery | "Plug in your laptop"; it carries on by itself when plugged in. |
+| Wi-Fi off during the download | "Connection lost · trying again in 2 s", 4 s, 8 s, then "Check your connection" with **Try again**; turning Wi-Fi on resumes the download from where it stopped. With a proxy set in Windows, the screen says so. |
+| The download's speed | MB, a bar, and "about N min left". |
+| An antivirus that blocks `idleo-distro.tar.gz` or a program | "Your antivirus blocked a file", naming it; allow it, **Try again**. |
+| Restart Windows when setup asks | After you sign in, setup opens by itself and carries on from where it was, without starting over. |
+| Kill `IdleO-Setup.exe` at each step (Task Manager) and open it again | It offers **Repair** and carries on from the step that didn't finish, never from the start. Run it twice more: the same good install. |
+| Open `IdleO-Setup.exe` on an installed laptop | **Open IdleO** and **Repair**. |
+| Windows in S mode, an ARM laptop, a GTX card, an old driver, no NVIDIA driver | Each has its own plain screen; only the old driver and no driver carry on by themselves, with a link to NVIDIA's driver page. |
+| **Send diagnostics** on any failure screen | A scrubbed zip in Downloads, and "Show in folder". |
 
 ## An update
 
@@ -78,7 +130,7 @@ If a job fails to start, the session's ending says why in plain words (for insta
 2. Within about a minute the machine page on the web says "Updating when idle", and the tray's menu says "Downloading
    an update", then "Update ready · installs when idle".
 3. Leave the laptop idle. It installs between jobs: the tray disappears for a moment and comes back.
-4. The machine page shows the new version, and the admin console's host page shows "Last update: installed".
+4. The machine page shows the new version, the admin console's host page shows "Last update: installed", the IdleO window's Settings tab says "Updated to v0.1.1" for a week, and a toast says "IdleO updated".
 
 ## A rollback
 

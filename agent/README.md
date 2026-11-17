@@ -15,9 +15,9 @@ A Cargo workspace:
 | `agent-windows` | The workspace's only `unsafe` code: Windows API calls for owner activity (input, full-screen apps, power), the OS build, virtualization, the key file's and the pipe's access lists, the per-user registry, shortcuts and the native dialogs. Empty on other systems. |
 | `release` | The library (`idleo_release`) the agent, setup and the launcher share, one implementation each: the app's folders, the signed manifest and its key, download with resume and verify, versions, installing and removing the app, the WSL commands, the local channel and the update trial's state. Also the binary `idleo-release` (keys, manifests, signing, uploads), the only code that reads a private release key. |
 | `launcher` | `idleo-launcher.exe`: small and rarely changed. Starts and watches `idleo-hostd` and `idleo-tray`, runs the update trial and rollback, and uninstalls. The Run entry, the Start-menu shortcut and the Uninstall entry point at it. |
-| `tray` | `idleo-tray.exe`: the tray icon and its native menu (`tray-icon`, no webview). |
-| `setup` | `IdleO-Setup.exe`: the one download, a small WebView2 window (`wry`) whose page is built into the program. |
-| `brand` | The icon and the Windows manifest (`asInvoker`, per-monitor DPI) the four Windows programs embed. |
+| `tray` | `idleo-tray.exe`: the tray icon in seven states, its native menu, the 400 × 600 IdleO window (WebView2, left click) and Windows toasts. |
+| `setup` | `IdleO-Setup.exe`: the one download, a small WebView2 window (`wry`) whose page is built into the program; and `IdleO-Setup-Demo.exe`, the same screens with pretend progress, which changes nothing. `cargo run -p setup --example preview` writes `target/preview/index.html`, every screen in a browser. |
+| `brand` | The icon (and the tray's seven shapes), the shared design (`assets/ui.css`, Inter) and page builder the two windows use, and the Windows manifest (`asInvoker`, per-monitor DPI) the Windows programs embed. |
 
 The toolchain is pinned in `rust-toolchain.toml` (with rustfmt and clippy), and every dependency version in the committed `Cargo.lock`.
 
@@ -135,6 +135,10 @@ Five programs, built from this workspace, installed per user with no admin right
 - **Updates:** see ADR 0034. The release key is baked in at build time: the development key from `private/release-dev/release.pub` (`scripts/release/dev-key.sh`) or `IDLEO_RELEASE_DEV_PUBLIC_KEY` in a normal build, which says "Development build" and refuses control planes ending `idleo.in`; `release-keys/release.pub` with `--features prod-keys`, which fails while that file is empty. `IDLEO_APP_VERSION` at build time sets the version the programs report (`scripts/release/publish.sh` sets it).
 
 **Building on the Mac:** `scripts/build-windows.sh` cross-builds the five programs for `x86_64-pc-windows-msvc` with cargo-xwin (`cargo install --locked cargo-xwin`) and Homebrew's `llvm` and `lld` (`llvm-rc` compiles the icons and manifests) into `dist/windows/`, and prints their sizes; `--release-keys` is a release build. `IDLEO_SETUP_API_URL`, `IDLEO_SETUP_HOST_URL` (the host site, where Open dashboard goes), `IDLEO_SETUP_SITE_URL`, `IDLEO_SETUP_CONTROL_PLANE` (`host:port`) and `IDLEO_SETUP_CA_ROOT` set where the setup program points (the local stack without them; a release build needs every one). `scripts/checks/agent.sh` also lints the workspace for Windows with `cargo xwin clippy` when cargo-xwin is installed, and runs cargo-deny twice: `deny.toml` for every target (the tray and setup, whose Linux backends we never ship, left out of its graph) and `deny-windows.toml` for the Windows app alone. To try it on a laptop: `./start.sh --lan`, then `docs/windows-laptop-test.md`.
+
+## Host settings (ADR 0061)
+
+`settings.toml` in the agent's folder holds what the host chose in the IdleO window: the schedule (when idle, always, or hours per weekday), only on mains power, pause for games, no metered connections, the GPU temperature, disk and memory limits, start with Windows, notifications by kind and the theme. The agent stores and enforces it; the window and the tray only ask over the local channel (`SetSettings`). Exit code 11 of `idleo-hostd` means the owner chose Quit IdleO.
 
 ## Dependencies
 

@@ -636,7 +636,12 @@ async fn run_command(
             .as_deref()
             .and_then(|version| RunnerDistribution::terminate(&idleo_release::manifest::distro_name(version)).ok());
         crate::care::Care {
-            distribution: Arc::new(RunnerDistribution::new(runner, stop)),
+            distribution: Arc::new(match distro.as_deref() {
+                Some(version) => {
+                    RunnerDistribution::new(runner, stop).with_distro(&idleo_release::manifest::distro_name(version))
+                }
+                None => RunnerDistribution::new(runner, stop),
+            }),
             metered: Arc::new(crate::care::SystemMetered),
             data_dir: config.data_dir.clone(),
             distro_version: distro.unwrap_or_else(|| "development".to_owned()),

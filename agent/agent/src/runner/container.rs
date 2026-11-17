@@ -254,13 +254,24 @@ pub struct RunnerDistribution {
     runner: Arc<ContainerRunner>,
     /// What stops the distribution when it's idle; none where it isn't ours to stop (the development stand-in).
     stop: Option<Arc<dyn Fn() + Send + Sync>>,
+    /// The distribution's name, where it is ours to look inside (a laptop's): job images are listed and removed through it.
+    distro: Option<String>,
 }
 
 impl RunnerDistribution {
     /// Care's view of `runner`'s distribution.
     #[must_use]
     pub fn new(runner: Arc<ContainerRunner>, stop: Option<Arc<dyn Fn() + Send + Sync>>) -> Self {
-        Self { runner, stop }
+        Self { runner, stop, distro: None }
+    }
+
+    /// The same, able to remove old job images from `distro`, one of ours.
+    #[must_use]
+    pub fn with_distro(mut self, distro: &str) -> Self {
+        if distro.starts_with(idleo_release::wsl::DISTRO_PREFIX) {
+            self.distro = Some(distro.to_owned());
+        }
+        self
     }
 
     /// Stops the distribution named `distro`, one of ours, the way `wsl --terminate` does.
@@ -304,6 +315,48 @@ impl crate::care::Distribution for RunnerDistribution {
         if let Some(stop) = &self.stop {
             stop();
         }
+    }
+
+    fn prune<'a>(
+        &'a self,
+        keep: &'a std::collections::BTreeSet<String>,
+    ) -> Pin<Box<dyn Future<Output = Result<u32, String>> + Send + 'a>> {
+        Box::pin(async move {
+            let Some(distro) = self.distro.clone() else { return Ok(0) };
+            let keep = keep.clone();
+            tokio::task::spawn_blocking(move || {
+                let wsl = idleo_release::wsl::Wsl::new(idleo_release::wsl::SystemRunner);
+                let namespace = ["--namespace", "idleo"];
+                let list = wsl
+                    .exec(
+                        &distro,
+                        "nerdctl",
+                        &[
+                            namespace[0],
+                            namespace[1],
+                            "images",
+                            "--no-trunc",
+                            "--format",
+                            "{{.Repository}}@{{.Digest}}",
+                        ],
+                    )
+                    .map_err(|e| e.to_string())?;
+                let listed: Vec<String> = list.text().lines().map(|line| line.trim().to_owned()).collect();
+                let mut removed = 0;
+                for image in crate::care::images_to_remove(&listed, &keep) {
+                    // An image a container uses is refused by `rmi` without `-f`, which is never given.
+                    if wsl
+                        .exec(&distro, "nerdctl", &[namespace[0], namespace[1], "rmi", &image])
+                        .is_ok_and(|out| out.ok())
+                    {
+                        removed += 1;
+                    }
+                }
+                Ok(removed)
+            })
+            .await
+            .map_err(|e| e.to_string())?
+        })
     }
 }
 

@@ -64,6 +64,7 @@ enum UserEvent {
     SmokeTimedOut,
 }
 
+#[allow(clippy::too_many_lines)] // The window's start-up and its one event loop, in the order things must come up.
 pub fn run(mode: Mode) -> ExitCode {
     let layout = idleo_release::paths::Layout::for_user();
     // The demo writes nothing: no log folder, no log file.

@@ -70,7 +70,7 @@ mod tests {
             "diagnostics_saved",
             "diagnostics_failed",
         ] {
-            assert!(SCRIPT.contains(&format!("{screen}")), "the script doesn't draw {screen}");
+            assert!(SCRIPT.contains(screen), "the script doesn't draw {screen}");
         }
         assert!(!SCRIPT.contains("fetch(") && !SCRIPT.contains("localStorage") && !SCRIPT.contains("XMLHttpRequest"));
     }

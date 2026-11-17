@@ -21,19 +21,15 @@ const out = (group: string) => {
 const THEMES = ["dark", "light"] as const;
 
 /**
- * The Windows setup window (agent/setup): its page, assembled the way ui.rs does it (the style sheet with the fonts in it,
- * the script) with agent/setup/dev/preview.js in front of the script, so a fake IPC stands in for Rust and every screen can
+ * The Windows setup window (agent/setup): its page, as the preview example builds it (the shared design with the fonts in it,
+ * the script, and a fake IPC in front of it standing in for Rust, so every screen can
  * be shown. Saved at the window's real size, in both of Windows' themes. The assembled page is kept beside the pictures,
  * as preview.html: open it to click through the screens.
  */
 async function windowsSetup(browser: Browser): Promise<number> {
-  const setup = `${repo}agent/setup/`;
-  const read = (file: string) => readFileSync(`${setup}${file}`, "utf8");
-  const font = (file: string) => readFileSync(`${setup}assets/fonts/${file}`).toString("base64");
-  const style = read("assets/style.css").replace("/*FONT_INTER*/", font("inter-400-700.woff2"));
-  const html = read("assets/index.html")
-    .replace("/*STYLE*/", () => style)
-    .replace("/*SCRIPT*/", () => `${read("dev/preview.js")}\n${read("assets/app.js")}`);
+  // The page is the program's own, built by the preview example with its fake channel in front (agent/setup/examples/preview.rs).
+  run("cd agent && cargo run -q -p setup --example preview");
+  const html = readFileSync(`${repo}agent/target/preview/setup.html`, "utf8");
   const directory = out("windows-setup");
   writeFileSync(`${directory}/preview.html`, html);
   let saved = 0;

@@ -480,6 +480,8 @@ impl Manager {
             let _ = outbound.send(message).await;
         }
 
+        let mut woke = self.options.host.resumes();
+        woke.borrow_and_update();
         loop {
             tokio::select! {
                 () = stopped(shutdown) => {
@@ -487,6 +489,9 @@ impl Manager {
                     tracing::info!("stream closed for shutdown");
                     return Outcome::Shutdown;
                 }
+                // The laptop slept: the stream is dead whatever it thinks. Drop it and connect again at once; if the network
+                // isn't back yet that fails and the usual backoff takes over, so it never hammers the server.
+                Ok(()) = woke.changed() => return Outcome::Renewed,
                 _ = heartbeats.tick() => {
                     let heartbeat = Heartbeat {
                         gpus: self.readings.summarise().into_iter().map(|r| GpuTelemetry {

@@ -47,6 +47,8 @@ pub enum Kind {
 
 /// Free disk below which the host is told the laptop's disk is nearly full.
 pub const DISK_NEARLY_FULL_MB: i32 = 10 * 1024;
+/// The share of the disk limit at which old job images are cleaned up.
+pub const DISK_PRESSURE_PERCENT: u32 = 80;
 /// How long the GPU must stay over the host's limit before it is a problem for the host rather than a pause.
 pub const HOT_PROBLEM_AFTER: Duration = Duration::from_secs(120);
 /// How long the agent may be unreachable while it should be available before the host is told.
@@ -132,6 +134,8 @@ struct Inner {
     disk_free_mb: Option<i32>,
     /// The Linux space has used the disk the host allowed it.
     disk_full: bool,
+    /// How much of the host's disk limit the Linux space uses, in percent.
+    disk_used_percent: Option<u32>,
     /// The version an update installed lately, for "Updated to".
     updated_to: Option<String>,
     update: UpdatePhase,
@@ -170,6 +174,8 @@ pub struct Host {
     window: broadcast::Sender<Option<String>>,
     /// Turns "Start with Windows" on and off.
     autostart: Arc<dyn Autostart>,
+    /// Counts the times the laptop woke from sleep or hibernation, so the connection (dead by then) is made again at once.
+    resumes: watch::Sender<u64>,
     /// The owner chose Quit IdleO: the agent shuts down and exits with [`channel::QUIT_BY_OWNER_EXIT_CODE`].
     quit: watch::Sender<bool>,
 }
@@ -211,6 +217,7 @@ impl Host {
             driver_ok: true,
             disk_free_mb: None,
             disk_full: false,
+            disk_used_percent: None,
             updated_to: None,
             update: UpdatePhase::Idle,
             outbox: Vec::new(),
@@ -241,6 +248,7 @@ impl Host {
             site: None,
             window: broadcast::channel(8).0,
             autostart: Arc::new(NoAutostart),
+            resumes: watch::channel(0).0,
             quit: watch::channel(false).0,
         })
     }
@@ -471,6 +479,18 @@ impl Host {
         self.publish(&inner);
     }
 
+    /// How much of the disk limit the Linux space uses, in percent.
+    pub fn set_disk_use(&self, percent: u32) {
+        self.lock().disk_used_percent = Some(percent);
+    }
+
+    /// Whether the Linux space is close enough to its limit (80%) that old job images should go.
+    #[must_use]
+    pub fn disk_pressure(&self) -> bool {
+        let inner = self.lock();
+        inner.disk_full || inner.disk_used_percent.is_some_and(|percent| percent >= DISK_PRESSURE_PERCENT)
+    }
+
     /// The version an update installed lately, for "Updated to".
     pub fn set_updated_to(&self, version: Option<String>) {
         let mut inner = self.lock();
@@ -585,6 +605,16 @@ impl Host {
     /// Asks every client of the local channel to show the IdleO window, on `tab` if one is named.
     pub fn open_window(&self, tab: Option<String>) {
         let _ = self.window.send(tab);
+    }
+
+    /// The laptop woke up: whoever holds a connection makes it again.
+    pub fn note_resume(&self) {
+        self.resumes.send_modify(|count| *count += 1);
+    }
+
+    /// The count of wake-ups, changing each time the laptop wakes.
+    pub fn resumes(&self) -> watch::Receiver<u64> {
+        self.resumes.subscribe()
     }
 
     /// The owner chose Quit IdleO. Whoever runs the agent shuts it down and exits with
@@ -767,13 +797,29 @@ fn save_earnings(dir: &std::path::Path, earnings: &Earnings) {
     }
 }
 
+/// How much longer than its interval a tick of [`watch`] must take for the laptop to have been asleep.
+pub const WAKE_GAP: Duration = Duration::from_secs(15);
+
+/// Whether `elapsed` on the wall clock since the last tick, when `every` was expected, means the machine slept.
+#[must_use]
+pub fn slept(elapsed: Duration, every: Duration) -> bool {
+    elapsed > every + WAKE_GAP
+}
+
 /// Steps availability every `every`, publishing changes, and stops running jobs after their checkpoint when the owner
 /// comes back. Runs for the life of the agent, stream or no stream.
 pub async fn watch(host: Arc<Host>, sessions: crate::supervisor::Shared, every: Duration) {
     let mut ticks = tokio::time::interval(every);
     ticks.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+    let mut last = std::time::SystemTime::now();
     loop {
         ticks.tick().await;
+        let now = std::time::SystemTime::now();
+        if slept(now.duration_since(last).unwrap_or_default(), every) {
+            tracing::info!("the laptop woke up: connecting again");
+            host.note_resume();
+        }
+        last = now;
         let running = !sessions.lock().running().is_empty();
         let (_, came_back) = host.step(running);
         if came_back && running {
@@ -1118,5 +1164,18 @@ mod tests {
         assert!(!*quit.borrow());
         host.request_quit();
         quit.wait_for(|quit| *quit).await.unwrap();
+    }
+
+    #[test]
+    fn a_long_gap_between_ticks_means_the_laptop_slept_and_a_wake_is_signalled() {
+        assert!(!slept(Duration::from_secs(1), Duration::from_secs(1)));
+        assert!(!slept(Duration::from_secs(10), Duration::from_secs(1)), "a busy moment is not sleep");
+        assert!(slept(Duration::from_secs(3_600), Duration::from_secs(1)));
+        let (host, _dir) = host();
+        let mut woke = host.resumes();
+        assert!(!woke.has_changed().unwrap());
+        host.note_resume();
+        assert!(woke.has_changed().unwrap());
+        assert_eq!(*woke.borrow_and_update(), 1);
     }
 }

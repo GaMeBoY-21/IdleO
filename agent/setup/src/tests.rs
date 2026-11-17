@@ -868,7 +868,7 @@ async fn a_lost_connection_is_retried_three_times_by_itself_and_then_the_person_
     *system.latest_fails.borrow_mut() = 2;
     let (ending, screens) = run(&system, &[FromPage::SetUp], false).await;
     assert_eq!(ending, Ending::Done { pending: true });
-    assert!(fixes(&screens).is_empty());
+    assert_eq!(fixes(&screens), Vec::<Problem>::new());
     let details: Vec<&str> = screens
         .iter()
         .filter_map(|s| match s {
@@ -1048,7 +1048,7 @@ async fn diagnostics_on_a_failure_saves_a_scrubbed_zip_outside_what_an_undo_remo
     assert_eq!(saved.len(), 1);
     let zip = std::path::PathBuf::from(saved[0]);
     assert!(zip.starts_with(system.diagnostics_folder()) && zip.exists());
-    assert_eq!(*system.revealed.borrow(), [zip.clone()], "Show in folder reveals the very file");
+    assert_eq!(*system.revealed.borrow(), std::slice::from_ref(&zip), "Show in folder reveals the very file");
     // What the undo removes is the app's folders; the zip is in the Downloads folder beside them, and is still there.
     let removal = undo(&system, None);
     assert_eq!(removal.problems, Vec::<String>::new());

@@ -96,7 +96,9 @@ pub async fn watch(host: Arc<Host>, real: Arc<dyn FreeDisk>, used: Arc<dyn UsedS
         ticks.tick().await;
         let free = real.free_mb();
         let cap_mb = u64::from(host.settings().limits.max_disk_gb) * 1024;
-        host.set_disk(free, used.used_mb() >= cap_mb);
+        let used_mb = used.used_mb();
+        host.set_disk(free, used_mb >= cap_mb);
+        host.set_disk_use(u32::try_from(used_mb * 100 / cap_mb.max(1)).unwrap_or(u32::MAX));
     }
 }
 

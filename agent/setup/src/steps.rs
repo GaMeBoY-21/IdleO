@@ -433,7 +433,7 @@ impl<'a, S: System> Engine<'a, S> {
     }
 
     /// Saves the diagnostics zip (scrubbed, no keys) and tells the page where it is.
-    async fn diagnostics(&mut self) {
+    fn diagnostics(&mut self) {
         self.click(reasons::CLICK_DIAGNOSTICS);
         let system_text = format!(
             "Windows build {}\nGPU {}\nsetup {}\n",
@@ -479,7 +479,7 @@ impl<'a, S: System> Engine<'a, S> {
             match self.events.recv().await {
                 Some(FromPage::ConfirmClose) | None => return Err(Ending::Undo.into()),
                 // Diagnostics are offered on every failure screen, and mean the same wherever they're asked.
-                Some(FromPage::Diagnostics) => self.diagnostics().await,
+                Some(FromPage::Diagnostics) => self.diagnostics(),
                 Some(FromPage::ShowDiagnostics) => self.show_diagnostics(),
                 Some(event) => return Ok(event),
             }
@@ -868,7 +868,7 @@ impl<S: System> Engine<'_, S> {
                         false
                     }
                     Some(FromPage::Diagnostics) => {
-                        self.diagnostics().await;
+                        self.diagnostics();
                         false
                     }
                     Some(FromPage::ShowDiagnostics) => {
@@ -1369,7 +1369,7 @@ pub fn overall_percent(completed: &[Step], fraction: u32) -> u32 {
 
 /// The progress screen for the download: its running count and how far it is, in the step and overall.
 fn download_screen(completed: &[Step], detail: &str, done: u64, total: u64) -> ToPage {
-    let percent = if total == 0 { 0 } else { u32::try_from((done * 100 / total).min(100)).unwrap_or(100) };
+    let percent = (done * 100).checked_div(total).map_or(0, |percent| u32::try_from(percent.min(100)).unwrap_or(100));
     ToPage::Progress {
         steps: Step::ALL
             .iter()

@@ -498,25 +498,22 @@ mod tests {
     #[tokio::test]
     async fn a_request_to_open_the_window_reaches_every_client_with_a_known_tab_only() {
         let mut fixture = fixture();
-        let id = fixture.client.send(&Request::OpenWindow { tab: Some("earnings".to_owned()) }).await.unwrap();
-        assert_eq!(answer(&mut fixture, id).await, Message::Done { id });
-        loop {
-            match fixture.client.next().await.unwrap() {
-                Message::OpenWindow { tab } => {
-                    assert_eq!(tab.as_deref(), Some("earnings"));
-                    break;
+        // The answer and the broadcast may arrive in either order: read until both are in.
+        for (asked, expected) in [("earnings", Some("earnings")), ("<script>", None)] {
+            let id = fixture.client.send(&Request::OpenWindow { tab: Some(asked.to_owned()) }).await.unwrap();
+            let (mut done, mut opened) = (false, None);
+            while !(done && opened.is_some()) {
+                match fixture.client.next().await.unwrap() {
+                    Message::Done { id: got } if got == id => done = true,
+                    Message::OpenWindow { tab } => opened = Some(tab),
+                    _ => {}
                 }
-                Message::Status(_) | Message::Done { .. } => {}
-                other => panic!("{other:?}"),
             }
-        }
-        let id = fixture.client.send(&Request::OpenWindow { tab: Some("<script>".to_owned()) }).await.unwrap();
-        assert_eq!(answer(&mut fixture, id).await, Message::Done { id });
-        loop {
-            if let Message::OpenWindow { tab } = fixture.client.next().await.unwrap() {
-                assert_eq!(tab, None, "a tab the window doesn't have opens the one it last showed");
-                break;
-            }
+            assert_eq!(
+                opened.unwrap().as_deref(),
+                expected,
+                "{asked}: a tab the window doesn't have opens the one it last showed"
+            );
         }
     }
 
