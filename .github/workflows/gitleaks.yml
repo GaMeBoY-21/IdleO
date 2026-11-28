@@ -26,6 +26,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           # Full history, so the commits of the range below are all there.
           fetch-depth: 0
       # The image, not gitleaks-action (which wants a licence key for organisations): gitleaks v8.30.1, pinned by digest.

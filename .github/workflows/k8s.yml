@@ -23,6 +23,8 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       # The agent the smoke test runs outside the cluster (agent/rust-toolchain.toml pins the toolchain).
       - name: Install the pinned Rust toolchain
         working-directory: agent

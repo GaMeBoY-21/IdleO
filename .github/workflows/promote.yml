@@ -36,6 +36,7 @@ jobs:
           permission-pull-requests: write
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           token: ${{ steps.app.outputs.token }}
           # The commits between production's release and staging's, for the summary.
           fetch-depth: 0
@@ -54,9 +55,11 @@ jobs:
           fi
           scripts/deploy/release.py copy staging production
           scripts/deploy/verify-release.sh production
-          echo "promote=true" >>"$GITHUB_OUTPUT"
-          echo "staging=$staging" >>"$GITHUB_OUTPUT"
-          echo "production=$production" >>"$GITHUB_OUTPUT"
+          {
+            echo "promote=true"
+            echo "staging=$staging"
+            echo "production=$production"
+          } >>"$GITHUB_OUTPUT"
       - name: Open the pull request, for a person to review and merge
         if: steps.release.outputs.promote == 'true'
         env:

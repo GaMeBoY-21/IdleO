@@ -4,6 +4,8 @@
 // signatures and the cluster before a person merges it. Dependabot keeps everything else (.github/dependabot.yml).
 // Run by .github/workflows/renovate.yml as the deploy app.
 {
+  // A release is proposed only once it is 7 days old, so a poisoned one is usually caught and pulled first.
+  minimumReleaseAge: '7 days',
   $schema: 'https://docs.renovatebot.com/renovate-schema.json',
   extends: ['config:recommended'],
   timezone: 'Asia/Kolkata',

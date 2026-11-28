@@ -31,8 +31,10 @@ git config user.email "$(gh api "/users/$bot" --jq .id)+$bot@users.noreply.githu
 git switch -c "$branch"
 git add "$release"
 git commit -q -m "$(tr '[:upper:]' '[:lower:]' <<<"${title:0:1}")${title:1}"
-# The branch is this script's alone: a re-run of a failed job replaces what the last attempt pushed.
-git push -q --force origin "$branch"
+# The branch is this script's alone: a re-run of a failed job replaces what the last attempt pushed. The app's token goes
+# with this one push only, as actions/checkout sends its own, and is never kept in the checkout's git config.
+auth="$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 | tr -d '\n')"
+git -c "http.https://github.com/.extraheader=AUTHORIZATION: basic $auth" push -q --force origin "$branch"
 
 url="$(gh pr create --base main --head "$branch" --title "$title" --body-file "$body")"
 echo "deploy: opened $url"
