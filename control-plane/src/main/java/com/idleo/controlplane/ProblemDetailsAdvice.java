@@ -92,6 +92,15 @@ class ProblemDetailsAdvice extends ResponseEntityExceptionHandler {
                 .retryAfter(java.time.Duration.ofSeconds(30)));
     }
 
+    /**
+     * A query string Tomcat can't parse (a parameter with no name, say), found when a handler reads its parameters: the
+     * client's mistake, like a body that can't be read.
+     */
+    @ExceptionHandler(org.apache.tomcat.util.http.InvalidParameterException.class)
+    ProblemDetail unreadableQuery() {
+        return detail(Problem.MALFORMED_REQUEST, Problem.MALFORMED_REQUEST.status(), "The query string can't be read.");
+    }
+
     @ExceptionHandler(Exception.class)
     ProblemDetail unexpected(Exception exception) {
         log.error("Unhandled exception", exception);
