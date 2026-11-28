@@ -45,7 +45,7 @@ async function enter(page: Page): Promise<void> {
     await page.waitForTimeout((30 - into + 0.5) * 1000);
   }
   await page.getByLabel("Code from your authenticator app").fill(code(secret));
-  await page.getByRole("button", { name: "Confirm" }).click();
+  await page.getByRole("button", { name: "Check the code" }).click();
   await page.getByRole("button", { name: "I've saved them" }).click();
   await expect(page.getByRole("navigation", { name: "Admin" })).toBeVisible({ timeout: 30_000 });
 }
