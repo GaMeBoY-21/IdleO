@@ -1,6 +1,6 @@
 //! `ls`, `status`, `logs`, `watch`, `stop` and `cancel`: your sessions, and what to do with one.
 
-use chrono::Utc;
+use jiff::Timestamp;
 use serde::Serialize;
 
 use crate::api::{SessionList, SessionResponse, StopRequest};
@@ -35,7 +35,7 @@ pub async fn ls(ctx: &Context, args: &LsArgs) -> Result<()> {
                 format!("Nothing is running. `{BIN_NAME} ls --all` shows the ones that ended.")
             };
         }
-        let now = Utc::now();
+        let now = Timestamp::now();
         let rows: Vec<Vec<String>> = sessions
             .iter()
             .map(|session| {
@@ -56,7 +56,7 @@ pub async fn ls(ctx: &Context, args: &LsArgs) -> Result<()> {
 pub async fn status(ctx: &Context, args: &SessionId) -> Result<()> {
     let id = parse_id(&args.id)?;
     let session = fetch(&ctx.client, &id.to_string()).await?;
-    ctx.result(&session, || describe(&session, Utc::now()));
+    ctx.result(&session, || describe(&session, Timestamp::now()));
     Ok(())
 }
 

@@ -1,17 +1,17 @@
 //! Times for people: "5 min ago", from a moment and now.
 
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
 
 /// How long before `now` a moment was, in the largest whole unit; a date for anything over a month.
 #[must_use]
-pub fn ago(moment: DateTime<Utc>, now: DateTime<Utc>) -> String {
-    let seconds = (now - moment).num_seconds();
+pub fn ago(moment: Timestamp, now: Timestamp) -> String {
+    let seconds = now.duration_since(moment).as_secs();
     match seconds {
         ..45 => "just now".to_owned(),
         45..3_600 => format!("{} min ago", (seconds + 30) / 60),
         3_600..86_400 => format!("{} h ago", seconds / 3_600),
         86_400..2_592_000 => format!("{} d ago", seconds / 86_400),
-        _ => moment.format("%Y-%m-%d").to_string(),
+        _ => moment.strftime("%Y-%m-%d").to_string(),
     }
 }
 
@@ -29,23 +29,25 @@ pub fn duration(seconds: i64) -> String {
 
 #[cfg(test)]
 mod tests {
-    use chrono::TimeZone;
-
     use super::*;
 
-    fn at(h: u32, m: u32, s: u32) -> DateTime<Utc> {
-        Utc.with_ymd_and_hms(2026, 10, 12, h, m, s).unwrap()
+    fn on(day: &str, time: &str) -> Timestamp {
+        format!("{day}T{time}Z").parse().unwrap()
+    }
+
+    fn at(time: &str) -> Timestamp {
+        on("2026-10-12", time)
     }
 
     #[test]
     fn a_moment_is_told_in_its_largest_unit() {
-        let now = at(12, 0, 0);
-        assert_eq!(ago(at(11, 59, 50), now), "just now");
-        assert_eq!(ago(at(11, 55, 0), now), "5 min ago");
-        assert_eq!(ago(at(9, 0, 0), now), "3 h ago");
-        assert_eq!(ago(Utc.with_ymd_and_hms(2026, 10, 9, 12, 0, 0).unwrap(), now), "3 d ago");
-        assert_eq!(ago(Utc.with_ymd_and_hms(2026, 8, 1, 12, 0, 0).unwrap(), now), "2026-08-01");
-        assert_eq!(ago(at(12, 0, 5), now), "just now");
+        let now = at("12:00:00");
+        assert_eq!(ago(at("11:59:50"), now), "just now");
+        assert_eq!(ago(at("11:55:00"), now), "5 min ago");
+        assert_eq!(ago(at("09:00:00"), now), "3 h ago");
+        assert_eq!(ago(on("2026-10-09", "12:00:00"), now), "3 d ago");
+        assert_eq!(ago(on("2026-08-01", "12:00:00"), now), "2026-08-01");
+        assert_eq!(ago(at("12:00:05"), now), "just now");
     }
 
     #[test]

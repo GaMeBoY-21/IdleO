@@ -1,6 +1,6 @@
 //! A session as a person reads it: its state, what it has cost, and how it ended.
 
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
 
 use crate::api::SessionResponse;
 use crate::brand::BIN_NAME;
@@ -26,8 +26,8 @@ pub fn cost(session: &SessionResponse) -> i64 {
 
 /// How long it has run, from its start to its end, or to `now` while it's running.
 #[must_use]
-pub fn ran_for(session: &SessionResponse, now: DateTime<Utc>) -> Option<i64> {
-    session.started_at.map(|start| (session.ended_at.unwrap_or(now) - start).num_seconds())
+pub fn ran_for(session: &SessionResponse, now: Timestamp) -> Option<i64> {
+    session.started_at.map(|start| session.ended_at.unwrap_or(now).duration_since(start).as_secs())
 }
 
 /// The state in a person's words, lower case.
@@ -61,7 +61,7 @@ pub fn why_ended(session: &SessionResponse) -> Option<String> {
 
 /// The block `status` prints.
 #[must_use]
-pub fn describe(session: &SessionResponse, now: DateTime<Utc>) -> String {
+pub fn describe(session: &SessionResponse, now: Timestamp) -> String {
     let mut lines = vec![
         format!("Session   {}", session.id),
         format!("State     {}{}", state_words(&session.state), if session.settled { "" } else { "  (still changing)" }),
@@ -138,13 +138,13 @@ mod tests {
     fn a_settled_session_says_only_what_it_was_charged() {
         let mut settled = session("COMPLETED");
         settled.settled = true;
-        let text = describe(&settled, Utc::now());
+        let text = describe(&settled, Timestamp::now());
         assert!(text.contains("Cost      ₹0.04") && !text.contains("held"), "{text}");
     }
 
     #[test]
     fn status_says_what_it_cost_and_that_it_may_still_change() {
-        let text = describe(&session("RUNNING"), Utc::now());
+        let text = describe(&session("RUNNING"), Timestamp::now());
         assert!(text.contains("running  (still changing)"), "{text}");
         assert!(text.contains("₹0.06 so far; ₹0.60 held; at most ₹10.00"), "{text}");
     }

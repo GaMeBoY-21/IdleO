@@ -25,7 +25,22 @@ fn main() {
     });
     let root: schemars::schema::RootSchema = serde_json::from_value(root).expect("the schemas are JSON Schema");
 
-    let mut types = typify::TypeSpace::new(typify::TypeSpaceSettings::default().with_struct_builder(false));
+    // Moments and days are jiff's: typify would pick chrono, which is no longer maintained.
+    let string_of = |format: &str| schemars::schema::SchemaObject {
+        instance_type: Some(schemars::schema::InstanceType::String.into()),
+        format: Some(format.to_owned()),
+        ..Default::default()
+    };
+    let mut settings = typify::TypeSpaceSettings::default();
+    settings.with_struct_builder(false);
+    for (format, rust) in [("date-time", "::jiff::Timestamp"), ("date", "::jiff::civil::Date")] {
+        settings.with_conversion(
+            string_of(format),
+            rust,
+            [typify::TypeSpaceImpl::Display, typify::TypeSpaceImpl::FromStr].into_iter(),
+        );
+    }
+    let mut types = typify::TypeSpace::new(&settings);
     types.add_root_schema(root).expect("typify takes the API's schemas");
     let file = syn::parse2::<syn::File>(types.to_stream()).expect("typify writes Rust");
     let out = PathBuf::from(env::var("OUT_DIR").expect("cargo sets OUT_DIR"));

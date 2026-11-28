@@ -2,7 +2,7 @@
 //! with this computer's key. Creating one never does: it goes through the same approval in the web app as a
 //! sign-in, so a stolen key can never make another (ADR 0025).
 
-use chrono::Utc;
+use jiff::Timestamp;
 
 use crate::api::{ApiKeyList, CreatedApiKey};
 use crate::brand::BIN_NAME;
@@ -27,7 +27,7 @@ async fn list(ctx: &Context) -> Result<()> {
         if list.keys.is_empty() {
             return "You have no API keys.".to_owned();
         }
-        let now = Utc::now();
+        let now = Timestamp::now();
         let rows: Vec<Vec<String>> = list
             .keys
             .iter()
