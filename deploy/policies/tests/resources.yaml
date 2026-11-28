@@ -29,7 +29,7 @@ metadata:
 spec:
   containers:
   - name: main
-    image: docker.io/valkey/valkey:9.1.3@sha256:3add1a336a920ea54770a001ab6feb3da5fceea96a40373a3a2cd469b815f0b7
+    image: docker.io/valkey/valkey:9.1.4@sha256:3ab0eca823ebbf0fe352476ebac330ac9e5f14b592b9a954eab296d341e81b0e
   initContainers:
   - name: init
     image: ghcr.io/gameboy-21/idleo-control-plane@sha256:644720e28c77372bca9b5b62809112e0c9ae5d3dd36ed4d818a71da7d355adab
@@ -42,7 +42,7 @@ metadata:
 spec:
   containers:
   - name: main
-    image: docker.io/valkey/valkey:9.1.3@sha256:3add1a336a920ea54770a001ab6feb3da5fceea96a40373a3a2cd469b815f0b7
+    image: docker.io/valkey/valkey:9.1.4@sha256:3ab0eca823ebbf0fe352476ebac330ac9e5f14b592b9a954eab296d341e81b0e
 ---
 apiVersion: v1
 kind: Pod
@@ -52,7 +52,7 @@ metadata:
 spec:
   containers:
   - name: main
-    image: docker.io/valkey/valkey:9.1.3
+    image: docker.io/valkey/valkey:9.1.4
 ---
 apiVersion: v1
 kind: Pod
@@ -72,7 +72,7 @@ metadata:
 spec:
   containers:
   - name: main
-    image: valkey/valkey:9.1.3@sha256:3add1a336a920ea54770a001ab6feb3da5fceea96a40373a3a2cd469b815f0b7
+    image: valkey/valkey:9.1.4@sha256:3ab0eca823ebbf0fe352476ebac330ac9e5f14b592b9a954eab296d341e81b0e
 ---
 apiVersion: v1
 kind: Pod
@@ -102,7 +102,7 @@ metadata:
 spec:
   containers:
   - name: main
-    image: docker.io/valkey/valkey:9.1.3@sha256:3add1a336a920ea54770a001ab6feb3da5fceea96a40373a3a2cd469b815f0b7
+    image: docker.io/valkey/valkey:9.1.4@sha256:3ab0eca823ebbf0fe352476ebac330ac9e5f14b592b9a954eab296d341e81b0e
     securityContext:
       privileged: true
 ---
@@ -114,7 +114,7 @@ metadata:
 spec:
   containers:
   - name: main
-    image: docker.io/valkey/valkey:9.1.3@sha256:3add1a336a920ea54770a001ab6feb3da5fceea96a40373a3a2cd469b815f0b7
+    image: docker.io/valkey/valkey:9.1.4@sha256:3ab0eca823ebbf0fe352476ebac330ac9e5f14b592b9a954eab296d341e81b0e
   volumes:
   - name: node
     hostPath:
@@ -128,7 +128,7 @@ metadata:
 spec:
   containers:
   - name: main
-    image: docker.io/valkey/valkey:9.1.3@sha256:3add1a336a920ea54770a001ab6feb3da5fceea96a40373a3a2cd469b815f0b7
+    image: docker.io/valkey/valkey:9.1.4@sha256:3ab0eca823ebbf0fe352476ebac330ac9e5f14b592b9a954eab296d341e81b0e
   hostNetwork: true
 ---
 apiVersion: v1
