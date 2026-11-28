@@ -1,10 +1,12 @@
 # Weekly, and grouped so it is a few pull requests a week, not dozens: one per ecosystem for ordinary updates, with
-# security updates still arriving on their own. Everything pinned by digest or by lock file stays that way.
+# security updates still arriving on their own. A release waits 7 days before it is proposed (cooldown), so a poisoned
+# one is usually caught and pulled first; security updates never wait. Everything pinned by digest or by lock file stays that way.
 version: 2
 updates:
   - package-ecosystem: maven
     directory: /control-plane
     schedule: { interval: weekly, day: monday }
+    cooldown: { default-days: 7 }
     ignore:
       # Each instrumentation release is built on one OpenTelemetry SDK; this one moves with the SDK Spring Boot manages
       # (pom.xml), or the enforcer's convergence rule refuses the build.
@@ -20,6 +22,7 @@ updates:
   - package-ecosystem: npm
     directory: /web
     schedule: { interval: weekly, day: monday }
+    cooldown: { default-days: 7 }
     ignore:
       # openapi-typescript writes the API's types with TypeScript's compiler API, which TypeScript 7 doesn't have.
       - dependency-name: typescript
@@ -35,6 +38,7 @@ updates:
   - package-ecosystem: cargo
     directories: [/agent, /cli, /scanner]
     schedule: { interval: weekly, day: monday }
+    cooldown: { default-days: 7 }
     ignore:
       # The CLI's build script hands typify a schemars schema, so schemars moves with the one typify is built on.
       - dependency-name: schemars
@@ -47,6 +51,7 @@ updates:
   - package-ecosystem: uv
     directory: /sdk/python
     schedule: { interval: weekly, day: monday }
+    cooldown: { default-days: 7 }
     groups:
       python:
         patterns: ["*"]
@@ -55,10 +60,12 @@ updates:
   - package-ecosystem: pip
     directory: /.github/requirements
     schedule: { interval: weekly, day: monday }
+    cooldown: { default-days: 7 }
 
   - package-ecosystem: github-actions
     directory: /
     schedule: { interval: weekly, day: monday }
+    cooldown: { default-days: 7 }
     groups:
       actions:
         patterns: ["*"]
@@ -70,6 +77,7 @@ updates:
   - package-ecosystem: docker-compose
     directory: /control-plane
     schedule: { interval: weekly, day: monday }
+    cooldown: { default-days: 7 }
     groups:
       docker:
         patterns: ["*"]
@@ -78,6 +86,7 @@ updates:
     # The server's images (ADR 0045): their bases, the JRE and nginx included.
     directories: [/scanner, /ops/postgres, /control-plane, /web]
     schedule: { interval: weekly, day: monday }
+    cooldown: { default-days: 7 }
     ignore:
       # Compiled with the toolchain rust-toolchain.toml pins; PostgreSQL's major version is a migration, not an update.
       - dependency-name: rust

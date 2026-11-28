@@ -6,13 +6,13 @@
 # (suite_command). Its
 # paths follow the workflows' `paths:` filters (.github/workflows/*.yml), so a change runs what CI would run for it.
 
-ALL_SUITES=(agent cli scanner control-plane ops drill proto distro images sdk web deploy web-browser e2e k8s gitops security)
+ALL_SUITES=(agent cli scanner control-plane ops drill proto distro images sdk web deploy workflows web-browser e2e k8s gitops security)
 
 # suite_command SUITE: runs the suite, from the repository root, and returns its status.
 suite_command() {
   local root="$1" suite="$2"
   case "$suite" in
-    agent | cli | scanner | control-plane | ops | proto | distro | images | sdk | web | deploy) "$root/scripts/checks/$suite.sh" ;;
+    agent | cli | scanner | control-plane | ops | proto | distro | images | sdk | web | deploy | workflows) "$root/scripts/checks/$suite.sh" ;;
     # The restore drill runs on the Mac's cluster (ADR 0047): up.sh brings it up (stopping ./start.sh's stack) or
     # updates it.
     drill) "$root/scripts/k8s/up.sh" && "$root/ops/backup/drill.sh" ;;
@@ -47,6 +47,8 @@ suites_for_path() {
     deploy/* | .sops.yaml) echo deploy k8s gitops security ;;
     scripts/deploy/* | scripts/images/trivyignore.yaml | scripts/images/scan-gate*) echo deploy ;;
     scripts/k8s/*) echo k8s gitops security ;;
+    # The workflows themselves, and the update bots' settings beside them.
+    .github/workflows/* | .github/actions/* | .github/dependabot.yml | .github/renovate.json5) echo workflows ;;
     agent/distro/*) echo agent distro e2e ;;
     agent/images/*) echo images ;;
     agent/*) echo agent e2e ;;

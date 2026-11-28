@@ -38,6 +38,8 @@ jobs:
       SITE_URL: http://localhost:3002
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
         with:
           package_json_file: web/package.json
@@ -71,9 +73,12 @@ jobs:
       # ui-review.ts serves each site from its build, and lays out only this job's pictures; the last job joins them.
       - name: The pictures at ${{ matrix.width }} px, ${{ matrix.theme }}
         working-directory: web
+        # The input goes in as a variable, never into the script's text.
+        env:
+          STATES: ${{ inputs.states }}
         run: >-
           node e2e/ui-review.ts --out ../ui-review --widths ${{ matrix.width }} --themes ${{ matrix.theme }}
-          --states '${{ inputs.states }}'
+          --states "$STATES"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
@@ -93,6 +98,8 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: web/.node-version
@@ -110,8 +117,10 @@ jobs:
       # Only the script's own imports, which are Node's: no install needed.
       - name: The pages
         working-directory: web
+        env:
+          STATES: ${{ inputs.states }}
         run: >-
-          node e2e/ui-review.ts --index-only --out ../ui-review --states '${{ inputs.states }}'
+          node e2e/ui-review.ts --index-only --out ../ui-review --states "$STATES"
           ${{ inputs.before_run != '' && '--before ../before' || '' }}
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:

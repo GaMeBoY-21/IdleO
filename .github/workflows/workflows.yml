@@ -1,0 +1,29 @@
+name: workflows
+
+on:
+  push:
+    branches: [main]
+    paths: [".github/**", "scripts/checks/workflows.sh"]
+  # No path filter on pull requests, so a pull request that changes a workflow is always checked.
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: workflows
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # actionlint and zizmor, pinned by digest, as scripts/check-all.sh runs them.
+      - name: actionlint and zizmor
+        run: scripts/checks/workflows.sh
