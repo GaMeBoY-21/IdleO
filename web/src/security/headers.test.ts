@@ -55,8 +55,24 @@ describe("the security headers", () => {
     expect(local).not.toContain("upgrade-insecure-requests");
   });
 
+  it("make a deployed site HTTPS-only for two years, its subdomains too, ready for the preload list", () => {
+    const deployed = securityHeaders(production, { IDLEO_DEPLOYMENT: "production" });
+    expect(deployed["Strict-Transport-Security"]).toBe("max-age=63072000; includeSubDomains; preload");
+    expect(securityHeaders(production, { IDLEO_DEPLOYMENT: "staging" })["Strict-Transport-Security"]).toBe(
+      deployed["Strict-Transport-Security"],
+    );
+    // A local build is plain HTTP on localhost, where the header would stick to every port.
+    expect(securityHeaders(local, {})["Strict-Transport-Security"]).toBeUndefined();
+  });
+
+  it("keep every site's files for its own sites alone", () => {
+    for (const env of [{}, { IDLEO_DEPLOYMENT: "production" }]) {
+      expect(securityHeaders(local, env)["Cross-Origin-Resource-Policy"]).toBe("same-site");
+    }
+  });
+
   it("send the headers a meta tag can't", () => {
-    const headers = securityHeaders(local);
+    const headers = securityHeaders(local, {});
     expect(headers["Content-Security-Policy"]).toContain("frame-ancestors 'none'");
     expect(headers["X-Content-Type-Options"]).toBe("nosniff");
     expect(headers["Referrer-Policy"]).toBe("strict-origin-when-cross-origin");

@@ -131,7 +131,7 @@ const redirects: Record<string, string> =
       : {};
 writeFileSync(`${dist}rewrites.json`, `${JSON.stringify(rewrites, null, 2)}\n`);
 writeFileSync(`${dist}redirects.json`, `${JSON.stringify(redirects, null, 2)}\n`);
-writeFileSync(`${dist}headers.json`, `${JSON.stringify(securityHeaders(csp), null, 2)}\n`);
+writeFileSync(`${dist}headers.json`, `${JSON.stringify(securityHeaders(csp, process.env), null, 2)}\n`);
 // The headers of a page that has its own, instead of headers.json's: the Credit page (docs/runbooks/deployment.md).
 writeFileSync(
   `${dist}path-headers.json`,

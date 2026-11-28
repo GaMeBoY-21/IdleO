@@ -109,15 +109,21 @@ export function contentSecurityPolicy(
  */
 export function creditHeaders(env: BuildEnv, csp: string, strictCsp: string): Record<string, string> {
   return {
-    ...securityHeaders(csp),
+    ...securityHeaders(csp, env),
     ...(env.IDLEO_CHECKOUT_CSP === "report-only"
       ? { "Content-Security-Policy-Report-Only": `${strictCsp}; frame-ancestors 'none'` }
       : {}),
   };
 }
 
-export function securityHeaders(csp: string): Record<string, string> {
+/** How long a browser keeps to HTTPS once it has seen a deployed site: two years, the preload list's own minimum. */
+export const HSTS = "max-age=63072000; includeSubDomains; preload";
+
+export function securityHeaders(csp: string, env: BuildEnv): Record<string, string> {
+  const deployed = (env.IDLEO_DEPLOYMENT ?? "local") !== "local";
   return {
+    // Every site is HTTPS-only, and so is every subdomain of idleo.in; never locally, where it would stick to localhost.
+    ...(deployed ? { "Strict-Transport-Security": HSTS } : {}),
     // frame-ancestors only works as a header, never in a <meta> tag.
     "Content-Security-Policy": `${csp}; frame-ancestors 'none'`,
     "Referrer-Policy": "strict-origin-when-cross-origin",
@@ -125,5 +131,7 @@ export function securityHeaders(csp: string): Record<string, string> {
     "X-Content-Type-Options": "nosniff",
     // The Google sign-in popup must be able to report back to the page that opened it.
     "Cross-Origin-Opener-Policy": "same-origin-allow-popups",
+    // A page, script or picture of ours is loaded by our own sites only (idleo.in and its subdomains), never another's.
+    "Cross-Origin-Resource-Policy": "same-site",
   };
 }
