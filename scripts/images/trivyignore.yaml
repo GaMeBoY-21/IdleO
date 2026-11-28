@@ -199,16 +199,6 @@ vulnerabilities:
     purls: ["pkg:apk/alpine/libexpat@2.9.0-r0"]
     statement: in Flux's kustomize-controller v1.10.1, its latest release; taken in the release that fixes it (Renovate)
     expired_at: 2027-01-03
-  # Valkey 9.1.3 (docker.io/valkey/valkey), its latest release and its tag's newest image, is on Debian 13.7 with apt 3.0.3
-  # (fixed in 3.0.4). apt is never run in the container: its root is read-only and it runs as a user who couldn't use it.
-  - id: CVE-2026-109518
-    purls: ["pkg:deb/debian/apt@3.0.3"]
-    statement: in Valkey 9.1.3's image, its latest; apt is never run there; taken in the image that fixes it (Renovate)
-    expired_at: 2027-01-03
-  - id: CVE-2026-109518
-    purls: ["pkg:deb/debian/libapt-pkg7.0@3.0.3"]
-    statement: in Valkey 9.1.3's image, its latest; apt is never run there; taken in the image that fixes it (Renovate)
-    expired_at: 2027-01-03
   # golang.org/x/net/html: a crafted HTML document is a denial of service (fixed in x/net 0.62.0, Go modules the vendors
   # haven't yet rebuilt with). Every binary below is a Kubernetes controller or a server that takes calls only from the
   # API server, Prometheus or another pod in the cluster; none reads untrusted HTML.
@@ -317,13 +307,80 @@ vulnerabilities:
     purls: ["pkg:apk/alpine/zlib@1.3.2-r0"]
     statement: in Flagger 1.45.0, its latest release; taken in the release that fixes it (Renovate)
     expired_at: 2027-01-03
-  # zlib1g 1:1.3.dfsg+really1.3.1-1+b1 on Debian 13.7 (gz_vacate, fixed in deb13u1): Valkey 9.1.3 and the Barman Cloud
+  # zlib1g 1:1.3.dfsg+really1.3.1-1+b1 on Debian 13.7 (gz_vacate, fixed in deb13u1): Valkey 9.1.4 and the Barman Cloud
   # sidecar v0.15.1. Neither opens a gzip file with zlib's gz functions: Valkey takes only its own protocol, and the
   # sidecar's backups go over TLS to the store.
   - id: CVE-2026-85091
     purls: ["pkg:deb/debian/zlib1g@1.3.dfsg%2Breally1.3.1-1%2Bb1"]
-    statement: in Valkey 9.1.3's image, its latest release, and the Barman Cloud sidecar v0.15.1 (v0.16.0 is out); taken in the release that fixes it (Renovate)
+    statement: in Valkey 9.1.4's image, its latest release, and the Barman Cloud sidecar v0.15.1 (v0.16.0 is out); taken in the release that fixes it (Renovate)
     expired_at: 2027-01-03
+  # libzstd1 1.5.7+dfsg-1 on Debian 13.7 (fixed in deb13u1, published after both images were built): Valkey 9.1.4, its
+  # latest release and its tag's newest image, and the Barman Cloud sidecar v0.15.1 (v0.16.0, its latest, has it too).
+  # Valkey never decompresses with zstd; the sidecar compresses only its own backups before sending them over TLS.
+  - id: CVE-2026-124851
+    purls: ["pkg:deb/debian/libzstd1@1.5.7%2Bdfsg-1"]
+    statement: in Valkey 9.1.4's image and the Barman Cloud sidecar, both their latest; taken in the rebuild that fixes it (Renovate)
+    expired_at: 2027-01-26
+  # MIT Kerberos 1.21.3-5+deb13u1 on Debian 13.7 (fixed in deb13u2, published after the image was built): the Barman
+  # Cloud sidecar v0.15.1 (v0.16.0, its latest, has it too). The libraries come in with libpq and libcurl; the sidecar
+  # never signs in with Kerberos (no KDC, keytab or GSSAPI login): it reaches the database over the pod's socket and the
+  # backup store with a key over TLS.
+  - id: CVE-2026-107364
+    purls: ["pkg:deb/debian/libgssapi-krb5-2@1.21.3-5%2Bdeb13u1", "pkg:deb/debian/libk5crypto3@1.21.3-5%2Bdeb13u1", "pkg:deb/debian/libkrb5-3@1.21.3-5%2Bdeb13u1", "pkg:deb/debian/libkrb5support0@1.21.3-5%2Bdeb13u1"]
+    statement: in the Barman Cloud sidecar, v0.15.1 and v0.16.0 (its latest) alike; Kerberos is never used; taken in the rebuild that fixes it (Renovate)
+    expired_at: 2027-01-26
+  - id: CVE-2026-112315
+    purls: ["pkg:deb/debian/libgssapi-krb5-2@1.21.3-5%2Bdeb13u1", "pkg:deb/debian/libk5crypto3@1.21.3-5%2Bdeb13u1", "pkg:deb/debian/libkrb5-3@1.21.3-5%2Bdeb13u1", "pkg:deb/debian/libkrb5support0@1.21.3-5%2Bdeb13u1"]
+    statement: in the Barman Cloud sidecar, v0.15.1 and v0.16.0 (its latest) alike; Kerberos is never used; taken in the rebuild that fixes it (Renovate)
+    expired_at: 2027-01-26
+  - id: CVE-2026-112316
+    purls: ["pkg:deb/debian/libgssapi-krb5-2@1.21.3-5%2Bdeb13u1", "pkg:deb/debian/libk5crypto3@1.21.3-5%2Bdeb13u1", "pkg:deb/debian/libkrb5-3@1.21.3-5%2Bdeb13u1", "pkg:deb/debian/libkrb5support0@1.21.3-5%2Bdeb13u1"]
+    statement: in the Barman Cloud sidecar, v0.15.1 and v0.16.0 (its latest) alike; Kerberos is never used; taken in the rebuild that fixes it (Renovate)
+    expired_at: 2027-01-26
+  - id: CVE-2026-112317
+    purls: ["pkg:deb/debian/libgssapi-krb5-2@1.21.3-5%2Bdeb13u1", "pkg:deb/debian/libk5crypto3@1.21.3-5%2Bdeb13u1", "pkg:deb/debian/libkrb5-3@1.21.3-5%2Bdeb13u1", "pkg:deb/debian/libkrb5support0@1.21.3-5%2Bdeb13u1"]
+    statement: in the Barman Cloud sidecar, v0.15.1 and v0.16.0 (its latest) alike; Kerberos is never used; taken in the rebuild that fixes it (Renovate)
+    expired_at: 2027-01-26
+  - id: CVE-2026-112318
+    purls: ["pkg:deb/debian/libgssapi-krb5-2@1.21.3-5%2Bdeb13u1", "pkg:deb/debian/libk5crypto3@1.21.3-5%2Bdeb13u1", "pkg:deb/debian/libkrb5-3@1.21.3-5%2Bdeb13u1", "pkg:deb/debian/libkrb5support0@1.21.3-5%2Bdeb13u1"]
+    statement: in the Barman Cloud sidecar, v0.15.1 and v0.16.0 (its latest) alike; Kerberos is never used; taken in the rebuild that fixes it (Renovate)
+    expired_at: 2027-01-26
+  - id: CVE-2026-112319
+    purls: ["pkg:deb/debian/libgssapi-krb5-2@1.21.3-5%2Bdeb13u1", "pkg:deb/debian/libk5crypto3@1.21.3-5%2Bdeb13u1", "pkg:deb/debian/libkrb5-3@1.21.3-5%2Bdeb13u1", "pkg:deb/debian/libkrb5support0@1.21.3-5%2Bdeb13u1"]
+    statement: in the Barman Cloud sidecar, v0.15.1 and v0.16.0 (its latest) alike; Kerberos is never used; taken in the rebuild that fixes it (Renovate)
+    expired_at: 2027-01-26
+  - id: CVE-2026-112320
+    purls: ["pkg:deb/debian/libgssapi-krb5-2@1.21.3-5%2Bdeb13u1", "pkg:deb/debian/libk5crypto3@1.21.3-5%2Bdeb13u1", "pkg:deb/debian/libkrb5-3@1.21.3-5%2Bdeb13u1", "pkg:deb/debian/libkrb5support0@1.21.3-5%2Bdeb13u1"]
+    statement: in the Barman Cloud sidecar, v0.15.1 and v0.16.0 (its latest) alike; Kerberos is never used; taken in the rebuild that fixes it (Renovate)
+    expired_at: 2027-01-26
+  - id: CVE-2026-112321
+    purls: ["pkg:deb/debian/libgssapi-krb5-2@1.21.3-5%2Bdeb13u1", "pkg:deb/debian/libk5crypto3@1.21.3-5%2Bdeb13u1", "pkg:deb/debian/libkrb5-3@1.21.3-5%2Bdeb13u1", "pkg:deb/debian/libkrb5support0@1.21.3-5%2Bdeb13u1"]
+    statement: in the Barman Cloud sidecar, v0.15.1 and v0.16.0 (its latest) alike; Kerberos is never used; taken in the rebuild that fixes it (Renovate)
+    expired_at: 2027-01-26
+  - id: CVE-2026-112322
+    purls: ["pkg:deb/debian/libgssapi-krb5-2@1.21.3-5%2Bdeb13u1", "pkg:deb/debian/libk5crypto3@1.21.3-5%2Bdeb13u1", "pkg:deb/debian/libkrb5-3@1.21.3-5%2Bdeb13u1", "pkg:deb/debian/libkrb5support0@1.21.3-5%2Bdeb13u1"]
+    statement: in the Barman Cloud sidecar, v0.15.1 and v0.16.0 (its latest) alike; Kerberos is never used; taken in the rebuild that fixes it (Renovate)
+    expired_at: 2027-01-26
+  - id: CVE-2026-112323
+    purls: ["pkg:deb/debian/libgssapi-krb5-2@1.21.3-5%2Bdeb13u1", "pkg:deb/debian/libk5crypto3@1.21.3-5%2Bdeb13u1", "pkg:deb/debian/libkrb5-3@1.21.3-5%2Bdeb13u1", "pkg:deb/debian/libkrb5support0@1.21.3-5%2Bdeb13u1"]
+    statement: in the Barman Cloud sidecar, v0.15.1 and v0.16.0 (its latest) alike; Kerberos is never used; taken in the rebuild that fixes it (Renovate)
+    expired_at: 2027-01-26
+  - id: CVE-2026-118380
+    purls: ["pkg:deb/debian/libgssapi-krb5-2@1.21.3-5%2Bdeb13u1", "pkg:deb/debian/libk5crypto3@1.21.3-5%2Bdeb13u1", "pkg:deb/debian/libkrb5-3@1.21.3-5%2Bdeb13u1", "pkg:deb/debian/libkrb5support0@1.21.3-5%2Bdeb13u1"]
+    statement: in the Barman Cloud sidecar, v0.15.1 and v0.16.0 (its latest) alike; Kerberos is never used; taken in the rebuild that fixes it (Renovate)
+    expired_at: 2027-01-26
+  - id: CVE-2026-119079
+    purls: ["pkg:deb/debian/libgssapi-krb5-2@1.21.3-5%2Bdeb13u1", "pkg:deb/debian/libk5crypto3@1.21.3-5%2Bdeb13u1", "pkg:deb/debian/libkrb5-3@1.21.3-5%2Bdeb13u1", "pkg:deb/debian/libkrb5support0@1.21.3-5%2Bdeb13u1"]
+    statement: in the Barman Cloud sidecar, v0.15.1 and v0.16.0 (its latest) alike; Kerberos is never used; taken in the rebuild that fixes it (Renovate)
+    expired_at: 2027-01-26
+  - id: CVE-2026-71199
+    purls: ["pkg:deb/debian/libgssapi-krb5-2@1.21.3-5%2Bdeb13u1", "pkg:deb/debian/libk5crypto3@1.21.3-5%2Bdeb13u1", "pkg:deb/debian/libkrb5-3@1.21.3-5%2Bdeb13u1", "pkg:deb/debian/libkrb5support0@1.21.3-5%2Bdeb13u1"]
+    statement: in the Barman Cloud sidecar, v0.15.1 and v0.16.0 (its latest) alike; Kerberos is never used; taken in the rebuild that fixes it (Renovate)
+    expired_at: 2027-01-26
+  - id: CVE-2026-71200
+    purls: ["pkg:deb/debian/libgssapi-krb5-2@1.21.3-5%2Bdeb13u1", "pkg:deb/debian/libk5crypto3@1.21.3-5%2Bdeb13u1", "pkg:deb/debian/libkrb5-3@1.21.3-5%2Bdeb13u1", "pkg:deb/debian/libkrb5support0@1.21.3-5%2Bdeb13u1"]
+    statement: in the Barman Cloud sidecar, v0.15.1 and v0.16.0 (its latest) alike; Kerberos is never used; taken in the rebuild that fixes it (Renovate)
+    expired_at: 2027-01-26
 secrets:
   # CloudNativePG's PostgreSQL image (ghcr.io/cloudnative-pg/postgresql) ships Debian's ssl-cert snakeoil key, made when
   # the image was built and so the same in every copy. Nothing uses it: CloudNativePG serves the certificates it issues.
