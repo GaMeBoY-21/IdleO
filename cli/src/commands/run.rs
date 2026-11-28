@@ -272,7 +272,7 @@ async fn finish(ctx: &Context, session: &SessionResponse) -> Result<()> {
 
 fn summary(session: &SessionResponse, outputs: Option<&Outputs>) -> String {
     let mut lines = vec![format!("\nFinished: {}.", state_words(&session.state))];
-    if let Some(seconds) = ran_for(session, chrono::Utc::now()) {
+    if let Some(seconds) = ran_for(session, jiff::Timestamp::now()) {
         lines.push(format!("Ran for {}.", duration(seconds)));
     }
     lines.push(format!("Charged {}.", format_paise(session.charged_paise)));

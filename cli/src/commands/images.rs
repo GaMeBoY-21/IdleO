@@ -5,7 +5,7 @@
 use std::io::Read as _;
 use std::time::Duration;
 
-use chrono::Utc;
+use jiff::Timestamp;
 
 use crate::api::{ImageList, ImageResponse, ImageResponseState, NewImage};
 use crate::brand::BIN_NAME;
@@ -39,7 +39,7 @@ async fn list(ctx: &Context) -> Result<()> {
         if list.images.is_empty() {
             return format!("You have no images. Check one with `{BIN_NAME} images submit REFERENCE`.");
         }
-        let now = Utc::now();
+        let now = Timestamp::now();
         let rows: Vec<Vec<String>> = list
             .images
             .iter()

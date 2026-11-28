@@ -1,6 +1,6 @@
 //! `credit`, `templates` and `gpus`: what you have, what you can run, and what's free now.
 
-use chrono::Utc;
+use jiff::Timestamp;
 
 use crate::api::{
     Availability, HistoryPage, TemplateInputKind, TemplateList, TemplateQuestionKind, TemplateResponse, WalletResponse,
@@ -33,7 +33,7 @@ pub async fn credit(ctx: &Context, args: &CreditArgs) -> Result<()> {
                 if page.entries.is_empty() {
                     return "No credit movements yet.".to_owned();
                 }
-                let now = Utc::now();
+                let now = Timestamp::now();
                 let rows: Vec<Vec<String>> = page
                     .entries
                     .iter()

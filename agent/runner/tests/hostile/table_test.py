@@ -9,11 +9,14 @@ TABLE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "table.py")
 
 
 def run(log):
-    with tempfile.NamedTemporaryFile("w", suffix=".log") as f:
-        f.write(log)
-        f.flush()
-        done = subprocess.run([sys.executable, TABLE, f.name], capture_output=True, text=True)
-    return done.returncode, done.stdout
+    # A file in a directory of its own, closed before table.py opens it: Windows won't let a second process open
+    # a NamedTemporaryFile that's still open.
+    with tempfile.TemporaryDirectory() as folder:
+        path = os.path.join(folder, "hostile.log")
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(log)
+        done = subprocess.run([sys.executable, TABLE, path], capture_output=True, text=True, encoding="utf-8")
+    return done.returncode, done.stdout + done.stderr
 
 
 def held(number):
