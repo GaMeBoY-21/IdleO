@@ -22,6 +22,8 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.context.SecurityContextHolderFilter;
+import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
+import org.springframework.security.web.util.matcher.RequestMatcher;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 /**
@@ -29,12 +31,23 @@ import org.springframework.web.filter.OncePerRequestFilter;
  * of its own that the load balancer never routes (the public port answers it 404, and that port answers nothing else),
  * and only with the scanner's bearer token ({@code images.scanner.token}), compared in constant time. Without a token
  * configured, nothing is answered there. No person's sign-in counts here, and the scanner's token counts nowhere else.
+ *
+ * <p>The path is matched as Spring routes it, decoded, never by its spelling: {@code /%69nternal/...} reaches the same
+ * handler as {@code /internal/...}, so it must meet the same gate.
  */
 @Configuration(proxyBeanMethods = false)
 @ConditionalOnWebApplication
 class ScannerAccess {
 
     static final String PATH = "/internal/v1/scanner/";
+
+    /** Every internal path, however it's spelt: what this chain takes, so none reaches the public chain. */
+    private static final RequestMatcher INTERNAL =
+            PathPatternRequestMatcher.withDefaults().matcher("/internal/**");
+
+    /** The scanner's own calls, however they're spelt. */
+    private static final RequestMatcher SCANNER =
+            PathPatternRequestMatcher.withDefaults().matcher(PATH + "**");
 
     /** The internal port, beside the public one. */
     @Bean
@@ -52,8 +65,7 @@ class ScannerAccess {
     SecurityFilterChain scannerSecurityFilterChain(HttpSecurity http, ImageProperties properties) {
         int port = properties.scanner().port();
         var token = properties.scanner().token();
-        return http.securityMatcher(request -> request.getLocalPort() == port
-                        || request.getRequestURI().startsWith("/internal/"))
+        return http.securityMatcher(request -> request.getLocalPort() == port || INTERNAL.matches(request))
                 .addFilterBefore(new Gate(port, token == null ? "" : token), SecurityContextHolderFilter.class)
                 .authorizeHttpRequests(requests -> requests.anyRequest().permitAll())
                 .csrf(AbstractHttpConfigurer::disable)
@@ -75,8 +87,7 @@ class ScannerAccess {
         @Override
         protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
                 throws ServletException, IOException {
-            var path = request.getRequestURI();
-            if (request.getLocalPort() != port || !path.startsWith(PATH) || token.length == 0) {
+            if (request.getLocalPort() != port || !SCANNER.matches(request) || token.length == 0) {
                 problem(response, Problem.NOT_FOUND);
                 return;
             }
