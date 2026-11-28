@@ -171,7 +171,7 @@ writeFileSync(
   `<!doctype html>\n<html lang="en-IN">\n  <head>\n    <meta charset="utf-8" />\n    <meta http-equiv="refresh" content="0; url=${LANDING}" />\n    <meta name="robots" content="noindex" />\n    <title>Moved</title>\n    <link rel="canonical" href="${siteUrl}${LANDING}" />\n  </head>\n  <body>\n    <p><a href="${LANDING}">This page has moved.</a></p>\n  </body>\n</html>\n`,
 );
 writeFileSync(`${dist}redirects.json`, `${JSON.stringify({ [OLD_LANDING]: LANDING }, null, 2)}\n`);
-writeFileSync(`${dist}headers.json`, `${JSON.stringify(securityHeaders(csp), null, 2)}\n`);
+writeFileSync(`${dist}headers.json`, `${JSON.stringify(securityHeaders(csp, process.env), null, 2)}\n`);
 // Cloudflare Pages' own rule files, from the same rules (ADR 0058).
 writePagesConfig(dist);
 const leftMaps = readdirSync(dist, { recursive: true }).filter((file) => String(file).endsWith(".map"));
