@@ -308,6 +308,30 @@ class ImageCheckTests {
                 .andExpect(status().isNotFound());
     }
 
+    /**
+     * However the scanner's path is spelt, the public port never answers it: a percent-encoded letter routes to the same
+     * handler as the plain path, so a signed-in person must meet the same 404 as everyone else, never a claimed check.
+     */
+    @Test
+    void noSpellingOfTheScannersPathIsAnsweredOnThePublicPort() throws Exception {
+        var renter = TestUsers.signUpLasting(mvc, Duration.ofDays(30));
+        for (var spelling : new String[] {
+            "/internal/v1/scanner/claim",
+            "/%69nternal/v1/scanner/claim",
+            "/internal/%76%31/scanner/claim",
+            "/inte%72nal/v1/sc%61nner/claim",
+            "/%69%6E%74%65%72%6E%61%6C/v1/scanner/claim",
+        }) {
+            for (var who : new String[] {renter.bearer(), "Bearer " + TOKEN}) {
+                mvc.perform(post(java.net.URI.create(spelling))
+                                .header("Authorization", who)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"scanner\":\"x\"}"))
+                        .andExpect(status().isNotFound());
+            }
+        }
+    }
+
     @Test
     void aCleanImageIsReadyWithItsFindingsAndWarningsInPlainWords() throws Exception {
         var renter = verifiedRenter();
